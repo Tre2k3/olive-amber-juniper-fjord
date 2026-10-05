@@ -126,6 +126,9 @@ export function residence(
   box(1.4, 0.1, 0.42, x, 0.16, porchZ - 1.7, concreteSlab(1), parent);
   box(1.2, 0.1, 0.38, x, 0.26, porchZ - 1.28, concreteSlab(2), parent);
   box(1.05, 0.08, 0.34, x, 0.36, porchZ - 0.95, concreteSlab(3), parent);
+  addGround({ minX: x - 0.7, maxX: x + 0.7, minZ: porchZ - 1.91, maxZ: porchZ - 1.49, y: 0.21 });
+  addGround({ minX: x - 0.6, maxX: x + 0.6, minZ: porchZ - 1.47, maxZ: porchZ - 1.09, y: 0.31 });
+  addGround({ minX: x - 0.52, maxX: x + 0.52, minZ: porchZ - 1.12, maxZ: porchZ - 0.78, y: 0.4 });
 
   const sconce = new THREE.MeshStandardMaterial({ color: 0xffe1a8, emissive: 0xffb45a, emissiveIntensity: 0.35 });
   glow.push(sconce);
@@ -141,7 +144,11 @@ export function residence(
   if (style === 2) ornamental(x + w * 0.15, front - 2.4, parent);
 
   const walk0 = front - 4.2;
-  box(1.05, 0.06, Math.abs(walk0 - (porchZ - 1.5)), x, 0.08, (walk0 + porchZ - 1.5) / 2, concreteSlab(4), parent);
+  const walkFar = porchZ - 1.5;
+  const walkLen = Math.abs(walk0 - walkFar);
+  const walkMid = (walk0 + walkFar) / 2;
+  box(1.05, 0.06, walkLen, x, 0.08, walkMid, concreteSlab(4), parent);
+  addGround({ minX: x - 0.52, maxX: x + 0.52, minZ: walkMid - walkLen / 2, maxZ: walkMid + walkLen / 2, y: 0.11 });
 
   if (style === 1) {
     box(2.8, 0.05, 5.6, x + w * 0.55, 0.05, front - 3.2, concreteSlab(6), parent);

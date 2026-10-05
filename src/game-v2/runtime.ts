@@ -23,7 +23,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
 
-  const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 180);
+  const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 260);
   const player = new THREE.Group();
   const shadow = new THREE.Mesh(
     new THREE.CircleGeometry(0.42, 16),
@@ -42,11 +42,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   soft.position.y = 0.02;
   player.add(soft);
   const benji = frameSize(characters.benji, "front");
-  const avatar = new THREE.Mesh(
-    solePlane(benji.w, benji.h, benji.footPad, benji.pxH),
-    new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.2, side: THREE.DoubleSide }),
-  );
+  const avatarMat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.2, side: THREE.DoubleSide, depthWrite: true });
+  avatarMat.polygonOffset = true;
+  avatarMat.polygonOffsetFactor = -2;
+  avatarMat.polygonOffsetUnits = -2;
+  const avatar = new THREE.Mesh(solePlane(benji.w, benji.h, benji.footPad, benji.pxH), avatarMat);
   avatar.position.y = 0;
+  avatar.renderOrder = 3;
   avatar.castShadow = true;
   player.add(avatar);
   const carried = new THREE.Mesh(
@@ -138,7 +140,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   window.addEventListener("keydown", kd);
   window.addEventListener("keyup", ku);
 
-  const api: V2Public = { x: player.position.x, z: player.position.z, facing, place, cars: [], dollars, respect, mission, carrying, dialogue };
+  const api: V2Public = { x: player.position.x, y: player.position.y, z: player.position.z, facing, place, cars: [], dollars, respect, mission, carrying, dialogue };
   (window as unknown as { __SACK_V2__?: V2Public }).__SACK_V2__ = api;
 
   let hudAcc = 0;
@@ -211,6 +213,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (place === "hq" && nearLocal(world.kAnchor, 2.2, 80, 200)) return delivered ? "E  Talk to K Blanco" : "E  Talk to K Blanco";
     if (place === "home" && nearLocal(world.wardrobe, 1.35, 0, 200)) return "E  Open wardrobe";
     if (near(world.courtOg, 1.8)) return carrying ? "E  Deliver to Court OG" : "E  Talk to Court OG";
+    if (place === "street" && near(world.districts.bowlDoor, 2.4)) return "E  901 Bowl";
+    if (place === "street" && near(world.districts.pier, 2.2)) return "E  Fish the river";
+    if (place === "street" && near(world.districts.bait, 2.2)) return "E  Bait shop";
+    if (place === "street" && near(world.districts.meetStart, 2.6)) return "E  Night run start";
+    if (place === "street" && near(world.districts.truckOrder, 2.4)) return "E  Order";
     if (place === "court") return ballHeld ? "Hold to shoot" : "E  Pick up ball";
     return "";
   }
@@ -269,6 +276,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     renderer.render(world.scene, camera);
 
     api.x = player.position.x;
+    api.y = player.position.y;
     api.z = player.position.z;
     api.facing = facing;
     api.place = place;
@@ -339,6 +347,26 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (place === "hq" && nearLocal(world.hqIn, 1.4, 80, 200)) {
       place = "street";
       player.position.set(world.hqOut.x, 0, world.hqOut.z);
+      return;
+    }
+    if (place === "street" && near(world.districts.bowlDoor, 2.4)) {
+      dialogue = "901 Bowl — Lanes are open. Shoes at the desk, neon stays on.";
+      return;
+    }
+    if (place === "street" && near(world.districts.pier, 2.2)) {
+      dialogue = "River — This spot is live. Drop a line off the pier.";
+      return;
+    }
+    if (place === "street" && near(world.districts.bait, 2.2)) {
+      dialogue = "Bait shop — Worms, tackle, cooler. The river is right there.";
+      return;
+    }
+    if (place === "street" && near(world.districts.meetStart, 2.6)) {
+      dialogue = "Night run — Start line is lit. Cars stage on the strip.";
+      return;
+    }
+    if (place === "street" && near(world.districts.truckOrder, 2.4)) {
+      dialogue = "Food trucks — Crown, 901, and Soul. Order at the window.";
       return;
     }
     if (near(world.courtOg, 1.8)) {
@@ -604,8 +632,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     world.scene.background = night ? world.skyNight : world.skyDay;
     const fog = world.scene.fog as THREE.Fog;
     fog.color.setHex(night ? 0x141820 : 0xd5e4ee);
-    fog.near = night ? 22 : 40;
-    fog.far = night ? 78 : 128;
+    fog.near = night ? 28 : 48;
+    fog.far = night ? 120 : 190;
     for (const lamp of world.lamps) lamp.intensity = night ? 28 : 0;
     for (const lamp of world.courtLights) lamp.intensity = night ? 36 : 0;
     for (const light of world.homeLights) light.intensity = place === "home" ? 18 : 0;
@@ -720,7 +748,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     },
     peds() {
       return world.pedestrians.map((ped) => ({
+        id: (ped.userData.asset as { id?: string } | undefined)?.id ?? "?",
         x: Math.round(ped.position.x * 10) / 10,
+        y: Math.round(ped.position.y * 1000) / 1000,
         z: Math.round(ped.position.z * 10) / 10,
       }));
     },

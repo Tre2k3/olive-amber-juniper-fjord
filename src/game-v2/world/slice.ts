@@ -9,6 +9,7 @@ import { matureTree, palmTree, shadeTree, shrub as kitShrub, streetTree } from "
 import { bench, streetlight, trashBin } from "./kits/props";
 import { addGround, clearGround } from "./ground";
 import { footMarker, plantFeet, solePlane } from "./feet";
+import { buildDistricts, type DistrictAnchors } from "./districts";
 
 export { carBody };
 
@@ -57,6 +58,7 @@ export type SliceWorld = {
   skyNight: THREE.Texture;
   counterPack: THREE.Object3D;
   figureMats: THREE.MeshBasicMaterial[];
+  districts: DistrictAnchors;
 };
 
 const trimMat = new THREE.MeshStandardMaterial({ color: 0xf3efe6, roughness: 0.55 });
@@ -228,10 +230,14 @@ function actor(url: string, w: number, h: number, footPad: number, pxH: number, 
   shadow.position.y = 0.01;
   g.add(shadow);
   g.add(footMarker());
-  const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.18, side: THREE.DoubleSide });
+  const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.18, side: THREE.DoubleSide, depthWrite: true });
+  mat.polygonOffset = true;
+  mat.polygonOffsetFactor = -2;
+  mat.polygonOffsetUnits = -2;
   figureMats.push(mat);
   const sprite = new THREE.Mesh(solePlane(w, h, footPad, pxH), mat);
   sprite.name = "sprite";
+  sprite.renderOrder = 3;
   sprite.position.y = 0;
   sprite.castShadow = true;
   g.add(sprite);
@@ -600,7 +606,7 @@ export function buildSlice(): SliceWorld {
   });
   const shopper = spawn(ped.male04, 18, -6.38, exterior);
   shopper.userData.route = route(southSpan, true, 1.05, 0.3);
-  const porch = spawn(characters.mamaDee, -20.5, 10.05, exterior);
+  const porch = spawn(characters.mamaDee, -18.7, 9.55, exterior);
   porch.userData.idle = true;
   const hqIdle = spawn(characters.nitro, 50, 6.38, exterior);
   hqIdle.userData.route = route(northSpan, false, 1.12, 1.4);
@@ -884,6 +890,13 @@ export function buildSlice(): SliceWorld {
   const og = spawn(characters.courtOg, courtX, courtZ + 5.6, exterior);
   billboards.push(og);
 
+  const districts = buildDistricts(exterior, streetSolids, glowMats, lamps, (asset, x, z, pts, speed) => {
+    const g = spawn(asset, x, z, exterior);
+    g.userData.route = { pts, i: 1, dir: 1, speed, phase: x };
+    pedestrians.push(g);
+    billboards.push(g);
+  });
+
   buildHomeInterior(home, homeSolids, glowMats);
   const interior = buildHqInterior(hq, hqSolids, glowMats);
   const counterPack = interior.counterPack;
@@ -923,6 +936,7 @@ export function buildSlice(): SliceWorld {
     skyNight,
     counterPack,
     figureMats,
+    districts,
   };
 }
 

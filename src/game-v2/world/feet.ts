@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { GROUND_EPSILON, groundHeightAt } from "./ground";
+import { GROUND_EPSILON, standHeight } from "./ground";
 
 /**
  * Plane whose local origin is the visible sole, not the PNG center.
@@ -19,7 +19,7 @@ const parentPos = new THREE.Vector3();
 export function plantFeet(host: THREE.Object3D) {
   host.updateWorldMatrix(true, false);
   host.getWorldPosition(worldPos);
-  const surface = groundHeightAt(worldPos.x, worldPos.z) + GROUND_EPSILON;
+  const surface = standHeight(worldPos.x, worldPos.z) + GROUND_EPSILON;
   const parent = host.parent;
   const parentY = parent ? parent.getWorldPosition(parentPos).y : 0;
   host.position.y = surface - parentY;

@@ -27,6 +27,7 @@ export type HudState = {
 
 export type V2Public = {
   x: number;
+  y: number;
   z: number;
   facing: Facing;
   place: Place;

@@ -9,8 +9,8 @@ export type GroundPad = {
 
 const pads: GroundPad[] = [];
 
-/** Just enough to keep soles out of the surface. Not a visible hover. */
-export const GROUND_EPSILON = 0.012;
+/** Just enough to keep soles off the surface. Not a hover. */
+export const GROUND_EPSILON = 0.02;
 
 export function clearGround() {
   pads.length = 0;
@@ -28,4 +28,19 @@ export function groundHeightAt(x: number, z: number) {
     if (pad.y > y) y = pad.y;
   }
   return y;
+}
+
+/**
+ * Highest surface under a foot-sized footprint.
+ * Keeps a sole from dropping through a slab joint or a curb edge.
+ */
+export function standHeight(x: number, z: number) {
+  const r = 0.18;
+  return Math.max(
+    groundHeightAt(x, z),
+    groundHeightAt(x - r, z),
+    groundHeightAt(x + r, z),
+    groundHeightAt(x, z - r),
+    groundHeightAt(x, z + r),
+  );
 }

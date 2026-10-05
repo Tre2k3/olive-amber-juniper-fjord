@@ -1,5 +1,6 @@
 import type { PointerEvent } from "react";
 import type { HudState } from "../core/types";
+import { characters } from "../assets/characters";
 
 export function Hud({ state, night, action }: { state: HudState; night: () => void; action: (code: string) => void }) {
   return (
@@ -57,7 +58,11 @@ function placeName(place: HudState["place"]) {
 
 function Dialogue({ line }: { line: string }) {
   const [name, text] = line.includes(" — ") ? line.split(" — ") : ["", line];
-  const portrait = name.startsWith("Court") ? "/game/people/court-og.webp" : "/game/people/k-blanco-hq-cutout.png";
+  const portrait = name.startsWith("Court")
+    ? characters.courtOg.views.front.src
+    : name.startsWith("K")
+      ? characters.kBlanco.portrait
+      : characters.benji.views.front.src;
   return (
     <div className="absolute bottom-40 left-1/2 flex w-[min(94vw,520px)] -translate-x-1/2 items-center gap-3 rounded-md border border-[#e0b33a] bg-[#0d0d0df2] px-3 py-3 sm:bottom-20">
       <img src={portrait} alt="" className="h-16 w-12 shrink-0 object-contain object-bottom" />
@@ -79,15 +84,19 @@ function Chip({ label, value }: { label: string; value: string }) {
 }
 
 function Mini({ state }: { state: HudState }) {
-  const x = state.place === "home" ? 22 : state.place === "hq" ? 62 : Math.max(8, Math.min(92, ((state.x + 60) / 150) * 100));
-  const y = state.place === "home" || state.place === "hq" ? 46 : Math.max(8, Math.min(62, 40 - state.z * 1.15));
+  const x = state.place === "home" ? 28 : state.place === "hq" ? 55 : Math.max(4, Math.min(96, ((state.x + 80) / 190) * 100));
+  const y = state.place === "home" || state.place === "hq" ? 34 : Math.max(4, Math.min(66, ((30 - state.z) / 130) * 70));
   return (
     <svg viewBox="0 0 100 70" className="mt-1 h-16 w-full">
       <rect width="100" height="70" fill="#1a1c1b" />
-      <rect x="8" y="30" width="84" height="8" fill="#3a3f44" />
-      <rect x="42" y="8" width="8" height="54" fill="#3a3f44" />
-      <rect x="62" y="14" width="16" height="12" fill="#e0b33a" />
-      <rect x="78" y="18" width="12" height="10" fill="#1d4e8f" />
+      <rect x="6" y="18" width="78" height="5" fill="#3a3f44" />
+      <rect x="32" y="18" width="4" height="40" fill="#3a3f44" />
+      <rect x="52" y="22" width="10" height="8" fill="#e0b33a" />
+      <rect x="70" y="28" width="8" height="6" fill="#1d4e8f" />
+      <rect x="78" y="30" width="10" height="7" fill="#ff4fd8" />
+      <rect x="58" y="8" width="14" height="8" fill="#ffb45a" />
+      <rect x="14" y="36" width="12" height="6" fill="#ff4d4d" />
+      <rect x="4" y="58" width="70" height="6" fill="#1c4d6e" />
       <circle cx={x} cy={y} r="3" fill="#39ff14" />
     </svg>
   );
