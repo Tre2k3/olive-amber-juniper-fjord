@@ -452,21 +452,33 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   }
 
   function updatePeds(dt: number) {
-    world.pedestrians.forEach((ped, i) => {
-      const sprite = ped.getObjectByName("sprite");
-      if (ped.userData.idle) {
-        if (sprite) sprite.position.y = 0;
-        return;
+    for (const ped of world.pedestrians) {
+      const route = ped.userData.route as
+        | { pts: { x: number; z: number }[]; i: number; dir: number; speed: number; phase: number }
+        | undefined;
+      if (!route || ped.userData.idle) continue;
+      const target = route.pts[route.i];
+      if (!target) continue;
+      const dx = target.x - ped.position.x;
+      const dz = target.z - ped.position.z;
+      const dist = Math.hypot(dx, dz);
+      const step = route.speed * dt;
+      if (dist <= step || dist < 0.05) {
+        ped.position.x = target.x;
+        ped.position.z = target.z;
+        route.i += route.dir;
+        if (route.i < 0 || route.i >= route.pts.length) {
+          route.dir *= -1;
+          route.i += route.dir * 2;
+          route.i = Math.max(0, Math.min(route.pts.length - 1, route.i));
+        }
+      } else {
+        ped.position.x += (dx / dist) * step;
+        ped.position.z += (dz / dist) * step;
+        ped.userData.heading = Math.atan2(dx, dz);
       }
-      const span = 8;
-      const speed = 0.55 + (i % 3) * 0.12;
-      const base = ped.userData.base as number;
-      ped.userData.t = ((ped.userData.t as number) + dt * speed) % (span * 2);
-      const t = ped.userData.t as number;
-      const along = t < span ? t : span * 2 - t;
-      ped.position.x = base + along - span / 2;
-      ped.userData.heading = t < span ? Math.PI / 2 : -Math.PI / 2;
-    });
+      route.phase += dt * route.speed * 8;
+    }
   }
 
   function applyBenji(face: Facing) {
@@ -538,7 +550,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     avatar.rotation.x = 0;
     avatar.rotation.z = 0;
     avatar.rotation.y = yawTo(avatar, camera.position);
-    avatar.position.y = 0;
+    avatar.position.y = moving ? Math.abs(Math.sin(walkTime * 9)) * 0.05 : 0;
     avatar.scale.set(presentScale(player), presentScale(player), 1);
     for (const board of world.billboards) {
       plantFeet(board);
@@ -549,6 +561,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       sprite.rotation.x = 0;
       sprite.rotation.z = 0;
       applyCard(sprite, board);
+      const phase = board.userData.route as { phase?: number } | undefined;
+      sprite.position.y = phase && !board.userData.idle ? Math.abs(Math.sin(phase.phase ?? 0)) * 0.055 : 0;
     }
     const kHost = kSprite.parent ?? kSprite;
     plantFeet(kHost);
@@ -703,6 +717,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       api.carrying = carrying;
       api.dialogue = dialogue;
       push(hud());
+    },
+    peds() {
+      return world.pedestrians.map((ped) => ({
+        x: Math.round(ped.position.x * 10) / 10,
+        z: Math.round(ped.position.z * 10) / 10,
+      }));
     },
   };
   (window as unknown as { __SACK_V2_INPUT__?: typeof touchApi }).__SACK_V2_INPUT__ = touchApi;

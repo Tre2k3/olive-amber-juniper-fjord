@@ -581,20 +581,33 @@ export function buildSlice(): SliceWorld {
   }
 
   const ped = characters.pedestrian;
-  const walkers = [
-    spawn(ped.male01, -16.4, 6.35, exterior),
-    spawn(ped.female01, -14.15, 6.42, exterior),
-    spawn(ped.male02, -11.9, 6.3, exterior),
-    spawn(ped.female02, -9.65, 6.45, exterior),
-    spawn(ped.male03, -7.4, 6.32, exterior),
-    spawn(ped.female03, -5.15, 6.4, exterior),
+  const northSpan = [
+    { x: -52, z: 6.38 },
+    { x: 64, z: 6.38 },
   ];
-  const shopper = spawn(ped.male04, 16.4, 6.35, exterior);
+  const southSpan = [
+    { x: -48, z: -6.38 },
+    { x: 60, z: -6.38 },
+  ];
+  function route(pts: { x: number; z: number }[], towardEnd: boolean, speed: number, phase: number) {
+    return { pts, i: towardEnd ? 1 : 0, dir: towardEnd ? 1 : -1, speed, phase };
+  }
+  const northCast = [ped.male01, ped.female01, ped.male02, ped.female02, ped.male03, ped.female03] as const;
+  const walkers = northCast.map((asset, i) => {
+    const g = spawn(asset, -42 + i * 14, 6.38, exterior);
+    g.userData.route = route(northSpan, i % 2 === 0, 0.9 + (i % 3) * 0.16, i * 0.7);
+    return g;
+  });
+  const shopper = spawn(ped.male04, 18, -6.38, exterior);
+  shopper.userData.route = route(southSpan, true, 1.05, 0.3);
   const porch = spawn(characters.mamaDee, -20.5, 10.05, exterior);
-  const hqIdle = spawn(characters.nitro, 58.5, 6.4, exterior);
-  const unc = spawn(characters.uncJ, 40.5, -6.35, exterior);
-  const strike = spawn(characters.strike, 24.2, -6.3, exterior);
-  for (const person of [...walkers, shopper, porch, hqIdle, unc, strike]) person.userData.idle = true;
+  porch.userData.idle = true;
+  const hqIdle = spawn(characters.nitro, 50, 6.38, exterior);
+  hqIdle.userData.route = route(northSpan, false, 1.12, 1.4);
+  const unc = spawn(characters.uncJ, -6, -6.38, exterior);
+  unc.userData.route = route(southSpan, false, 0.82, 0.9);
+  const strike = spawn(characters.strike, 34, -6.38, exterior);
+  strike.userData.route = route(southSpan, true, 1.18, 1.8);
   const pedestrians = [...walkers, shopper, porch, hqIdle, unc, strike];
   const billboards: THREE.Object3D[] = [...pedestrians];
 
