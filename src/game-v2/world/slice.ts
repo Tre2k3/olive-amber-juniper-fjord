@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { Solid } from "../core/types";
+import { characters, frameSize, type Spawnable } from "../assets/characters";
 
 export type VehicleKind = "coupe" | "sedan" | "suv" | "van";
 
@@ -100,20 +101,37 @@ function skyTex(night: boolean) {
       g.fillStyle = "#f4efe4";
       for (let i = 0; i < 80; i++) g.fillRect((i * 97) % w, (i * 53) % (h * 0.7), i % 5 === 0 ? 2 : 1, 1);
     } else {
-      grd.addColorStop(0, "#6eb6ee");
-      grd.addColorStop(0.6, "#b7ddf6");
-      grd.addColorStop(1, "#efe4cf");
+      grd.addColorStop(0, "#4f97d6");
+      grd.addColorStop(0.42, "#8ec4ee");
+      grd.addColorStop(0.78, "#d7ecf8");
+      grd.addColorStop(1, "#f3e6cf");
       g.fillStyle = grd;
       g.fillRect(0, 0, w, h);
-      g.fillStyle = "rgba(255,255,255,0.85)";
-      for (const [x, y, r] of [
-        [120, 80, 36],
-        [180, 70, 28],
-        [420, 110, 40],
-        [700, 60, 30],
-      ] as const) {
+      const sun = g.createRadialGradient(w * 0.78, h * 0.22, 8, w * 0.78, h * 0.22, 90);
+      sun.addColorStop(0, "rgba(255,244,210,0.95)");
+      sun.addColorStop(1, "rgba(255,244,210,0)");
+      g.fillStyle = sun;
+      g.fillRect(0, 0, w, h);
+      const puffs: [number, number, number, number][] = [
+        [0.12, 0.22, 70, 22],
+        [0.18, 0.18, 40, 14],
+        [0.28, 0.28, 90, 24],
+        [0.4, 0.16, 55, 16],
+        [0.52, 0.24, 110, 28],
+        [0.63, 0.14, 48, 14],
+        [0.72, 0.3, 80, 20],
+        [0.86, 0.2, 64, 18],
+        [0.08, 0.38, 50, 14],
+        [0.93, 0.34, 46, 12],
+      ];
+      for (const [cx, cy, rx, ry] of puffs) {
+        const cloud = g.createRadialGradient(cx * w, cy * h, 4, cx * w, cy * h, rx);
+        cloud.addColorStop(0, "rgba(255,255,255,0.55)");
+        cloud.addColorStop(0.6, "rgba(255,255,255,0.18)");
+        cloud.addColorStop(1, "rgba(255,255,255,0)");
+        g.fillStyle = cloud;
         g.beginPath();
-        g.ellipse(x, y, r, r * 0.45, 0, 0, Math.PI * 2);
+        g.ellipse(cx * w, cy * h, rx, ry, 0, 0, Math.PI * 2);
         g.fill();
       }
     }
@@ -129,14 +147,6 @@ function grassMat() {
       g.fillStyle = i % 4 === 0 ? "#2d5e2c" : i % 4 === 1 ? "#4e8c44" : "#3a7036";
       g.fillRect((i * 53) % w, (i * 29) % h, 2, 2 + (n % 3));
     }
-    g.fillStyle = "rgba(86, 140, 62, 0.35)";
-    g.beginPath();
-    g.ellipse(70, 90, 40, 22, 0.4, 0, Math.PI * 2);
-    g.fill();
-    g.fillStyle = "rgba(32, 78, 30, 0.28)";
-    g.beginPath();
-    g.ellipse(180, 160, 50, 24, -0.3, 0, Math.PI * 2);
-    g.fill();
   }, 256, 256, true);
   tex.repeat.set(22, 16);
   return new THREE.MeshStandardMaterial({ map: tex, roughness: 1 });
@@ -244,47 +254,114 @@ function actor(url: string, w: number, h: number, x: number, z: number, parent: 
   return g;
 }
 
+function spawn(asset: Spawnable, x: number, z: number, parent: THREE.Object3D) {
+  const size = frameSize(asset);
+  return actor(size.src, size.w, size.h, x, z, parent);
+}
+
+function canopyTex(seed: number) {
+  return canvasTex((g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    const blobs: [number, number, number, string][] = [
+      [0.5, 0.58, 0.34, "#1e4e28"],
+      [0.32, 0.5, 0.26, "#2c6834"],
+      [0.68, 0.48, 0.24, "#3a7840"],
+      [0.5, 0.32, 0.2, "#163e22"],
+      [0.42, 0.7, 0.18, "#2a6230"],
+      [0.62, 0.66, 0.16, "#45824a"],
+    ];
+    for (const [cx, cy, r, col] of blobs) {
+      const ox = ((seed * 17) % 9) - 4;
+      const grd = g.createRadialGradient(cx * w + ox, cy * h, r * w * 0.15, cx * w, cy * h, r * w);
+      grd.addColorStop(0, col);
+      grd.addColorStop(0.72, col);
+      grd.addColorStop(1, "rgba(20,50,24,0)");
+      g.fillStyle = grd;
+      g.beginPath();
+      g.ellipse(cx * w + ox, cy * h, r * w, r * h * 0.82, seed, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.fillStyle = "rgba(180,210,120,0.35)";
+    for (let i = 0; i < 40; i++) {
+      g.fillRect((i * 47 + seed * 13) % w, (i * 29) % (h * 0.75), 3, 2);
+    }
+  }, 256, 256);
+}
+
 function shrub(x: number, z: number, parent: THREE.Object3D, s = 1) {
-  const mat = new THREE.MeshStandardMaterial({ color: s > 1.05 ? 0x2a6230 : 0x3c7a36, roughness: 0.92 });
-  mesh(new THREE.ConeGeometry(0.34 * s, 0.48 * s, 6), mat, x, 0.28 * s, z, parent);
-  const puff = mesh(new THREE.IcosahedronGeometry(0.28 * s, 0), mat, x + 0.08 * s, 0.5 * s, z, parent);
-  puff.scale.y = 0.75;
+  const mat = new THREE.MeshStandardMaterial({
+    map: canopyTex(s),
+    transparent: true,
+    alphaTest: 0.15,
+    side: THREE.DoubleSide,
+    roughness: 1,
+  });
+  const h = 0.7 * s;
+  const w = 0.95 * s;
+  const a = mesh(new THREE.PlaneGeometry(w, h), mat, x, 0.32 * s, z, parent);
+  const b = mesh(new THREE.PlaneGeometry(w * 0.86, h * 0.9), mat, x, 0.3 * s, z, parent);
+  b.rotation.y = Math.PI / 2;
+  a.castShadow = false;
+  b.castShadow = false;
 }
 
 function tree(x: number, z: number, parent: THREE.Object3D, scale = 1) {
   const trunk = new THREE.MeshStandardMaterial({ color: scale > 1.1 ? 0x4e3828 : 0x6a4a34, roughness: 0.94 });
-  mesh(new THREE.CylinderGeometry(0.13 * scale, 0.26 * scale, 2.5 * scale, 7), trunk, x, 1.25 * scale, z, parent);
-  const branch = mesh(new THREE.CylinderGeometry(0.045 * scale, 0.07 * scale, 1.15 * scale, 5), trunk, x + 0.28 * scale, 2.15 * scale, z + 0.05, parent);
-  branch.rotation.z = 0.9;
-  const branch2 = mesh(new THREE.CylinderGeometry(0.04 * scale, 0.06 * scale, 0.9 * scale, 5), trunk, x - 0.22 * scale, 2.0 * scale, z - 0.08, parent);
-  branch2.rotation.z = -0.75;
-  const colors = [0x2c6832, 0x3d7c3a, 0x24562c, 0x4a8a40];
-  const clumps: [number, number, number, number, number][] = [
-    [0, 3.25, 0, 1.05, 0],
-    [0.72, 2.75, 0.28, 0.78, 1],
-    [-0.62, 2.85, -0.22, 0.72, 2],
-    [0.15, 3.7, -0.4, 0.62, 3],
-    [-0.2, 2.45, 0.55, 0.58, 1],
-  ];
-  for (const clump of clumps) {
-    const mat = new THREE.MeshStandardMaterial({ color: colors[clump[4]!] ?? 0x2c6832, roughness: 0.96 });
-    const geo = clump[4]! % 2 === 0 ? new THREE.IcosahedronGeometry(clump[3]! * scale, 1) : new THREE.DodecahedronGeometry(clump[3]! * scale, 0);
-    const m = mesh(geo, mat, x + clump[0]! * scale, clump[1]! * scale, z + clump[2]! * scale, parent);
-    m.scale.y = 0.68;
+  const trunkH = 2.15 * scale;
+  mesh(new THREE.CylinderGeometry(0.11 * scale, 0.2 * scale, trunkH, 8), trunk, x, trunkH / 2, z, parent);
+  const mat = new THREE.MeshStandardMaterial({
+    map: canopyTex(Math.round(x * 3 + z)),
+    transparent: true,
+    alphaTest: 0.12,
+    side: THREE.DoubleSide,
+    roughness: 1,
+  });
+  const crown = 2.15 * scale;
+  const crownY = trunkH + crown * 0.28;
+  for (const yaw of [0, Math.PI / 3, (Math.PI * 2) / 3]) {
+    const card = mesh(new THREE.PlaneGeometry(crown * 1.35, crown), mat, x, crownY, z, parent);
+    card.rotation.y = yaw;
+    card.castShadow = false;
   }
 }
 
 function palm(x: number, z: number, parent: THREE.Object3D) {
-  const trunk = mesh(new THREE.CylinderGeometry(0.11, 0.2, 5.3, 6), trunkMat, x, 2.65, z, parent);
-  trunk.rotation.z = 0.08;
-  const frond = new THREE.MeshStandardMaterial({ color: 0x2f7040, roughness: 0.8 });
-  for (let i = 0; i < 8; i++) {
-    const yaw = (i / 8) * Math.PI * 2;
-    const m = mesh(new THREE.BoxGeometry(0.12, 0.05, 2.3), frond, x, 5.4, z, parent);
-    m.rotation.y = yaw;
-    m.rotation.x = 0.95;
-    m.position.x = x + Math.sin(yaw) * 0.9;
-    m.position.z = z + Math.cos(yaw) * 0.9;
+  const trunk = mesh(new THREE.CylinderGeometry(0.1, 0.16, 4.2, 8), trunkMat, x, 2.1, z, parent);
+  trunk.rotation.z = 0.05;
+  const tex = canvasTex((g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    const cx = w / 2;
+    const cy = h * 0.72;
+    for (let i = 0; i < 9; i++) {
+      const a = -2.4 + (i / 8) * 4.8;
+      g.save();
+      g.translate(cx, cy);
+      g.rotate(a);
+      const grd = g.createLinearGradient(0, 0, 0, -h * 0.62);
+      grd.addColorStop(0, "#1d5430");
+      grd.addColorStop(0.4, "#3d8a48");
+      grd.addColorStop(1, "rgba(61,138,72,0)");
+      g.fillStyle = grd;
+      g.beginPath();
+      g.moveTo(0, 0);
+      g.quadraticCurveTo(18, -h * 0.28, 6, -h * 0.62);
+      g.quadraticCurveTo(0, -h * 0.4, -6, -h * 0.62);
+      g.quadraticCurveTo(-18, -h * 0.28, 0, 0);
+      g.fill();
+      g.restore();
+    }
+  }, 256, 256);
+  const mat = new THREE.MeshStandardMaterial({
+    map: tex,
+    transparent: true,
+    alphaTest: 0.08,
+    side: THREE.DoubleSide,
+    roughness: 1,
+  });
+  for (const yaw of [0, Math.PI / 2]) {
+    const card = mesh(new THREE.PlaneGeometry(3.1, 2.6), mat, x, 4.55, z, parent);
+    card.rotation.y = yaw;
+    card.castShadow = false;
   }
 }
 
@@ -710,7 +787,7 @@ export function buildSlice(): SliceWorld {
   const skyDay = skyTex(false);
   const skyNight = skyTex(true);
   scene.background = skyDay;
-  scene.fog = new THREE.Fog(0xb7d4ef, 36, 120);
+  scene.fog = new THREE.Fog(0xd7e6f2, 42, 130);
 
   const exterior = new THREE.Group();
   const home = new THREE.Group();
@@ -790,6 +867,8 @@ export function buildSlice(): SliceWorld {
   palm(14, -9.2, exterior);
   palm(33, -9.4, exterior);
   palm(-6, 12.4, exterior);
+  for (let x = -60; x <= 78; x += 7) tree(x, 26, exterior, 1.35);
+  for (let x = -54; x <= 72; x += 9) tree(x + 3, -22, exterior, 1.2);
 
   const poleMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.6 });
   const wireMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.8 });
@@ -806,18 +885,22 @@ export function buildSlice(): SliceWorld {
     }
   }
 
+  const ped = characters.pedestrian;
   const walkers = [
-    actor("/game/people/local.webp", 0.86, 1.78, -26, 6.35, exterior),
-    actor("/game/people/fan.webp", 0.84, 1.76, -4, 6.25, exterior),
-    actor("/game/people/supporter.webp", 0.88, 1.8, 18, -6.35, exterior),
-    actor("/game/people/walker-02.webp", 0.82, 1.74, 42, 6.4, exterior),
+    spawn(ped.male01, -16.4, 6.35, exterior),
+    spawn(ped.female01, -14.15, 6.42, exterior),
+    spawn(ped.male02, -11.9, 6.3, exterior),
+    spawn(ped.female02, -9.65, 6.45, exterior),
+    spawn(ped.male03, -7.4, 6.32, exterior),
+    spawn(ped.female03, -5.15, 6.4, exterior),
   ];
-  const porch = actor("/game/people/host.webp", 0.84, 1.74, -33.3, 10.15, exterior);
-  const hqIdle = actor("/game/people/walker-03.webp", 0.84, 1.74, 19.2, -8.6, exterior);
-  const talkA = actor("/game/people/dj.webp", 0.82, 1.7, 11.6, 6.45, exterior);
-  const talkB = actor("/game/people/walker-05.webp", 0.86, 1.76, 12.85, 6.35, exterior);
-  for (const ped of [porch, hqIdle, talkA, talkB]) ped.userData.idle = true;
-  const pedestrians = [...walkers, porch, hqIdle, talkA, talkB];
+  const shopper = spawn(ped.male04, 16.4, 6.35, exterior);
+  const porch = spawn(characters.mamaDee, -22.4, 6.55, exterior);
+  const hqIdle = spawn(characters.nitro, 58.5, 6.4, exterior);
+  const unc = spawn(characters.uncJ, 40.5, -6.35, exterior);
+  const strike = spawn(characters.strike, 24.2, -6.3, exterior);
+  for (const person of [...walkers, shopper, porch, hqIdle, unc, strike]) person.userData.idle = true;
+  const pedestrians = [...walkers, shopper, porch, hqIdle, unc, strike];
   const billboards: THREE.Object3D[] = [...pedestrians];
 
   bungalow(exterior, streetSolids, glowMats, -32, 14.6, 8.6, 7.4, "#e7d7c0", 0x7a3b32, "#6b3a22", true, 0);
@@ -848,13 +931,16 @@ export function buildSlice(): SliceWorld {
 
   box(0.28, 0.9, 0.28, -28.4, 0.55, 7.15, new THREE.MeshStandardMaterial({ color: 0xb43322, roughness: 0.6 }), exterior);
   box(0.42, 0.28, 0.22, -28.4, 1.05, 7.15, new THREE.MeshStandardMaterial({ color: 0x8d1d1d, roughness: 0.5 }), exterior);
-  box(0.45, 0.7, 0.45, -29.6, 0.4, 6.5, black, exterior);
+  const bin = new THREE.MeshStandardMaterial({ color: 0x3d463f, roughness: 0.62, metalness: 0.15 });
+  const lid = new THREE.MeshStandardMaterial({ color: 0x242824, roughness: 0.5, metalness: 0.25 });
+  function trash(tx: number, tz: number) {
+    mesh(new THREE.CylinderGeometry(0.26, 0.3, 0.78, 12), bin, tx, 0.42, tz, exterior);
+    mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.06, 12), lid, tx, 0.84, tz, exterior);
+  }
+  trash(-29.6, 6.5);
+  for (const [tx, tz] of [[-40, 5.55], [6, -5.5], [38, 5.6], [58, -5.55]] as const) trash(tx, tz);
   box(0.22, 0.55, 0.22, 3.4, 0.35, 5.2, new THREE.MeshStandardMaterial({ color: 0xc4362c, roughness: 0.45 }), exterior);
   box(0.28, 0.16, 0.28, 3.4, 0.7, 5.2, chrome, exterior);
-  for (const [tx, tz] of [[-40, 5.55], [6, -5.5], [38, 5.6], [58, -5.55]] as const) {
-    box(0.48, 0.72, 0.42, tx, 0.42, tz, black, exterior);
-    box(0.52, 0.06, 0.46, tx, 0.8, tz, new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.5 }), exterior);
-  }
   box(0.7, 0.85, 0.4, 6.8, 0.5, 7.6, new THREE.MeshStandardMaterial({ color: 0x5c6a62, roughness: 0.7 }), exterior);
   box(0.55, 0.4, 0.35, -8, 0.28, -5.7, new THREE.MeshStandardMaterial({ color: 0x3d4a44, roughness: 0.8 }), exterior);
   const ave = sign("901", "AVE", 0.7, 0.4);
@@ -1005,7 +1091,7 @@ export function buildSlice(): SliceWorld {
   arch.position.set(courtX, 6.8, courtZ - 15);
   exterior.add(arch);
   box(22, 0.4, 1.6, courtX, 11.5, courtZ - 15, new THREE.MeshStandardMaterial({ color: 0x4e4038, roughness: 0.6 }), exterior);
-  const benchMate = actor("/game/people/baller-1.webp", 0.9, 1.7, courtX - 1.6, courtZ + 8.15, exterior);
+  const benchMate = spawn(characters.pedestrian.female04, courtX - 4.2, courtZ + 8.15, exterior);
   benchMate.userData.idle = true;
   pedestrians.push(benchMate);
   billboards.push(benchMate);
@@ -1054,7 +1140,7 @@ export function buildSlice(): SliceWorld {
     exterior.add(light);
     courtLights.push(light);
   }
-  const og = actor("/game/people/court-og.webp", 0.96, 1.82, courtX, courtZ + 9.1, exterior);
+  const og = spawn(characters.courtOg, courtX, courtZ + 9.1, exterior);
   billboards.push(og);
 
   buildHomeInterior(home, homeSolids, glowMats);
@@ -1227,7 +1313,8 @@ function buildHqInterior(group: THREE.Group, solids: Solid[], glow: THREE.MeshSt
     glow.push(bulb);
     mesh(new THREE.SphereGeometry(0.06, 8, 6), bulb, -4 + i * 1.6, 2.95, 0.2, group);
   }
-  const k = actor("/game/people/k-blanco-hq-clean.png", 1.05, 1.92, 2.55, 0.35, group);
+  const kSize = frameSize(characters.kBlanco);
+  const k = actor(kSize.src, kSize.w, kSize.h, 1.15, 1.9, group);
   const pack = box(0.28, 0.16, 0.22, 4.6, 1.22, 2.15, gold, group);
   const light = new THREE.PointLight(0xffe2b0, 0, 20, 2);
   light.position.set(0, 2.8, 0);
