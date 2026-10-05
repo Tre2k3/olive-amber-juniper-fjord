@@ -86,16 +86,23 @@ export function presentVehicles(camera: THREE.Vector3) {
     while (rel > Math.PI) rel -= Math.PI * 2;
     while (rel < -Math.PI) rel += Math.PI * 2;
     const abs = Math.abs(rel);
-    const face: Face = abs < 0.7 ? "front" : abs > 2.4 ? "back" : rel > 0 ? "right" : "left";
+    const face: Face = abs < 0.85 ? "front" : abs > 2.15 ? "back" : rel > 0 ? "right" : "left";
     const spec = SIZE[rec.kind];
     const side = face === "left" || face === "right";
-    const w = side ? spec.length : spec.width * 1.2;
+    const w = side ? spec.length : spec.width * 1.15;
     rec.card.scale.set(w / spec.length, 1, 1);
     if (rec.face !== face) {
       rec.face = face;
       rec.mat.map = rec.views[face];
       rec.mat.needsUpdate = true;
     }
-    rec.card.rotation.y = toCam - g.rotation.y;
+    // Lock the card to the car's face. A free billboard turns the 5 m side
+    // into a wall that cuts through the sidewalk and anyone standing there.
+    const base = side ? (rel > 0 ? -Math.PI / 2 : Math.PI / 2) : abs > 2.15 ? Math.PI : 0;
+    let bias = rel - base;
+    while (bias > Math.PI) bias -= Math.PI * 2;
+    while (bias < -Math.PI) bias += Math.PI * 2;
+    bias = Math.max(-0.28, Math.min(0.28, bias));
+    rec.card.rotation.y = base + bias;
   }
 }

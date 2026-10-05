@@ -153,7 +153,7 @@ export function residence(
   if (style === 1) {
     box(2.8, 0.05, 5.6, x + w * 0.55, 0.05, front - 3.2, concreteSlab(6), parent);
   }
-  mailbox(x - w * 0.46, front - 3.7, parent, style === 2);
+  mailbox(x - w * 0.46, front - 2.15, parent, style === 2);
 
   if (openDoor) {
     solids.push({ minX: x - w / 2, maxX: x - 0.7, minZ: front, maxZ: z + d / 2 });

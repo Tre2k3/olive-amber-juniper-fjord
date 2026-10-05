@@ -364,7 +364,7 @@ function carSolid(x: number, z: number, yaw: number, length: number, width: numb
 
 export function parkedCar(x: number, z: number, yaw: number, kind: VehicleKind, parent: THREE.Object3D) {
   const car = carBody(kind);
-  car.position.set(x, 0, z);
+  car.position.set(x, 0.06, z);
   car.rotation.y = yaw;
   parent.add(car);
   return car;
@@ -643,20 +643,20 @@ export function buildSlice(): SliceWorld {
   collectLights(curbSuv, headlightMats);
   streetSolids.push(carSolid(33.5, -3.55, Math.PI / 2, 4.9, 1.96));
 
-  box(0.28, 0.9, 0.28, -28.4, 0.55, 7.15, new THREE.MeshStandardMaterial({ color: 0xb43322, roughness: 0.6 }), exterior);
-  box(0.42, 0.28, 0.22, -28.4, 1.05, 7.15, new THREE.MeshStandardMaterial({ color: 0x8d1d1d, roughness: 0.5 }), exterior);
+  box(0.28, 0.9, 0.28, -28.4, 0.55, 7.9, new THREE.MeshStandardMaterial({ color: 0xb43322, roughness: 0.6 }), exterior);
+  box(0.42, 0.28, 0.22, -28.4, 1.05, 7.9, new THREE.MeshStandardMaterial({ color: 0x8d1d1d, roughness: 0.5 }), exterior);
   const bin = new THREE.MeshStandardMaterial({ color: 0x3d463f, roughness: 0.62, metalness: 0.15 });
   const lid = new THREE.MeshStandardMaterial({ color: 0x242824, roughness: 0.5, metalness: 0.25 });
   function trash(tx: number, tz: number) {
     mesh(new THREE.CylinderGeometry(0.26, 0.3, 0.78, 12), bin, tx, 0.42, tz, exterior);
     mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.06, 12), lid, tx, 0.84, tz, exterior);
   }
-  trash(-29.6, 6.5);
-  for (const [tx, tz] of [[-40, 5.55], [6, -5.5], [38, 5.6], [58, -5.55]] as const) trash(tx, tz);
-  box(0.22, 0.55, 0.22, 3.4, 0.35, 5.2, new THREE.MeshStandardMaterial({ color: 0xc4362c, roughness: 0.45 }), exterior);
-  box(0.28, 0.16, 0.28, 3.4, 0.7, 5.2, chrome, exterior);
-  box(0.7, 0.85, 0.4, 6.8, 0.5, 7.6, new THREE.MeshStandardMaterial({ color: 0x5c6a62, roughness: 0.7 }), exterior);
-  box(0.55, 0.4, 0.35, -8, 0.28, -5.7, new THREE.MeshStandardMaterial({ color: 0x3d4a44, roughness: 0.8 }), exterior);
+  trash(-29.6, 7.85);
+  for (const [tx, tz] of [[-40, 7.85], [6, -7.85], [38, 7.85], [58, -7.85]] as const) trash(tx, tz);
+  box(0.22, 0.55, 0.22, 3.4, 0.35, 4.7, new THREE.MeshStandardMaterial({ color: 0xc4362c, roughness: 0.45 }), exterior);
+  box(0.28, 0.16, 0.28, 3.4, 0.7, 4.7, chrome, exterior);
+  box(0.7, 0.85, 0.4, 6.8, 0.5, 7.95, new THREE.MeshStandardMaterial({ color: 0x5c6a62, roughness: 0.7 }), exterior);
+  box(0.55, 0.4, 0.35, -8, 0.28, -7.9, new THREE.MeshStandardMaterial({ color: 0x3d4a44, roughness: 0.8 }), exterior);
   const ave = sign("901", "AVE", 0.7, 0.4);
   ave.plane.position.set(2.2, 2.4, 5.4);
   exterior.add(ave.plane);

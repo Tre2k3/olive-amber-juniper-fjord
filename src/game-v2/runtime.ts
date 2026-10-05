@@ -470,7 +470,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       if (!blocked && !ahead) car.s += car.speed * dt;
       const sample = sampleLane(lane, car.s);
       const prev = car.mesh.position.clone();
-      car.mesh.position.set(sample.x, 0, sample.z);
+      car.mesh.position.set(sample.x, 0.06, sample.z);
       car.mesh.rotation.y = sample.yaw;
       if (car.speed > 0) {
         const moved = Math.atan2(car.mesh.position.x - prev.x, car.mesh.position.z - prev.z);
@@ -808,7 +808,7 @@ function spawnTraffic(world: SliceWorld, lanes: Lane[]): Car[] {
     const lamps = mesh.userData.headlights as THREE.MeshStandardMaterial[] | undefined;
     if (lamps) world.headlightMats.push(...lamps);
     const sample = sampleLane(lanes[item.lane]!, item.s);
-    mesh.position.set(sample.x, 0, sample.z);
+    mesh.position.set(sample.x, 0.06, sample.z);
     mesh.rotation.y = sample.yaw;
     world.exterior.add(mesh);
     cars.push({ lane: item.lane, s: item.s, speed: 7, mesh });
