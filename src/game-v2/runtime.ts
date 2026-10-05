@@ -2,6 +2,8 @@ import * as THREE from "three";
 import type { Facing, HudState, Place, Solid, V2Public } from "./core/types";
 import { productionLanes, sampleLane, type Lane } from "./roads/lanes";
 import { buildSlice, carBody, type SliceWorld } from "./world/slice";
+import { presentVehicles } from "./world/kits/vehicles";
+import { characters, frameSize } from "./assets/characters";
 
 type Car = { lane: number; s: number; speed: number; mesh: THREE.Group };
 
@@ -37,11 +39,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   soft.rotation.x = -Math.PI / 2;
   soft.position.y = 0.02;
   player.add(soft);
+  const benji = frameSize(characters.benji, "front");
   const avatar = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.96, 1.86),
-    new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.12, side: THREE.DoubleSide }),
+    new THREE.PlaneGeometry(benji.w, benji.h),
+    new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.2, side: THREE.DoubleSide }),
   );
-  avatar.position.y = 0.93;
+  avatar.position.y = benji.h / 2;
+  avatar.userData.baseY = benji.h / 2;
   avatar.castShadow = true;
   player.add(avatar);
   const carried = new THREE.Mesh(
@@ -61,21 +65,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   world.scene.add(ball);
 
   const textures: Partial<Record<Facing, THREE.Texture>> = {};
-  const walk: Record<Facing, THREE.Texture[]> = { front: [], back: [], left: [], right: [] };
   const loader = new THREE.TextureLoader();
   for (const face of ["front", "back", "left", "right"] as const) {
-    loader.load(`/game/benji-${face}.webp`, (tex) => {
+    loader.load(characters.benji.views[face].src, (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;
       textures[face] = tex;
-      if (face === "front") (avatar.material as THREE.MeshBasicMaterial).map = tex;
-      (avatar.material as THREE.MeshBasicMaterial).needsUpdate = true;
+      if (face === facing) applyBenji(face);
     });
-    for (let frame = 1; frame <= 4; frame++) {
-      loader.load(`/game/benji/walk-${face}-${frame}.webp`, (tex) => {
-        tex.colorSpace = THREE.SRGBColorSpace;
-        walk[face][frame - 1] = tex;
-      });
-    }
   }
   let moving = false;
   let walkTime = 0;
@@ -466,32 +462,83 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       const t = ped.userData.t as number;
       const along = t < span ? t : span * 2 - t;
       ped.position.x = base + along - span / 2;
+      ped.userData.heading = t < span ? Math.PI / 2 : -Math.PI / 2;
     });
   }
 
-  function faceAvatar() {
+  function applyBenji(face: Facing) {
+    const tex = textures[face];
+    if (!tex) return;
     const mat = avatar.material as THREE.MeshBasicMaterial;
-    const frames = walk[facing].filter(Boolean);
-    const movingTex = moving && frames.length === 4 ? frames[Math.floor(walkTime / 0.14) % 4] : undefined;
-    const tex = movingTex || textures[facing];
-    if (tex && mat.map !== tex) {
+    const size = frameSize(characters.benji, face);
+    if (mat.map !== tex) {
       mat.map = tex;
       mat.needsUpdate = true;
+      avatar.geometry.dispose();
+      avatar.geometry = new THREE.PlaneGeometry(size.w, size.h);
+      avatar.userData.baseY = size.h / 2;
     }
+  }
+
+  const scalePos = new THREE.Vector3();
+  function presentScale(host: THREE.Object3D) {
+    host.getWorldPosition(scalePos);
+    const dist = camera.position.distanceTo(scalePos);
+    return THREE.MathUtils.clamp(dist / 6.6, 0.82, 1.16);
+  }
+
+  function applyCard(sprite: THREE.Object3D, host: THREE.Object3D) {
+    const mesh = sprite as THREE.Mesh;
+    const mat = mesh.material as THREE.MeshBasicMaterial;
+    const asset = host.userData.asset as { height: number; views: { front: { src: string; pxW: number; pxH: number } } & Partial<Record<Facing, { pxW: number; pxH: number }>> } | undefined;
+    const tex = host.userData.tex as Partial<Record<Facing, THREE.Texture>> | undefined;
+    const heading = (host.userData.heading as number) ?? Math.PI;
+    const toCam = yawTo(host, camera.position);
+    let rel = toCam - heading;
+    while (rel > Math.PI) rel -= Math.PI * 2;
+    while (rel < -Math.PI) rel += Math.PI * 2;
+    const abs = Math.abs(rel);
+    let face: Facing = "front";
+    if (asset?.views.back && tex?.back) {
+      face = abs < 0.75 ? "front" : abs > 2.35 ? "back" : rel > 0 ? "left" : "right";
+      if (!tex[face]) face = "front";
+    }
+    if (tex?.[face] && mesh.userData.face !== face) {
+      const view = asset!.views[face] ?? asset!.views.front;
+      const h = asset!.height;
+      const w = h * (view.pxW / view.pxH);
+      mesh.geometry.dispose();
+      mesh.geometry = new THREE.PlaneGeometry(w, h);
+      mesh.userData.baseY = h / 2;
+      mesh.userData.face = face;
+      mat.map = tex[face]!;
+      mat.needsUpdate = true;
+    }
+    const s = presentScale(host);
+    mesh.scale.set(s, s, 1);
+    mesh.rotation.y = toCam - host.rotation.y;
+  }
+
+  function faceAvatar() {
+    applyBenji(facing);
     avatar.rotation.x = 0;
     avatar.rotation.z = 0;
     avatar.rotation.y = yawTo(avatar, camera.position);
-    avatar.position.y = 0.93 + (moving ? Math.sin(walkTime * 11) * 0.02 : 0);
+    const baseY = (avatar.userData.baseY as number) ?? benji.h / 2;
+    avatar.position.y = baseY + (moving ? Math.sin(walkTime * 10) * 0.035 : 0);
+    avatar.scale.setScalar(presentScale(player));
     for (const board of world.billboards) {
       const sprite = board.getObjectByName("sprite");
       if (!sprite) continue;
       sprite.rotation.x = 0;
       sprite.rotation.z = 0;
-      sprite.rotation.y = yawTo(board, camera.position);
+      applyCard(sprite, board);
     }
+    const kHost = kSprite.parent ?? kSprite;
     kSprite.rotation.x = 0;
     kSprite.rotation.z = 0;
-    kSprite.rotation.y = yawTo(kSprite, camera.position);
+    applyCard(kSprite, kHost);
+    presentVehicles(camera.position);
   }
 
   function placeCamera(dt: number) {
@@ -499,8 +546,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const lookZ = Math.cos(camYaw);
     const talking = place === "hq" && dialogue.startsWith("K Blanco");
     const inside = place === "home" || place === "hq";
-    const dist = talking ? 5.3 : inside ? 4.35 : 6.3;
-    const height = talking ? 1.82 : inside ? 2.15 : 2.58;
+    const dist = talking ? 4.6 : inside ? 4.1 : 5.15;
+    const height = talking ? 1.7 : inside ? 1.95 : 2.05;
     const side = talking ? 1.8 : 0;
     const destX = player.position.x - lookX * dist + lookZ * side;
     const destZ = player.position.z - lookZ * dist - lookX * side;
@@ -508,8 +555,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     camera.position.x += (destX - camera.position.x) * (1 - Math.exp(-4 * dt));
     camera.position.y += (destY - camera.position.y) * (1 - Math.exp(-4 * dt));
     camera.position.z += (destZ - camera.position.z) * (1 - Math.exp(-4 * dt));
-    const ahead = talking ? 0.35 : 1.45;
-    camera.lookAt(player.position.x + lookX * ahead, talking ? 1.2 : 1.28, player.position.z + lookZ * ahead);
+    const ahead = talking ? 0.4 : 2.05;
+    camera.lookAt(player.position.x + lookX * ahead, talking ? 1.15 : 1.05, player.position.z + lookZ * ahead);
   }
 
   function applyNight() {
@@ -522,16 +569,16 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     renderer.toneMappingExposure = night ? 0.86 : 1.12;
     world.scene.background = night ? world.skyNight : world.skyDay;
     const fog = world.scene.fog as THREE.Fog;
-    fog.color.setHex(night ? 0x100e12 : 0xb7d4ef);
-    fog.near = night ? 18 : 34;
-    fog.far = night ? 72 : 115;
+    fog.color.setHex(night ? 0x141820 : 0xd5e4ee);
+    fog.near = night ? 22 : 40;
+    fog.far = night ? 78 : 128;
     for (const lamp of world.lamps) lamp.intensity = night ? 28 : 0;
     for (const lamp of world.courtLights) lamp.intensity = night ? 36 : 0;
     for (const light of world.homeLights) light.intensity = place === "home" ? 18 : 0;
-    for (const light of world.hqLights) light.intensity = place === "hq" ? 22 : 0;
+    for (const light of world.hqLights) light.intensity = place === "hq" ? 26 : 0;
     for (const mat of world.headlightMats) mat.emissiveIntensity = night ? 3.1 : 0.35;
-    for (const mat of world.glowMats) mat.emissiveIntensity = night ? 2.2 : 0.22;
-    const tint = night ? 0xc8b49a : 0xffffff;
+    for (const mat of world.glowMats) mat.emissiveIntensity = night ? 2.2 : 0.28;
+    const tint = night ? 0xb7c7d8 : place === "hq" ? 0xffd2a8 : place === "home" ? 0xffe4c4 : 0xfff3e4;
     for (const mat of world.figureMats) mat.color.set(tint);
     (avatar.material as THREE.MeshBasicMaterial).color.set(tint);
   }
@@ -612,8 +659,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         const lookX = Math.sin(camYaw);
         const lookZ = Math.cos(camYaw);
         const inside = place === "home" || place === "hq";
-        const dist = opts.dist ?? (inside ? 4.35 : 6.3);
-        const height = inside ? 2.15 : 2.58;
+        const dist = opts.dist ?? (inside ? 4.1 : 5.15);
+        const height = inside ? 1.95 : 2.05;
         camera.position.set(player.position.x - lookX * dist, player.position.y + height, player.position.z - lookZ * dist);
       }
       carried.visible = carrying;

@@ -1,6 +1,14 @@
 import * as THREE from "three";
 import type { Solid } from "../core/types";
-import { characters, frameSize, type Spawnable } from "../assets/characters";
+import { characters, frameSize, type Facing, type Spawnable } from "../assets/characters";
+import { carBody, resetVehicleCards } from "./kits/vehicles";
+import { residence } from "./kits/residence";
+import { sidewalkRun } from "./kits/street";
+import { grass as grassMatKit } from "./kits/materials";
+import { matureTree, palmTree, shadeTree, shrub as kitShrub, streetTree } from "./kits/trees";
+import { bench, planter, streetlight, trashBin } from "./kits/props";
+
+export { carBody };
 
 export type VehicleKind = "coupe" | "sedan" | "suv" | "van";
 
@@ -101,39 +109,17 @@ function skyTex(night: boolean) {
       g.fillStyle = "#f4efe4";
       for (let i = 0; i < 80; i++) g.fillRect((i * 97) % w, (i * 53) % (h * 0.7), i % 5 === 0 ? 2 : 1, 1);
     } else {
-      grd.addColorStop(0, "#4f97d6");
-      grd.addColorStop(0.42, "#8ec4ee");
-      grd.addColorStop(0.78, "#d7ecf8");
-      grd.addColorStop(1, "#f3e6cf");
+      grd.addColorStop(0, "#3e86c8");
+      grd.addColorStop(0.45, "#8ec4ee");
+      grd.addColorStop(0.82, "#d5e7f4");
+      grd.addColorStop(1, "#e7efe4");
       g.fillStyle = grd;
       g.fillRect(0, 0, w, h);
-      const sun = g.createRadialGradient(w * 0.78, h * 0.22, 8, w * 0.78, h * 0.22, 90);
-      sun.addColorStop(0, "rgba(255,244,210,0.95)");
-      sun.addColorStop(1, "rgba(255,244,210,0)");
-      g.fillStyle = sun;
+      const haze = g.createLinearGradient(0, h * 0.62, 0, h);
+      haze.addColorStop(0, "rgba(255,255,255,0)");
+      haze.addColorStop(1, "rgba(232,236,228,0.55)");
+      g.fillStyle = haze;
       g.fillRect(0, 0, w, h);
-      const puffs: [number, number, number, number][] = [
-        [0.12, 0.22, 70, 22],
-        [0.18, 0.18, 40, 14],
-        [0.28, 0.28, 90, 24],
-        [0.4, 0.16, 55, 16],
-        [0.52, 0.24, 110, 28],
-        [0.63, 0.14, 48, 14],
-        [0.72, 0.3, 80, 20],
-        [0.86, 0.2, 64, 18],
-        [0.08, 0.38, 50, 14],
-        [0.93, 0.34, 46, 12],
-      ];
-      for (const [cx, cy, rx, ry] of puffs) {
-        const cloud = g.createRadialGradient(cx * w, cy * h, 4, cx * w, cy * h, rx);
-        cloud.addColorStop(0, "rgba(255,255,255,0.55)");
-        cloud.addColorStop(0.6, "rgba(255,255,255,0.18)");
-        cloud.addColorStop(1, "rgba(255,255,255,0)");
-        g.fillStyle = cloud;
-        g.beginPath();
-        g.ellipse(cx * w, cy * h, rx, ry, 0, 0, Math.PI * 2);
-        g.fill();
-      }
     }
   }, 1024, 512);
 }
@@ -256,124 +242,39 @@ function actor(url: string, w: number, h: number, x: number, z: number, parent: 
 
 function spawn(asset: Spawnable, x: number, z: number, parent: THREE.Object3D) {
   const size = frameSize(asset);
-  return actor(size.src, size.w, size.h, x, z, parent);
-}
-
-function canopyTex(seed: number) {
-  return canvasTex((g, w, h) => {
-    g.clearRect(0, 0, w, h);
-    const blobs: [number, number, number, string][] = [
-      [0.5, 0.58, 0.34, "#1e4e28"],
-      [0.32, 0.5, 0.26, "#2c6834"],
-      [0.68, 0.48, 0.24, "#3a7840"],
-      [0.5, 0.32, 0.2, "#163e22"],
-      [0.42, 0.7, 0.18, "#2a6230"],
-      [0.62, 0.66, 0.16, "#45824a"],
-    ];
-    for (const [cx, cy, r, col] of blobs) {
-      const ox = ((seed * 17) % 9) - 4;
-      const grd = g.createRadialGradient(cx * w + ox, cy * h, r * w * 0.15, cx * w, cy * h, r * w);
-      grd.addColorStop(0, col);
-      grd.addColorStop(0.72, col);
-      grd.addColorStop(1, "rgba(20,50,24,0)");
-      g.fillStyle = grd;
-      g.beginPath();
-      g.ellipse(cx * w + ox, cy * h, r * w, r * h * 0.82, seed, 0, Math.PI * 2);
-      g.fill();
-    }
-    g.fillStyle = "rgba(180,210,120,0.35)";
-    for (let i = 0; i < 40; i++) {
-      g.fillRect((i * 47 + seed * 13) % w, (i * 29) % (h * 0.75), 3, 2);
-    }
-  }, 256, 256);
+  const g = actor(size.src, size.w, size.h, x, z, parent);
+  g.userData.asset = asset;
+  g.userData.views = asset.views;
+  g.userData.heading = Math.PI;
+  const tex: Partial<Record<Facing, THREE.Texture>> = {};
+  g.userData.tex = tex;
+  for (const face of ["front", "back", "left", "right"] as const) {
+    const view = asset.views[face];
+    if (!view) continue;
+    new THREE.TextureLoader().load(view.src, (map) => {
+      map.colorSpace = THREE.SRGBColorSpace;
+      tex[face] = map;
+    });
+  }
+  return g;
 }
 
 function shrub(x: number, z: number, parent: THREE.Object3D, s = 1) {
-  const mat = new THREE.MeshStandardMaterial({
-    map: canopyTex(s),
-    transparent: true,
-    alphaTest: 0.15,
-    side: THREE.DoubleSide,
-    roughness: 1,
-  });
-  const h = 0.7 * s;
-  const w = 0.95 * s;
-  const a = mesh(new THREE.PlaneGeometry(w, h), mat, x, 0.32 * s, z, parent);
-  const b = mesh(new THREE.PlaneGeometry(w * 0.86, h * 0.9), mat, x, 0.3 * s, z, parent);
-  b.rotation.y = Math.PI / 2;
-  a.castShadow = false;
-  b.castShadow = false;
+  kitShrub(x, z, parent, s);
 }
 
 function tree(x: number, z: number, parent: THREE.Object3D, scale = 1) {
-  const trunk = new THREE.MeshStandardMaterial({ color: scale > 1.1 ? 0x4e3828 : 0x6a4a34, roughness: 0.94 });
-  const trunkH = 2.15 * scale;
-  mesh(new THREE.CylinderGeometry(0.11 * scale, 0.2 * scale, trunkH, 8), trunk, x, trunkH / 2, z, parent);
-  const mat = new THREE.MeshStandardMaterial({
-    map: canopyTex(Math.round(x * 3 + z)),
-    transparent: true,
-    alphaTest: 0.12,
-    side: THREE.DoubleSide,
-    roughness: 1,
-  });
-  const crown = 2.15 * scale;
-  const crownY = trunkH + crown * 0.28;
-  for (const yaw of [0, Math.PI / 3, (Math.PI * 2) / 3]) {
-    const card = mesh(new THREE.PlaneGeometry(crown * 1.35, crown), mat, x, crownY, z, parent);
-    card.rotation.y = yaw;
-    card.castShadow = false;
-  }
+  if (scale > 1.2) matureTree(x, z, parent);
+  else if (Math.abs(Math.round(x)) % 2 === 0) shadeTree(x, z, parent, scale);
+  else streetTree(x, z, parent, scale);
 }
 
 function palm(x: number, z: number, parent: THREE.Object3D) {
-  const trunk = mesh(new THREE.CylinderGeometry(0.1, 0.16, 4.2, 8), trunkMat, x, 2.1, z, parent);
-  trunk.rotation.z = 0.05;
-  const tex = canvasTex((g, w, h) => {
-    g.clearRect(0, 0, w, h);
-    const cx = w / 2;
-    const cy = h * 0.72;
-    for (let i = 0; i < 9; i++) {
-      const a = -2.4 + (i / 8) * 4.8;
-      g.save();
-      g.translate(cx, cy);
-      g.rotate(a);
-      const grd = g.createLinearGradient(0, 0, 0, -h * 0.62);
-      grd.addColorStop(0, "#1d5430");
-      grd.addColorStop(0.4, "#3d8a48");
-      grd.addColorStop(1, "rgba(61,138,72,0)");
-      g.fillStyle = grd;
-      g.beginPath();
-      g.moveTo(0, 0);
-      g.quadraticCurveTo(18, -h * 0.28, 6, -h * 0.62);
-      g.quadraticCurveTo(0, -h * 0.4, -6, -h * 0.62);
-      g.quadraticCurveTo(-18, -h * 0.28, 0, 0);
-      g.fill();
-      g.restore();
-    }
-  }, 256, 256);
-  const mat = new THREE.MeshStandardMaterial({
-    map: tex,
-    transparent: true,
-    alphaTest: 0.08,
-    side: THREE.DoubleSide,
-    roughness: 1,
-  });
-  for (const yaw of [0, Math.PI / 2]) {
-    const card = mesh(new THREE.PlaneGeometry(3.1, 2.6), mat, x, 4.55, z, parent);
-    card.rotation.y = yaw;
-    card.castShadow = false;
-  }
+  palmTree(x, z, parent);
 }
 
 function lamp(x: number, z: number, parent: THREE.Object3D, lights: THREE.PointLight[]) {
-  box(0.1, 4.2, 0.1, x, 2.1, z, black, parent);
-  box(0.7, 0.08, 0.28, x, 4.15, z, black, parent);
-  const bulbMat = new THREE.MeshStandardMaterial({ color: 0xffe1a8, emissive: 0xffb45a, emissiveIntensity: 0.15 });
-  mesh(new THREE.SphereGeometry(0.14, 10, 8), bulbMat, x, 4.05, z, parent);
-  const light = new THREE.PointLight(0xffc27a, 0, 14, 2);
-  light.position.set(x, 4.05, z);
-  parent.add(light);
-  lights.push(light);
+  streetlight(x, z, parent, lights);
 }
 
 function gable(width: number, depth: number, rise: number) {
@@ -443,222 +344,11 @@ function windowUnit(parent: THREE.Object3D, glow: THREE.MeshStandardMaterial[], 
   parent.add(g);
 }
 
-function bungalow(
-  parent: THREE.Object3D,
-  solids: Solid[],
-  glow: THREE.MeshStandardMaterial[],
-  x: number,
-  z: number,
-  w: number,
-  d: number,
-  wall: string,
-  roofColor: number,
-  doorColor: string,
-  openDoor: boolean,
-  style = 0,
-) {
-  const wallH = 3.05;
-  const base = 0.32;
-  box(w + 0.4, base, d + 0.45, x, base / 2, z, concrete, parent);
-  const body = box(w, wallH, d, x, base + wallH / 2, z, sidingMat(wall), parent);
-  body.castShadow = true;
-  const roof = mesh(gable(w + 1.35, d + 1.25, style === 2 ? 1.7 : 1.35), shingleMat(roofColor), x, base + wallH, z, parent);
-  roof.castShadow = true;
-  const eave = d / 2 + 0.62;
-  box(w + 1.4, 0.1, 0.14, x, base + wallH + 0.02, z - eave, trimMat, parent);
-  box(w + 1.4, 0.1, 0.14, x, base + wallH + 0.02, z + eave, trimMat, parent);
-  if (style !== 0) {
-    box(0.55, 1.15, 0.55, x + w * 0.28, base + wallH + 0.7, z + 0.2, new THREE.MeshStandardMaterial({ color: 0x8d4a3a, roughness: 0.8 }), parent);
-    box(0.7, 0.12, 0.7, x + w * 0.28, base + wallH + 1.28, z + 0.2, black, parent);
-  }
-  const front = z - d / 2;
-  const faceZ = front - 0.06;
-  windowUnit(parent, glow, x - w * 0.28, base + 1.7, faceZ, Math.PI);
-  windowUnit(parent, glow, x + w * 0.28, base + 1.7, faceZ, Math.PI);
-  if (style === 2) windowUnit(parent, glow, x, base + 1.85, z + d / 2 + 0.06, 0);
-  windowUnit(parent, glow, x - w / 2 - 0.06, base + 1.65, z, -Math.PI / 2);
-  const doorMat = new THREE.MeshStandardMaterial({ color: doorColor, roughness: 0.7 });
-  box(1.05, 2.15, 0.12, x, base + 1.12, faceZ - 0.02, trimMat, parent);
-  box(0.86, 1.95, 0.08, x, base + 1.05, faceZ - 0.08, doorMat, parent);
-  box(0.08, 0.08, 0.06, x + 0.28, base + 1.1, faceZ - 0.14, gold, parent);
-  const porchZ = front - 1.25;
-  const porchW = style === 1 ? w * 0.78 : w * 0.58;
-  box(porchW, 0.12, 2.35, x, 0.36, porchZ, wood, parent);
-  box(porchW + 0.2, 0.1, 2.5, x, 2.55, porchZ, shingleMat(roofColor), parent);
-  for (const sx of [-porchW * 0.42, porchW * 0.42]) {
-    box(0.14, 2.15, 0.14, x + sx, 1.3, porchZ - 1.0, trimMat, parent);
-  }
-  box(porchW * 0.86, 0.06, 0.06, x, 0.7, porchZ - 1.05, trimMat, parent);
-  box(porchW * 0.86, 0.06, 0.06, x, 0.42, porchZ - 1.05, trimMat, parent);
-  box(1.35, 0.1, 0.42, x, 0.22, porchZ - 1.45, concrete, parent);
-  box(1.15, 0.1, 0.38, x, 0.32, porchZ - 1.12, concrete, parent);
-  const sconce = new THREE.MeshStandardMaterial({ color: 0xffe1a8, emissive: 0xffb45a, emissiveIntensity: 0.2 });
-  glow.push(sconce);
-  mesh(new THREE.SphereGeometry(0.08, 8, 6), sconce, x + 0.62, base + 2.15, faceZ - 0.1, parent);
-  box(0.7, 0.55, 0.4, x + w / 2 + 0.22, 0.7, z + 0.4, new THREE.MeshStandardMaterial({ color: 0xd8d4cc, roughness: 0.6 }), parent);
-  box(0.08, 0.82, 0.08, x - w * 0.42, 0.42, front - 4.15, black, parent);
-  box(0.34, 0.22, 0.18, x - w * 0.42, 0.9, front - 4.15, new THREE.MeshStandardMaterial({ color: style === 2 ? 0x1f4d8a : 0xb43322, roughness: 0.55 }), parent);
-  shrub(x - w * 0.38, front - 0.7, parent, 1);
-  shrub(x + w * 0.4, front - 0.55, parent, 0.85);
-  shrub(x + w * 0.18, front - 0.85, parent, 0.7);
-  const walk0 = front - 4.35;
-  const walk1 = porchZ - 1.15;
-  box(1.05, 0.05, Math.abs(walk1 - walk0), x, 0.07, (walk0 + walk1) / 2, concrete, parent);
-  if (style === 1) box(2.6, 0.05, 6.4, x + w * 0.55, 0.05, front - 3.4, asphaltTex(), parent);
-  if (openDoor) {
-    solids.push({ minX: x - w / 2, maxX: x - 0.7, minZ: front, maxZ: z + d / 2 });
-    solids.push({ minX: x + 0.7, maxX: x + w / 2, minZ: front, maxZ: z + d / 2 });
-    solids.push({ minX: x - w / 2, maxX: x + w / 2, minZ: front + 1.15, maxZ: z + d / 2 });
-  } else {
-    solids.push({ minX: x - w / 2, maxX: x + w / 2, minZ: front, maxZ: z + d / 2 });
-  }
-}
-
 function carSolid(x: number, z: number, yaw: number, length: number, width: number): Solid {
   const alongZ = Math.abs(Math.cos(yaw)) > 0.5;
   const hx = (alongZ ? width : length) / 2;
   const hz = (alongZ ? length : width) / 2;
   return { minX: x - hx, maxX: x + hx, minZ: z - hz, maxZ: z + hz };
-}
-
-function hull(profile: [number, number][], width: number, mat: THREE.Material, parent: THREE.Object3D) {
-  const shape = new THREE.Shape();
-  shape.moveTo(profile[0]![0], profile[0]![1]);
-  for (let i = 1; i < profile.length; i++) shape.lineTo(profile[i]![0], profile[i]![1]);
-  const geo = new THREE.ExtrudeGeometry(shape, {
-    depth: width,
-    bevelEnabled: true,
-    bevelThickness: 0.018,
-    bevelSize: 0.028,
-    bevelSegments: 1,
-  });
-  geo.translate(0, 0, -width / 2);
-  const m = new THREE.Mesh(geo, mat);
-  m.rotation.y = -Math.PI / 2;
-  m.castShadow = true;
-  m.receiveShadow = true;
-  parent.add(m);
-  return m;
-}
-
-function sideGlass(pts: [number, number][], x: number, parent: THREE.Object3D) {
-  const positions: number[] = [];
-  const [a, b, c, d] = pts;
-  if (!a || !b || !c || !d) return;
-  positions.push(0, a[1], a[0], 0, b[1], b[0], 0, c[1], c[0], 0, a[1], a[0], 0, c[1], c[0], 0, d[1], d[0]);
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  geo.computeVertexNormals();
-  const m = new THREE.Mesh(geo, glassMat);
-  m.position.x = x;
-  parent.add(m);
-}
-
-function spokeWheel(x: number, z: number, goldRim: boolean, parent: THREE.Object3D) {
-  const radius = 0.36;
-  const y = 0.4;
-  const tireMat = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.94 });
-  const rimMat = new THREE.MeshStandardMaterial({
-    color: goldRim ? 0xe6c15a : 0xc5c8ce,
-    roughness: goldRim ? 0.28 : 0.35,
-    metalness: 0.88,
-  });
-  const tire = mesh(new THREE.CylinderGeometry(radius, radius, 0.22, 18), tireMat, x, y, z, parent);
-  tire.rotation.z = Math.PI / 2;
-  const rim = mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.23, 16), rimMat, x, y, z, parent);
-  rim.rotation.z = Math.PI / 2;
-  for (let i = 0; i < 5; i++) {
-    const spoke = mesh(new THREE.BoxGeometry(0.03, 0.34, 0.035), rimMat, x, y, z, parent);
-    spoke.rotation.x = (i / 5) * Math.PI;
-  }
-  mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.24, 10), rimMat, x, y, z, parent).rotation.z = Math.PI / 2;
-}
-
-export function carBody(kind: VehicleKind) {
-  const spec = {
-    coupe: { L: 4.75, W: 1.84, color: 0x1b5c34, gold: true },
-    sedan: { L: 4.6, W: 1.78, color: 0xd5d8dc, gold: false },
-    suv: { L: 4.9, W: 1.96, color: 0x111111, gold: false },
-    van: { L: 5.5, W: 2.05, color: 0x161616, gold: false },
-  }[kind];
-  const g = new THREE.Group();
-  g.userData.radius = Math.max(spec.L, spec.W) * 0.48;
-  const paint = new THREE.MeshStandardMaterial({ color: spec.color, roughness: kind === "suv" ? 0.42 : 0.28, metalness: 0.72 });
-  const half = spec.L / 2 - 0.06;
-  const profiles: Record<VehicleKind, [number, number][]> = {
-    coupe: [
-      [half, 0.42], [half, 0.86], [half - 0.45, 1.02], [0.42, 1.06], [0.05, 1.38], [-0.62, 1.5], [-1.2, 1.42], [-1.55, 1.12], [-half + 0.2, 0.98], [-half, 0.8], [-half, 0.42],
-      [-1.62, 0.42], [-1.42, 0.7], [-0.78, 0.72], [-0.55, 0.42], [0.48, 0.42], [0.7, 0.7], [1.32, 0.72], [1.55, 0.42],
-    ],
-    sedan: [
-      [half, 0.42], [half, 0.88], [half - 0.5, 1.02], [0.72, 1.08], [0.32, 1.48], [-0.95, 1.54], [-1.4, 1.18], [-half + 0.15, 1.0], [-half, 0.82], [-half, 0.42],
-      [-1.55, 0.42], [-1.35, 0.7], [-0.72, 0.72], [-0.5, 0.42], [0.55, 0.42], [0.78, 0.7], [1.4, 0.72], [1.62, 0.42],
-    ],
-    suv: [
-      [half, 0.46], [half, 1.12], [half - 0.35, 1.22], [1.15, 1.78], [-1.45, 1.82], [-1.85, 1.22], [-half, 1.08], [-half, 0.46],
-      [-1.7, 0.46], [-1.48, 0.78], [-0.82, 0.8], [-0.58, 0.46], [0.7, 0.46], [0.95, 0.78], [1.58, 0.8], [1.82, 0.46],
-    ],
-    van: [
-      [half, 0.46], [half, 1.22], [half - 0.85, 1.32], [half - 1.25, 2.15], [-half + 0.15, 2.18], [-half, 1.15], [-half, 0.46],
-      [-1.85, 0.46], [-1.6, 0.78], [-0.9, 0.8], [-0.65, 0.46], [0.85, 0.46], [1.1, 0.78], [1.75, 0.8], [2.0, 0.46],
-    ],
-  };
-  hull(profiles[kind], spec.W, paint, g);
-  const glass: Record<VehicleKind, [number, number][]> = {
-    coupe: [[0.28, 1.1], [-0.08, 1.36], [-1.05, 1.36], [-1.32, 1.12]],
-    sedan: [[0.55, 1.14], [0.22, 1.44], [-1.15, 1.44], [-1.38, 1.16]],
-    suv: [[1.05, 1.28], [0.95, 1.7], [-1.35, 1.72], [-1.55, 1.28]],
-    van: [[half - 0.95, 1.4], [half - 1.15, 2.02], [half - 1.7, 2.02], [half - 1.85, 1.38]],
-  };
-  sideGlass(glass[kind], spec.W / 2 + 0.02, g);
-  sideGlass(glass[kind], -spec.W / 2 - 0.02, g);
-  const nose = half + 0.02;
-  box(spec.W * 0.92, 0.16, 0.1, 0, 0.58, nose, chrome, g);
-  box(spec.W * 0.92, 0.14, 0.1, 0, 0.56, -half - 0.02, chrome, g);
-  box(spec.W * 0.46, 0.22, 0.06, 0, kind === "suv" || kind === "van" ? 0.95 : 0.78, nose + 0.02, black, g);
-  const headMat = new THREE.MeshStandardMaterial({ color: 0xfff4d2, emissive: 0xffe7b0, emissiveIntensity: 0.7 });
-  const tailMat = new THREE.MeshStandardMaterial({ color: 0x9a1e1e, emissive: 0xff2a2a, emissiveIntensity: 0.35 });
-  g.userData.headlights = [headMat, tailMat];
-  const lampY = kind === "van" || kind === "suv" ? 0.92 : 0.74;
-  box(0.36, 0.14, 0.05, -spec.W * 0.3, lampY, nose + 0.03, headMat, g);
-  box(0.36, 0.14, 0.05, spec.W * 0.3, lampY, nose + 0.03, headMat, g);
-  box(spec.W * 0.42, 0.26, 0.05, 0, lampY - 0.02, nose + 0.05, black, g);
-  for (let i = 0; i < 3; i++) box(spec.W * 0.36, 0.02, 0.02, 0, lampY - 0.1 + i * 0.07, nose + 0.08, chrome, g);
-  box(0.32, 0.14, 0.02, 0, 0.5, nose + 0.07, new THREE.MeshStandardMaterial({ color: spec.gold ? 0xf0c43a : 0xe8e4dc, roughness: 0.45 }), g);
-  const mirrorY = kind === "van" ? 1.62 : kind === "suv" ? 1.45 : 1.12;
-  const mirrorZ = kind === "van" ? half - 1.35 : 0.45;
-  box(0.16, 0.08, 0.12, spec.W / 2 + 0.08, mirrorY, mirrorZ, black, g);
-  box(0.16, 0.08, 0.12, -spec.W / 2 - 0.08, mirrorY, mirrorZ, black, g);
-  box(0.4, 0.12, 0.05, -spec.W * 0.32, lampY - 0.06, -half - 0.04, tailMat, g);
-  box(0.4, 0.12, 0.05, spec.W * 0.32, lampY - 0.06, -half - 0.04, tailMat, g);
-  if (spec.gold) {
-    box(0.06, 0.05, spec.L * 0.86, spec.W / 2 + 0.015, 0.58, 0, gold, g);
-    box(0.06, 0.05, spec.L * 0.86, -spec.W / 2 - 0.015, 0.58, 0, gold, g);
-    box(0.16, 0.05, 1.15, 0, 1.08, spec.L * 0.18, gold, g);
-  }
-  if (kind === "van") {
-    box(0.04, 0.1, spec.L * 0.5, spec.W / 2 + 0.02, 1.35, -0.35, gold, g);
-    const mark = sign("$ACKRELIGIOUS", "MEMPHIS", 2.15, 0.62);
-    mark.plane.position.set(spec.W / 2 + 0.03, 1.35, -0.15);
-    mark.plane.rotation.y = Math.PI / 2;
-    g.add(mark.plane);
-    const rear = sign("$ACKRELIGIOUS", "", 1.5, 0.7);
-    rear.plane.position.set(0, 1.45, -half - 0.05);
-    rear.plane.rotation.y = Math.PI;
-    g.add(rear.plane);
-  }
-  const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(spec.L * 0.42, 16),
-    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false }),
-  );
-  shadow.rotation.x = -Math.PI / 2;
-  shadow.position.y = 0.03;
-  shadow.scale.set(1.15, 0.62, 1);
-  g.add(shadow);
-  const wz = kind === "van" ? 1.55 : kind === "suv" ? 1.25 : 1.05;
-  const wx = spec.W * 0.5 + 0.02;
-  for (const [sx, sz] of [[-wx, wz], [wx, wz], [-wx, -wz], [wx, -wz]] as const) spokeWheel(sx, sz, spec.gold, g);
-  return g;
 }
 
 export function parkedCar(x: number, z: number, yaw: number, kind: VehicleKind, parent: THREE.Object3D) {
@@ -783,6 +473,7 @@ function signal(x: number, z: number, parent: THREE.Object3D) {
 
 export function buildSlice(): SliceWorld {
   figureMats.length = 0;
+  resetVehicleCards();
   const scene = new THREE.Scene();
   const skyDay = skyTex(false);
   const skyNight = skyTex(true);
@@ -818,18 +509,14 @@ export function buildSlice(): SliceWorld {
   const headlightMats: THREE.MeshStandardMaterial[] = [];
   const asphalt = asphaltTex();
 
-  mesh(new THREE.PlaneGeometry(200, 160), grassMat(), 8, 0, -6, exterior).rotation.x = -Math.PI / 2;
+  mesh(new THREE.PlaneGeometry(200, 160), grassMatKit(), 8, 0, -6, exterior).rotation.x = -Math.PI / 2;
   mesh(new THREE.PlaneGeometry(46, 16), new THREE.MeshStandardMaterial({ color: 0x2f552c, roughness: 1 }), -28, 0.004, 16, exterior).rotation.x = -Math.PI / 2;
 
   const walk = sidewalkMat();
   box(156, 0.06, 9.1, 8, 0.03, 0, asphalt, exterior);
   box(9.1, 0.06, 48, 8, 0.03, -2, asphalt, exterior);
-  box(150, 0.12, 2.6, 8, 0.1, 6.2, walk, exterior);
-  box(150, 0.12, 2.6, 8, 0.1, -6.2, walk, exterior);
-  box(2.5, 0.12, 36, 3.1, 0.1, -4, walk, exterior);
-  box(2.5, 0.12, 36, 12.9, 0.1, -4, walk, exterior);
-  box(150, 0.22, 0.34, 8, 0.11, 4.55, curbMat, exterior);
-  box(150, 0.22, 0.34, 8, 0.11, -4.55, curbMat, exterior);
+  sidewalkRun(exterior, 6.35, -62, 78, [[-38.2, -32.4], [-18.6, -14.2]]);
+  sidewalkRun(exterior, -6.35, -62, 78, [[31.2, 36.4]]);
   box(0.34, 0.22, 40, 4.55, 0.11, -2, curbMat, exterior);
   box(0.34, 0.22, 40, 11.45, 0.11, -2, curbMat, exterior);
   for (let x = -46; x < 68; x += 16) {
@@ -903,12 +590,12 @@ export function buildSlice(): SliceWorld {
   const pedestrians = [...walkers, shopper, porch, hqIdle, unc, strike];
   const billboards: THREE.Object3D[] = [...pedestrians];
 
-  bungalow(exterior, streetSolids, glowMats, -32, 14.6, 8.6, 7.4, "#e7d7c0", 0x7a3b32, "#6b3a22", true, 0);
-  bungalow(exterior, streetSolids, glowMats, -20.5, 14.8, 7.4, 6.8, "#d5ddd8", 0x3c4148, "#243044", false, 1);
-  bungalow(exterior, streetSolids, glowMats, -10, 15, 7.8, 7, "#c4a08a", 0x3c4148, "#5c3828", false, 2);
-  bungalow(exterior, streetSolids, glowMats, 18, 14.7, 7.6, 6.8, "#efe6d4", 0x6e4030, "#1f4d3a", false, 0);
-  bungalow(exterior, streetSolids, glowMats, 30, 15.1, 8, 7.2, "#d7c4a3", 0x3c4148, "#5a4030", false, 1);
-  bungalow(exterior, streetSolids, glowMats, 44, 14.5, 7.2, 6.6, "#c9d4cf", 0x7a3b32, "#243044", false, 2);
+  residence(exterior, streetSolids, glowMats, -32, 14.6, 8.6, 7.4, "#e7d7c0", 0x7a3b32, "#6b3a22", true, 0);
+  residence(exterior, streetSolids, glowMats, -20.5, 14.8, 7.4, 6.8, "#d5ddd8", 0x3c4148, "#243044", false, 1);
+  residence(exterior, streetSolids, glowMats, -10, 15, 7.8, 7, "#c4a08a", 0x3c4148, "#5c3828", false, 2);
+  residence(exterior, streetSolids, glowMats, 18, 14.7, 7.6, 6.8, "#efe6d4", 0x6e4030, "#1f4d3a", false, 0);
+  residence(exterior, streetSolids, glowMats, 30, 15.1, 8, 7.2, "#d7c4a3", 0x3c4148, "#5a4030", false, 1);
+  residence(exterior, streetSolids, glowMats, 44, 14.5, 7.2, 6.6, "#c9d4cf", 0x7a3b32, "#243044", false, 2);
 
   for (const [fx, fz] of [
     [-36.2, 9.4],
@@ -1045,10 +732,7 @@ export function buildSlice(): SliceWorld {
   streetSolids.push({ minX: hqX + 0.85, maxX: hqX + 9, minZ: hqZ - 5.5, maxZ: hqZ + 5.5 });
   streetSolids.push({ minX: hqX - 9, maxX: hqX + 9, minZ: hqZ - 5.5, maxZ: hqZ + 3.6 });
   box(14, 0.08, 6.5, hqX, 0.05, hqZ + 8.2, concrete, exterior);
-  for (const px of [hqX - 5.2, hqX + 5.2]) {
-    box(0.7, 0.7, 0.7, px, 0.4, hqZ + 6.3, black, exterior);
-    shrub(px, hqZ + 6.3, exterior, 1.15);
-  }
+  for (const px of [hqX - 5.2, hqX + 5.2]) planter(px, hqZ + 6.3, exterior);
 
   const towerMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
@@ -1125,9 +809,7 @@ export function buildSlice(): SliceWorld {
   exterior.add(score);
   box(0.12, 2.4, 0.12, courtX + 5.1, 1.2, courtZ + 6.4, black, exterior);
   box(0.12, 2.4, 0.12, courtX + 7.3, 1.2, courtZ + 6.4, black, exterior);
-  box(2.2, 0.16, 0.55, courtX + 3.4, 0.48, courtZ + 8.6, wood, exterior);
-  box(0.1, 0.48, 0.1, courtX + 2.6, 0.24, courtZ + 8.85, wood, exterior);
-  box(0.1, 0.48, 0.1, courtX + 4.2, 0.24, courtZ + 8.85, wood, exterior);
+  bench(courtX + 3.4, courtZ + 8.6, Math.PI, exterior);
   const courtLights: THREE.PointLight[] = [];
   for (const lx of [courtX - 8, courtX + 8]) {
     box(0.1, 6.2, 0.1, lx, 3.1, courtZ - 8.2, black, exterior);
