@@ -6,7 +6,7 @@ import { residence } from "./kits/residence";
 import { sidewalkRun } from "./kits/street";
 import { grass as grassMatKit } from "./kits/materials";
 import { matureTree, palmTree, shadeTree, shrub as kitShrub, streetTree } from "./kits/trees";
-import { bench, planter, streetlight, trashBin } from "./kits/props";
+import { bench, streetlight, trashBin } from "./kits/props";
 import { addGround, clearGround } from "./ground";
 import { footMarker, plantFeet, solePlane } from "./feet";
 
@@ -63,7 +63,7 @@ const trimMat = new THREE.MeshStandardMaterial({ color: 0xf3efe6, roughness: 0.5
 const gold = new THREE.MeshStandardMaterial({ color: 0xe0b33a, roughness: 0.35, metalness: 0.72, emissive: 0x5a3e08, emissiveIntensity: 0.2 });
 const chrome = new THREE.MeshStandardMaterial({ color: 0xd5d8dc, roughness: 0.22, metalness: 0.92 });
 const black = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.55 });
-const glassMat = new THREE.MeshStandardMaterial({ color: 0x17324a, roughness: 0.06, metalness: 0.35, transparent: true, opacity: 0.72 });
+const glassMat = new THREE.MeshStandardMaterial({ color: 0xd5e4ee, roughness: 0.08, metalness: 0.15, transparent: true, opacity: 0.22 });
 const wood = new THREE.MeshStandardMaterial({ color: 0x8a623d, roughness: 0.75 });
 const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a4030, roughness: 0.9 });
 const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f6a34, roughness: 0.95 });
@@ -645,93 +645,131 @@ export function buildSlice(): SliceWorld {
 
   const hqX = 24;
   const hqZ = -16.4;
-  const brick = new THREE.MeshStandardMaterial({
+  const frontZ = hqZ + 5.48;
+  const darkBrick = new THREE.MeshStandardMaterial({
     color: 0xffffff,
-    roughness: 0.86,
+    roughness: 0.78,
+    metalness: 0.08,
     map: canvasTex((g, w, h) => {
-      g.fillStyle = "#8a4632";
+      g.fillStyle = "#1c1e24";
       g.fillRect(0, 0, w, h);
-      g.fillStyle = "rgba(40,16,10,0.35)";
-      for (let row = 0; row < 16; row++) {
-        const y = row * (h / 16);
-        g.fillRect(0, y, w, 4);
-        const off = row % 2 ? 28 : 0;
-        for (let x = -40 + off; x < w; x += 56) g.fillRect(x, y, 4, h / 16);
+      for (let row = 0; row < 18; row++) {
+        const y = row * (h / 18);
+        const off = row % 2 ? 22 : 0;
+        for (let x = -40 + off; x < w; x += 44) {
+          const n = ((x * 3 + row * 17) % 18) - 6;
+          g.fillStyle = `rgb(${28 + n},${30 + n},${36 + n})`;
+          g.fillRect(x + 2, y + 2, 40, h / 18 - 3);
+        }
       }
     }, 256, 256, true),
   });
-  brick.map!.repeat.set(3, 2);
-  const frontZ = hqZ + 5.48;
-  box(18, 5.8, 10.6, hqX, 2.9, hqZ, brick, exterior);
-  box(18.6, 0.35, 11.2, hqX, 5.95, hqZ, black, exterior);
-  box(8.4, 0.55, 0.7, hqX, 6.35, hqZ + 5.2, black, exterior);
-  box(2.3, 5.5, 0.7, hqX - 6.4, 2.75, frontZ + 0.12, brick, exterior);
-  box(2.3, 5.5, 0.7, hqX + 6.4, 2.75, frontZ + 0.12, brick, exterior);
-  box(14.2, 0.45, 0.55, hqX, 0.4, frontZ + 0.16, new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.7 }), exterior);
-  box(11.4, 0.12, 1.15, hqX, 2.55, frontZ + 0.55, black, exterior);
-  box(18.4, 0.28, 11, hqX, 5.9, hqZ, new THREE.MeshStandardMaterial({ color: 0x2a1814, roughness: 0.8 }), exterior);
-  box(6.2, 0.7, 10.8, hqX, 6.35, hqZ, brick, exterior);
-  const panel = new THREE.MeshStandardMaterial({ color: 0x101010, roughness: 0.45, metalness: 0.35 });
-  box(10.2, 3.55, 0.28, hqX, 4.35, frontZ, panel, exterior);
+  darkBrick.map!.repeat.set(2.4, 1.6);
+  const metal = new THREE.MeshStandardMaterial({ color: 0x101114, roughness: 0.42, metalness: 0.55 });
+  const frame = new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.35, metalness: 0.62 });
+  const warmTex = canvasTex((g, w, h) => {
+    g.fillStyle = "#f2c27a";
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = "#ffe6bf";
+    g.fillRect(0, 0, w, 42);
+    const shirts = ["#141414", "#f7f3ea", "#9a3030", "#1f4d3a"];
+    shirts.forEach((c, i) => {
+      const x = 28 + i * 120;
+      g.fillStyle = c;
+      g.fillRect(x, 58, 78, 140);
+      g.fillRect(x - 18, 78, 20, 70);
+      g.fillRect(x + 76, 78, 20, 70);
+    });
+    g.fillStyle = "#3a2a1c";
+    g.fillRect(16, h - 48, w - 32, 32);
+  }, 512, 256);
+  const warm = new THREE.MeshStandardMaterial({
+    map: warmTex,
+    color: 0xffe0b0,
+    emissive: 0xffb15a,
+    emissiveMap: warmTex,
+    emissiveIntensity: 0.45,
+    roughness: 0.55,
+  });
+  glowMats.push(warm);
+  box(18, 6.15, 10.6, hqX, 3.08, hqZ, darkBrick, exterior);
+  box(18.5, 0.28, 11.1, hqX, 6.28, hqZ, metal, exterior);
+  box(7.4, 1.15, 0.62, hqX, 6.85, frontZ + 0.16, darkBrick, exterior);
+  box(7.7, 0.16, 0.78, hqX, 7.48, frontZ + 0.16, metal, exterior);
+  box(18.2, 0.46, 0.72, hqX, 0.23, frontZ + 0.22, metal, exterior);
+  for (const px of [hqX - 8.15, hqX - 3.7, hqX + 3.7, hqX + 8.15]) {
+    box(0.62, 6.05, 0.42, px, 3.15, frontZ + 0.12, darkBrick, exterior);
+  }
+  box(5.5, 2.85, 0.16, hqX, 3.65, frontZ + 0.08, metal, exterior);
   const brandTex = canvasTex((g, w, h) => {
     g.clearRect(0, 0, w, h);
     g.fillStyle = "#e0b33a";
     const cx = w / 2;
-    const cy = h * 0.36;
+    const cy = h * 0.22;
     g.beginPath();
-    g.moveTo(cx - 150, cy + 36);
-    g.lineTo(cx - 170, cy - 28);
-    g.lineTo(cx - 100, cy + 8);
-    g.lineTo(cx, cy - 70);
-    g.lineTo(cx + 100, cy + 8);
-    g.lineTo(cx + 170, cy - 28);
-    g.lineTo(cx + 150, cy + 36);
+    g.moveTo(cx - 118, cy + 28);
+    g.lineTo(cx - 136, cy - 18);
+    g.lineTo(cx - 78, cy + 6);
+    g.lineTo(cx, cy - 62);
+    g.lineTo(cx + 78, cy + 6);
+    g.lineTo(cx + 136, cy - 18);
+    g.lineTo(cx + 118, cy + 28);
     g.closePath();
     g.fill();
-    g.fillRect(cx - 160, cy + 36, 320, 16);
-    paintLabel(g, "$ACKRELIGIOUS", w / 2, h * 0.58, w * 0.9, "#e0b33a", 92);
-    paintLabel(g, "HQ", w / 2, h * 0.8, w * 0.3, "#f4efe4", 48);
+    g.fillRect(cx - 128, cy + 30, 256, 12);
+    paintLabel(g, "$ACKRELIGIOUS", w / 2, h * 0.58, w * 0.92, "#e0b33a", 86);
+    paintLabel(g, "BOUTIQUE", w / 2, h * 0.8, w * 0.55, "#f4efe4", 42);
   }, 1024, 512);
   const brandMat = new THREE.MeshStandardMaterial({
     map: brandTex,
     transparent: true,
     emissive: 0xffe0b0,
     emissiveMap: brandTex,
-    emissiveIntensity: 0.35,
-    roughness: 0.4,
+    emissiveIntensity: 0.55,
+    roughness: 0.35,
     depthWrite: false,
   });
   glowMats.push(brandMat);
-  const brand = new THREE.Mesh(new THREE.PlaneGeometry(8.6, 3.3), brandMat);
-  brand.position.set(hqX, 4.55, frontZ + 0.2);
+  const brand = new THREE.Mesh(new THREE.PlaneGeometry(5.1, 2.55), brandMat);
+  brand.position.set(hqX, 3.7, frontZ + 0.28);
   exterior.add(brand);
   const signLamp = new THREE.PointLight(0xffc56a, 0, 14, 2);
-  signLamp.position.set(hqX, 3.4, frontZ + 2.4);
+  signLamp.position.set(hqX, 4.2, frontZ + 2.2);
   exterior.add(signLamp);
   lamps.push(signLamp);
-  const frame = new THREE.MeshStandardMaterial({ color: 0x0c0c0c, roughness: 0.4, metalness: 0.5 });
-  const warm = new THREE.MeshStandardMaterial({ color: 0xffe0b0, emissive: 0xffb15a, emissiveIntensity: 0.35, roughness: 0.4 });
-  glowMats.push(warm);
-  for (const ox of [-3.15, 0, 3.15]) {
-    box(2.4, 2.25, 0.1, hqX + ox, 1.35, frontZ + 0.02, ox === 0 ? black : frame, exterior);
-    if (ox !== 0) {
-      box(2.05, 1.9, 0.06, hqX + ox, 1.38, frontZ + 0.1, glassMat, exterior);
-      box(1.85, 1.7, 0.04, hqX + ox, 1.38, frontZ + 0.06, warm, exterior);
-      box(0.04, 1.9, 0.05, hqX + ox, 1.38, frontZ + 0.14, frame, exterior);
-      box(2.05, 0.04, 0.05, hqX + ox, 1.38, frontZ + 0.14, frame, exterior);
-    } else {
-      box(1.15, 1.95, 0.06, hqX, 1.22, frontZ + 0.12, glassMat, exterior);
-      box(1.0, 1.7, 0.04, hqX, 1.22, frontZ + 0.07, warm, exterior);
-      box(0.08, 0.12, 0.08, hqX + 0.35, 1.15, frontZ + 0.2, gold, exterior);
-    }
+  function displayBay(x: number, w: number) {
+    const y = 2.15;
+    const h = 2.85;
+    const z = frontZ + 0.18;
+    box(w + 0.18, 0.1, 0.1, x, y + h / 2, z, metal, exterior);
+    box(w + 0.18, 0.1, 0.1, x, y - h / 2, z, metal, exterior);
+    box(0.1, h, 0.1, x - w / 2, y, z, metal, exterior);
+    box(0.1, h, 0.1, x + w / 2, y, z, metal, exterior);
+    box(w - 0.04, h - 0.06, 0.04, x, y, frontZ + 0.04, warm, exterior);
+    box(w - 0.08, h - 0.1, 0.03, x, y, frontZ + 0.12, glassMat, exterior);
+    box(0.045, h - 0.16, 0.05, x, y, z + 0.02, frame, exterior);
+    const lamp = new THREE.PointLight(0xffb15a, 0, 7, 2);
+    lamp.position.set(x, y, frontZ + 1.4);
+    exterior.add(lamp);
+    lamps.push(lamp);
   }
-  for (const side of [-1, 1]) {
-    const banner = sign("K", "901", 0.7, 1.8);
-    banner.plane.position.set(hqX + side * 6.35, 3.4, frontZ + 0.08);
-    exterior.add(banner.plane);
-    glowMats.push(banner.mat);
+  displayBay(hqX - 5.15, 2.55);
+  displayBay(hqX + 5.15, 2.55);
+  box(1.7, 0.1, 0.1, hqX, 2.58, frontZ + 0.18, metal, exterior);
+  box(0.1, 2.45, 0.1, hqX - 0.8, 1.38, frontZ + 0.18, metal, exterior);
+  box(0.1, 2.45, 0.1, hqX + 0.8, 1.38, frontZ + 0.18, metal, exterior);
+  box(1.35, 2.2, 0.04, hqX, 1.38, frontZ + 0.04, warm, exterior);
+  box(1.28, 2.1, 0.03, hqX, 1.38, frontZ + 0.12, glassMat, exterior);
+  box(0.06, 0.16, 0.06, hqX + 0.48, 1.22, frontZ + 0.18, gold, exterior);
+  for (const px of [hqX - 5.15, hqX + 5.15]) {
+    box(2.3, 0.55, 0.62, px, 0.42, frontZ + 1.55, metal, exterior);
+    shrub(px - 0.45, frontZ + 1.28, exterior, 1.7);
+    shrub(px + 0.45, frontZ + 1.28, exterior, 1.45);
   }
-  box(5.2, 3.2, 4.2, hqX + 11.6, 1.6, hqZ - 1.2, black, exterior);
+  box(4.6, 3.4, 4.4, hqX + 11.5, 1.7, hqZ - 1.1, darkBrick, exterior);
+  box(4.8, 0.16, 4.6, hqX + 11.5, 3.45, hqZ - 1.1, metal, exterior);
+  box(1.3, 1.5, 0.08, hqX + 11.5, 1.7, hqZ + 1.15, metal, exterior);
+  box(1.05, 1.25, 0.04, hqX + 11.5, 1.7, hqZ + 1.08, warm, exterior);
   streetSolids.push({ minX: hqX + 9, maxX: hqX + 14.2, minZ: hqZ - 3.3, maxZ: hqZ + 0.9 });
   const van = parkedCar(hqX + 11.6, hqZ - 4.6, Math.PI / 2, "van", exterior);
   collectLights(van, headlightMats);
@@ -740,7 +778,6 @@ export function buildSlice(): SliceWorld {
   streetSolids.push({ minX: hqX + 0.85, maxX: hqX + 9, minZ: hqZ - 5.5, maxZ: hqZ + 5.5 });
   streetSolids.push({ minX: hqX - 9, maxX: hqX + 9, minZ: hqZ - 5.5, maxZ: hqZ + 3.6 });
   box(14, 0.08, 6.5, hqX, 0.05, hqZ + 8.2, concrete, exterior);
-  for (const px of [hqX - 5.2, hqX + 5.2]) planter(px, hqZ + 6.3, exterior);
 
   const towerMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
