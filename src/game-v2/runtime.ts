@@ -151,6 +151,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   let metK = false;
   let carrying = false;
   let delivered = false;
+  let hauntTicket = false;
+  let hauntCleared = false;
   let dialogue = "";
   let facing: Facing = "back";
   let camYaw = Math.PI / 2;
@@ -183,6 +185,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       raced?: boolean;
       bestBowl?: number;
       bestRace?: number;
+      hauntTicket?: boolean;
+      hauntCleared?: boolean;
     } | null;
     if (saved && Number.isFinite(saved.dollars)) dollars = saved.dollars!;
     if (saved && Number.isFinite(saved.respect)) respect = saved.respect!;
@@ -198,6 +202,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (saved?.raced) city.raced = true;
     if (saved && Number.isFinite(saved.bestBowl)) city.bestBowl = saved.bestBowl!;
     if (saved && Number.isFinite(saved.bestRace)) city.bestRace = saved.bestRace!;
+    if (saved?.hauntTicket) hauntTicket = true;
+    if (saved?.hauntCleared) hauntCleared = true;
   } catch {
     /* fresh slice */
   }
@@ -258,7 +264,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         dollars, respect, carrying, delivered, mission, dialogue,
         bait: city.bait, fit: city.fit, fed: city.fed, fished: city.fished, bowled: city.bowled, raced: city.raced,
-        bestBowl: city.bestBowl, bestRace: city.bestRace,
+        bestBowl: city.bestBowl, bestRace: city.bestRace, hauntTicket, hauntCleared,
       }));
     }
   };
@@ -305,6 +311,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (place === "street" && near(world.districts.bait, 2.2)) return "E  Buy bait  $15";
     if (place === "street" && near(world.districts.meetStart, 2.6)) return "E  Run the strip";
     if (place === "street" && near(world.districts.truckOrder, 2.4)) return "E  Order at the window";
+    if (place === "street" && near(world.haunt.ticket, 1.8)) return hauntTicket ? "E  Ticket punched" : "E  Buy a ticket  $10";
+    if (place === "street" && near(world.haunt.gate, 1.8)) return hauntTicket ? "E  Enter the house" : "E  Need a ticket";
+    if (place === "haunt" && nearLocal(world.haunt.exit, 1.5, 0, 500)) return "E  Leave the house";
     if (place === "court") return ballHeld ? "Hold to shoot" : "E  Pick up ball";
     if (namedPed(1.7)) return "E  Talk";
     return "";
@@ -370,6 +379,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     bobber.visible = Boolean(city.fish);
     if (city.fish) bobber.position.y = 0.16 + Math.sin(performance.now() / 180) * 0.04;
     presentBowl();
+    if (place === "haunt" && !hauntCleared) {
+      const room = world.haunt.finalRoom;
+      if (player.position.x > room.minX && player.position.x < room.maxX && player.position.z > room.minZ && player.position.z < room.maxZ) {
+        hauntCleared = true;
+        respect += 8;
+        dialogue = "Final court — You walked the house. The last rim is lit.";
+        mission = delivered ? mission : "The haunted house let you through.";
+      }
+    }
     updatePlace();
     updateBall(dt, hold, interact);
     updateTraffic(dt);
@@ -412,6 +430,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   function collisionZone(): { solids: Solid[]; ox: number; oz: number } {
     if (place === "home") return { solids: world.solids.home, ox: 0, oz: 200 };
     if (place === "hq") return { solids: world.solids.hq, ox: 80, oz: 200 };
+    if (place === "haunt") return { solids: world.solids.haunt, ox: 0, oz: 500 };
     return { solids: world.solids.street, ox: 0, oz: 0 };
   }
 
@@ -423,6 +442,31 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (city.bowl?.phase === "aim") {
       grant(cancelApproach(city));
       resetPins();
+      return;
+    }
+    if (place === "haunt" && nearLocal(world.haunt.exit, 1.5, 0, 500)) {
+      place = "street";
+      player.position.set(world.haunt.out.x, 0, world.haunt.out.z);
+      return;
+    }
+    if (place === "street" && near(world.haunt.ticket, 1.8)) {
+      if (hauntTicket) dialogue = "Tickets — You're already on the list. Gate's open.";
+      else if (dollars < 10) dialogue = "Tickets — Ten SackDollars. You're short.";
+      else {
+        dollars -= 10;
+        hauntTicket = true;
+        dialogue = "Tickets — Wristband's on. Don't touch the portraits.";
+      }
+      return;
+    }
+    if (place === "street" && near(world.haunt.gate, 1.8)) {
+      if (!hauntTicket) {
+        dialogue = "Gate — Ticket first. Booth is on the left.";
+        return;
+      }
+      place = "haunt";
+      player.position.set(world.haunt.inside.x, 0, world.haunt.inside.z);
+      dialogue = "Foyer — Eleven rooms. The last one still has a rim.";
       return;
     }
     if (place === "street" && near(world.homeDoor, 1.4)) {
@@ -568,9 +612,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     world.home.visible = place === "home";
     world.hq.visible = place === "hq";
     world.exterior.visible = place === "street" || place === "court";
+    world.haunt.group.visible = place === "haunt";
+    for (const light of world.haunt.lights) light.visible = place === "haunt";
     for (const light of world.homeLights) light.visible = place === "home";
     for (const light of world.hqLights) light.visible = place === "hq";
-    if (place === "home" || place === "hq") return;
+    if (place === "home" || place === "hq" || place === "haunt") return;
     const onCourt = player.position.x > 41.2 && player.position.x < 62.8 && player.position.z < -15.1 && player.position.z > -28.9;
     place = onCourt ? "court" : "street";
   }
@@ -789,12 +835,18 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const lookX = Math.sin(camYaw);
     const lookZ = Math.cos(camYaw);
     const talking = place === "hq" && dialogue.startsWith("K Blanco");
-    const inside = place === "home" || place === "hq";
-    const dist = camDist ?? (talking ? 4.6 : inside ? 4.1 : 5.15);
+    const inside = place === "home" || place === "hq" || place === "haunt";
+    const dist = camDist ?? (talking ? 4.6 : place === "haunt" ? 2.7 : inside ? 4.1 : 5.15);
     const height = camHeight ?? (talking ? 1.7 : inside ? 1.95 : 2.05);
     const side = talking ? 1.8 : 0;
-    const destX = player.position.x - lookX * dist + lookZ * side;
-    const destZ = player.position.z - lookZ * dist - lookX * side;
+    let destX = player.position.x - lookX * dist + lookZ * side;
+    let destZ = player.position.z - lookZ * dist - lookX * side;
+    if (place === "haunt") {
+      const zone = collisionZone();
+      const pulled = pullCamera(player.position.x, player.position.z, destX, destZ, zone.solids, zone.ox, zone.oz);
+      destX = pulled.x;
+      destZ = pulled.z;
+    }
     const destY = player.position.y + height;
     camera.position.x += (destX - camera.position.x) * (1 - Math.exp(-4 * dt));
     camera.position.y += (destY - camera.position.y) * (1 - Math.exp(-4 * dt));
@@ -821,6 +873,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     for (const lamp of world.courtLights) lamp.intensity = night ? 36 : 0;
     for (const light of world.homeLights) light.intensity = place === "home" ? 18 : 0;
     for (const light of world.hqLights) light.intensity = place === "hq" ? 26 : 0;
+    for (const light of world.haunt.lights) light.intensity = place === "haunt" ? 18 : 0;
     for (const mat of world.headlightMats) mat.emissiveIntensity = night ? 3.1 : 0.35;
     for (const mat of world.glowMats) mat.emissiveIntensity = night ? 2.2 : 0.28;
     const tint = night ? 0xb7c7d8 : place === "hq" ? 0xffd2a8 : place === "home" ? 0xffe4c4 : 0xfff3e4;
@@ -904,6 +957,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       } else if (opts.place === "hq") {
         place = "hq";
         player.position.set(opts.x ?? 80.4, 0, opts.z ?? 203.4);
+      } else if (opts.place === "haunt") {
+        place = "haunt";
+        player.position.set(opts.x ?? 4, 0, opts.z ?? 501.6);
       } else if (opts.x != null && opts.z != null) {
         player.position.set(opts.x, 0, opts.z);
         place = "street";
@@ -925,11 +981,19 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         camLookY = opts.lookY ?? null;
         const lookX = Math.sin(camYaw);
         const lookZ = Math.cos(camYaw);
-        const inside = place === "home" || place === "hq";
+        const inside = place === "home" || place === "hq" || place === "haunt";
         const dist = camDist ?? (inside ? 4.1 : 5.15);
         const height = camHeight ?? (inside ? 1.95 : 2.05);
         plantFeet(player);
-        camera.position.set(player.position.x - lookX * dist, player.position.y + height, player.position.z - lookZ * dist);
+        let camX = player.position.x - lookX * dist;
+        let camZ = player.position.z - lookZ * dist;
+        if (place === "haunt") {
+          const zone = collisionZone();
+          const pulled = pullCamera(player.position.x, player.position.z, camX, camZ, zone.solids, zone.ox, zone.oz);
+          camX = pulled.x;
+          camZ = pulled.z;
+        }
+        camera.position.set(camX, player.position.y + height, camZ);
       }
       carried.visible = carrying;
       world.counterPack.visible = !carrying && !delivered;
@@ -1019,6 +1083,27 @@ function spawnTraffic(world: SliceWorld, lanes: Lane[]): Car[] {
 function yawTo(obj: THREE.Object3D, cam: THREE.Vector3) {
   const pos = obj.getWorldPosition(new THREE.Vector3());
   return Math.atan2(cam.x - pos.x, cam.z - pos.z);
+}
+
+function pullCamera(px: number, pz: number, destX: number, destZ: number, solids: { minX: number; maxX: number; minZ: number; maxZ: number }[], ox: number, oz: number) {
+  const dx = destX - px;
+  const dz = destZ - pz;
+  const len = Math.hypot(dx, dz) || 1;
+  let keep = 0.7;
+  for (let t = 0.7; t <= len; t += 0.18) {
+    const x = px + (dx / len) * t;
+    const z = pz + (dz / len) * t;
+    let blocked = false;
+    for (const solid of solids) {
+      if (x > solid.minX + ox - 0.2 && x < solid.maxX + ox + 0.2 && z > solid.minZ + oz - 0.2 && z < solid.maxZ + oz + 0.2) {
+        blocked = true;
+        break;
+      }
+    }
+    if (blocked) break;
+    keep = t;
+  }
+  return { x: px + (dx / len) * Math.min(keep, len), z: pz + (dz / len) * Math.min(keep, len) };
 }
 
 function gapAhead(lane: Lane, from: number, other: number) {

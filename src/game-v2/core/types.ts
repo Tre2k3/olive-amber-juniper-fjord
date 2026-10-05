@@ -1,6 +1,6 @@
 export type Facing = "front" | "back" | "left" | "right";
 
-export type Place = "street" | "home" | "hq" | "court";
+export type Place = "street" | "home" | "hq" | "court" | "haunt";
 
 export type Solid = {
   minX: number;

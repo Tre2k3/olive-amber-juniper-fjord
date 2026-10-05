@@ -10,6 +10,8 @@ import { bench, streetlight, trashBin } from "./kits/props";
 import { addGround, clearGround } from "./ground";
 import { footMarker, plantFeet, solePlane } from "./feet";
 import { buildDistricts, type DistrictAnchors } from "./districts";
+import { buildHaunt, type HauntWorld } from "./haunt";
+import { buildGoal } from "./kits/hoop";
 
 export { carBody };
 
@@ -26,10 +28,11 @@ export type Board = {
 
 export type SliceWorld = {
   scene: THREE.Scene;
-  solids: Record<"street" | "home" | "hq", Solid[]>;
+  solids: Record<"street" | "home" | "hq" | "haunt", Solid[]>;
   exterior: THREE.Group;
   home: THREE.Group;
   hq: THREE.Group;
+  haunt: HauntWorld;
   courtGate: { x: number; z: number };
   homeDoor: { x: number; z: number };
   hqDoor: { x: number; z: number };
@@ -379,29 +382,62 @@ function collectLights(root: THREE.Object3D, into: THREE.MeshStandardMaterial[])
 
 function courtTexture() {
   return canvasTex((g, w, h) => {
-    g.fillStyle = "#1a4c86";
+    g.fillStyle = "#100e0c";
     g.fillRect(0, 0, w, h);
-    g.strokeStyle = "#f4efe4";
+    g.fillStyle = "#1a1612";
+    for (let i = 0; i < 46; i++) g.fillRect(0, i * (h / 46), w, 1.2);
+    g.strokeStyle = "#d7a441";
     g.lineWidth = 10;
-    g.strokeRect(24, 24, w - 48, h - 48);
+    g.strokeRect(36, 34, w - 72, h - 68);
     g.beginPath();
-    g.moveTo(w / 2, 24);
-    g.lineTo(w / 2, h - 24);
+    g.moveTo(w / 2, 34);
+    g.lineTo(w / 2, h - 34);
     g.stroke();
     g.beginPath();
-    g.arc(w / 2, h / 2, 70, 0, Math.PI * 2);
+    g.arc(w / 2, h / 2, 78, 0, Math.PI * 2);
     g.stroke();
-    g.fillStyle = "#8e2a2a";
-    g.fillRect(24, h * 0.28, 150, h * 0.44);
-    g.fillRect(w - 174, h * 0.28, 150, h * 0.44);
-    g.strokeRect(24, h * 0.28, 150, h * 0.44);
-    g.strokeRect(w - 174, h * 0.28, 150, h * 0.44);
-    g.fillStyle = "#f4efe4";
-    g.font = "700 92px sans-serif";
+    g.fillStyle = "#8d1d1d";
+    g.fillRect(36, h * 0.2, 150, h * 0.6);
+    g.fillRect(w - 186, h * 0.2, 150, h * 0.6);
+    g.strokeRect(36, h * 0.2, 150, h * 0.6);
+    g.strokeRect(w - 186, h * 0.2, 150, h * 0.6);
+    g.beginPath();
+    g.arc(186, h / 2, 58, -Math.PI / 2, Math.PI / 2);
+    g.stroke();
+    g.beginPath();
+    g.arc(w - 186, h / 2, 58, Math.PI / 2, -Math.PI / 2);
+    g.stroke();
+    g.strokeStyle = "#e0b33a";
+    g.lineWidth = 8;
+    g.beginPath();
+    g.arc(36, h / 2, 210, -1.05, 1.05);
+    g.stroke();
+    g.beginPath();
+    g.arc(w - 36, h / 2, 210, Math.PI - 1.05, Math.PI + 1.05);
+    g.stroke();
+    g.fillStyle = "#e0b33a";
+    g.beginPath();
+    g.moveTo(w / 2, h / 2 - 132);
+    g.lineTo(w / 2 - 22, h / 2 - 86);
+    g.lineTo(w / 2 - 8, h / 2 - 86);
+    g.lineTo(w / 2 - 34, h / 2 - 48);
+    g.lineTo(w / 2 - 6, h / 2 - 48);
+    g.lineTo(w / 2, h / 2 - 16);
+    g.lineTo(w / 2 + 6, h / 2 - 48);
+    g.lineTo(w / 2 + 34, h / 2 - 48);
+    g.lineTo(w / 2 + 8, h / 2 - 86);
+    g.lineTo(w / 2 + 22, h / 2 - 86);
+    g.closePath();
+    g.fill();
+    g.font = "800 132px sans-serif";
     g.textAlign = "center";
-    g.fillText("901", w / 2, h / 2 + 10);
-    g.font = "600 28px sans-serif";
-    g.fillText("MEMPHIS", w / 2, h / 2 + 48);
+    g.fillText("901", w / 2, h / 2 + 86);
+    g.font = "700 26px sans-serif";
+    g.fillStyle = "#f4efe4";
+    g.fillText("901 DAY   ·   MEMPHIS", w / 2, h - 58);
+    g.fillStyle = "#e0b33a";
+    g.font = "700 22px sans-serif";
+    g.fillText("SACKRELIGIOUS", w / 2, 62);
   }, 1024, 640);
 }
 
@@ -418,30 +454,6 @@ function muralTexture() {
     g.font = "700 54px sans-serif";
     g.fillText("MEMPHIS", w / 2, h * 0.72);
   }, 1024, 512);
-}
-
-function hoopRig(rimX: number, z: number, dir: 1 | -1, parent: THREE.Object3D) {
-  const boardX = rimX - dir * 0.48;
-  box(0.12, 3.3, 0.12, boardX - dir * 0.2, 1.65, z, black, parent);
-  const board = new THREE.MeshStandardMaterial({ color: 0xf7f7f7, roughness: 0.35 });
-  box(0.08, 1.05, 1.7, boardX, 3.15, z, board, parent);
-  box(0.02, 0.42, 0.55, boardX + dir * 0.05, 2.95, z, new THREE.MeshStandardMaterial({ color: 0xb43322, roughness: 0.4 }), parent);
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.035, 8, 18), gold);
-  rim.position.set(rimX, 2.72, z);
-  rim.rotation.y = Math.PI / 2;
-  rim.castShadow = true;
-  parent.add(rim);
-  const net = new THREE.Mesh(
-    new THREE.ConeGeometry(0.24, 0.42, 8, 1, true),
-    new THREE.MeshStandardMaterial({ color: 0xf4efe4, transparent: true, opacity: 0.4, side: THREE.DoubleSide, roughness: 1 }),
-  );
-  net.rotation.x = Math.PI;
-  net.position.set(rimX, 2.46, z);
-  parent.add(net);
-  return {
-    hoop: { x: rimX, z, y: 2.72 },
-    board: { x: boardX, minY: 2.6, maxY: 3.7, minZ: z - 0.85, maxZ: z + 0.85, nx: dir },
-  };
 }
 
 function chainMat() {
@@ -836,6 +848,9 @@ export function buildSlice(): SliceWorld {
   for (let i = 0; i <= 10; i++) box(0.08, 2.75, 0.08, courtX - 11.2 + i * 2.24, 1.35, courtZ - 7.1, black, exterior);
   box(0.1, 2.9, 0.1, courtX - 1.35, 1.45, courtZ + 7.1, black, exterior);
   box(0.1, 2.9, 0.1, courtX + 1.35, 1.45, courtZ + 7.1, black, exterior);
+  const goldRail = new THREE.MeshStandardMaterial({ color: 0xe0b33a, roughness: 0.4, metalness: 0.45 });
+  box(22.4, 0.08, 0.1, courtX, 2.62, courtZ - 7.1, goldRail, exterior);
+  box(22.4, 0.08, 0.1, courtX, 2.62, courtZ + 7.1, goldRail, exterior);
   const arch = new THREE.Mesh(new THREE.TorusGeometry(10, 0.38, 8, 24, Math.PI), new THREE.MeshStandardMaterial({ color: 0x6a5346, metalness: 0.35, roughness: 0.55 }));
   arch.position.set(courtX, 6.8, courtZ - 15);
   exterior.add(arch);
@@ -853,27 +868,95 @@ export function buildSlice(): SliceWorld {
   streetSolids.push({ minX: courtX + 1.3, maxX: courtX + 11.4, minZ: courtZ + 6.8, maxZ: courtZ + 7.4 });
   streetSolids.push({ minX: courtX - 11.5, maxX: courtX - 10.9, minZ: courtZ - 7, maxZ: courtZ + 7 });
   streetSolids.push({ minX: courtX + 10.9, maxX: courtX + 11.5, minZ: courtZ - 7, maxZ: courtZ + 7 });
-  for (let i = 0; i < 4; i++) box(4.2, 0.22, 1.15, courtX - 1 + i * 0.08, 0.18 + i * 0.22, courtZ - 8.5, wood, exterior);
-  const west = hoopRig(courtX - 9.6, courtZ, 1, exterior);
-  const east = hoopRig(courtX + 9.6, courtZ, -1, exterior);
+  for (let i = 0; i < 5; i++) {
+    const seat = new THREE.MeshStandardMaterial({ color: i % 2 ? 0x141414 : 0xc9a227, roughness: 0.5, metalness: 0.15 });
+    box(18, 0.22, 1.15, courtX, 0.28 + i * 0.32, courtZ - 9.4 - i * 0.55, seat, exterior);
+    box(18, 0.55, 0.08, courtX, 0.62 + i * 0.32, courtZ - 9.85 - i * 0.55, seat, exterior);
+  }
+  const west = buildGoal(courtX - 8.7, courtZ, 1, exterior);
+  const east = buildGoal(courtX + 8.7, courtZ, -1, exterior);
+  const bannerTex = (title: string, sub: string) =>
+    canvasTex((g, w, h) => {
+      g.fillStyle = "#100e0c";
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = "#e0b33a";
+      g.fillRect(0, 0, 18, h);
+      g.font = "800 64px sans-serif";
+      g.textAlign = "center";
+      g.textBaseline = "middle";
+      g.fillText(title, w / 2, h * 0.38);
+      g.fillStyle = "#f4efe4";
+      g.font = "700 28px sans-serif";
+      g.fillText(sub, w / 2, h * 0.72);
+    }, 512, 180);
+  for (const [bz, rot, title, sub] of [
+    [courtZ - 6.7, 0, "901 DAY", "MEMPHIS"],
+    [courtZ + 6.7, Math.PI, "SACKRELIGIOUS", "CLOTHING"],
+  ] as const) {
+    const mat = new THREE.MeshStandardMaterial({ map: bannerTex(title, sub), emissive: 0xffe0b0, emissiveMap: bannerTex(title, sub), emissiveIntensity: 0.25, roughness: 0.5 });
+    glowMats.push(mat);
+    const board = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 1.5), mat);
+    board.position.set(courtX, 1.7, bz);
+    board.rotation.y = rot;
+    exterior.add(board);
+  }
+  for (const [bx, title] of [
+    [courtX - 8.2, "901"],
+    [courtX - 2.6, "MEMPHIS"],
+    [courtX + 2.8, "CROWN"],
+    [courtX + 8.2, "DAY"],
+  ] as const) {
+    const tex = canvasTex((g, w, h) => {
+      g.fillStyle = "#100e0c";
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = "#e0b33a";
+      g.fillRect(0, 0, w, 16);
+      g.fillRect(0, h - 16, w, 16);
+      g.font = "800 54px sans-serif";
+      g.textAlign = "center";
+      g.textBaseline = "middle";
+      g.fillText(title, w / 2, h * 0.42);
+      g.fillStyle = "#f4efe4";
+      g.font = "700 28px sans-serif";
+      g.fillText("901 DAY", w / 2, h * 0.68);
+    }, 256, 512);
+    const mat = new THREE.MeshStandardMaterial({
+      map: tex,
+      emissive: 0xffe0b0,
+      emissiveMap: tex,
+      emissiveIntensity: 0.3,
+      roughness: 0.45,
+      side: THREE.DoubleSide,
+    });
+    glowMats.push(mat);
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 2.3), mat);
+    flag.position.set(bx, 4.05, courtZ + 7.45);
+    exterior.add(flag);
+    box(0.06, 4.6, 0.06, bx, 2.3, courtZ + 7.45, black, exterior);
+  }
   const scoreTex = canvasTex((g, w, h) => {
     g.fillStyle = "#0c0c0c";
     g.fillRect(0, 0, w, h);
     g.strokeStyle = "#e0b33a";
     g.lineWidth = 8;
     g.strokeRect(8, 8, w - 16, h - 16);
-    paintLabel(g, "901 COURT", w / 2, h * 0.28, w * 0.86, "#e0b33a", 54);
-    paintLabel(g, "HOME  00", w * 0.28, h * 0.68, w * 0.4, "#ff4d4d", 42);
-    paintLabel(g, "GUEST  00", w * 0.72, h * 0.68, w * 0.42, "#7eb6ff", 42);
+    paintLabel(g, "901 DAY", w / 2, h * 0.28, w * 0.86, "#e0b33a", 48);
+    paintLabel(g, "HOME  12", w * 0.28, h * 0.68, w * 0.4, "#ffd24a", 40);
+    paintLabel(g, "AWAY  08", w * 0.72, h * 0.68, w * 0.42, "#ff4d4d", 40);
   }, 768, 384);
   const scoreMat = new THREE.MeshStandardMaterial({ map: scoreTex, emissive: 0xffe0b0, emissiveMap: scoreTex, emissiveIntensity: 0.35, roughness: 0.4 });
   glowMats.push(scoreMat);
-  const score = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.6), scoreMat);
-  score.position.set(courtX + 6.2, 3.1, courtZ + 6.55);
+  const score = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.7), scoreMat);
+  score.position.set(courtX + 6.2, 3.35, courtZ + 6.85);
   score.rotation.y = Math.PI;
   exterior.add(score);
-  box(0.12, 2.4, 0.12, courtX + 5.1, 1.2, courtZ + 6.4, black, exterior);
-  box(0.12, 2.4, 0.12, courtX + 7.3, 1.2, courtZ + 6.4, black, exterior);
+  const scoreBack = score.clone();
+  scoreBack.rotation.y = 0;
+  scoreBack.position.z = courtZ + 7.55;
+  exterior.add(scoreBack);
+  box(3.7, 1.95, 0.12, courtX + 6.2, 3.35, courtZ + 7.2, new THREE.MeshStandardMaterial({ color: 0x1a140c, roughness: 0.5, metalness: 0.4 }), exterior);
+  box(0.1, 3.4, 0.1, courtX + 4.6, 1.7, courtZ + 7.2, black, exterior);
+  box(0.1, 3.4, 0.1, courtX + 7.8, 1.7, courtZ + 7.2, black, exterior);
   bench(courtX + 3.4, courtZ + 8.6, Math.PI, exterior);
   const courtLights: THREE.PointLight[] = [];
   for (const lx of [courtX - 8, courtX + 8]) {
@@ -901,13 +984,17 @@ export function buildSlice(): SliceWorld {
   const interior = buildHqInterior(hq, hqSolids, glowMats);
   const counterPack = interior.counterPack;
   const kSprite = interior.kSprite;
+  const built = buildHaunt(exterior, streetSolids, glowMats, lamps);
+  const hauntSolids = built.solids;
+  scene.add(built.world.group);
 
   return {
     scene,
-    solids: { street: streetSolids, home: homeSolids, hq: hqSolids },
+    solids: { street: streetSolids, home: homeSolids, hq: hqSolids, haunt: hauntSolids },
     exterior,
     home,
     hq,
+    haunt: built.world,
     homeDoor: { x: -32, z: 9.55 },
     hqDoor: { x: hqX, z: hqZ + 6.35 },
     homeOut: { x: -32, z: 8.4 },

@@ -62,6 +62,7 @@ function placeName(place: HudState["place"]) {
   if (place === "home") return "BENJI HOME";
   if (place === "hq") return "HQ";
   if (place === "court") return "901 COURT";
+  if (place === "haunt") return "HAUNTED";
   return "THE BLOCK";
 }
 
@@ -120,8 +121,8 @@ function Chip({ label, value }: { label: string; value: string }) {
 }
 
 function Mini({ state }: { state: HudState }) {
-  const x = state.place === "home" ? 28 : state.place === "hq" ? 55 : Math.max(4, Math.min(96, ((state.x + 80) / 190) * 100));
-  const y = state.place === "home" || state.place === "hq" ? 34 : Math.max(4, Math.min(66, ((30 - state.z) / 130) * 70));
+  const x = state.place === "home" ? 28 : state.place === "hq" ? 55 : state.place === "haunt" ? 18 : Math.max(4, Math.min(96, ((state.x + 80) / 190) * 100));
+  const y = state.place === "home" || state.place === "hq" || state.place === "haunt" ? 34 : Math.max(4, Math.min(66, ((30 - state.z) / 130) * 70));
   return (
     <svg viewBox="0 0 100 70" className="mt-1 h-16 w-full">
       <rect width="100" height="70" fill="#1a1c1b" />
