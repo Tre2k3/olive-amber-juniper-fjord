@@ -3,6 +3,7 @@ import type { Solid } from "../../core/types";
 import { concreteSlab, mulch, shingle, siding, trim } from "./materials";
 import { mailbox } from "./props";
 import { ornamental, shrub } from "./trees";
+import { addGround } from "../ground";
 
 function box(w: number, h: number, d: number, x: number, y: number, z: number, mat: THREE.Material, parent: THREE.Object3D) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
@@ -106,6 +107,13 @@ export function residence(
   const porchW = style === 1 ? w * 0.72 : w * 0.55;
   const deck = new THREE.MeshStandardMaterial({ color: 0x8a623d, roughness: 0.8 });
   box(porchW, 0.12, 2.4, x, 0.42, porchZ, deck, parent);
+  addGround({
+    minX: x - porchW / 2,
+    maxX: x + porchW / 2,
+    minZ: porchZ - 1.2,
+    maxZ: porchZ + 1.2,
+    y: 0.48,
+  });
   box(porchW + 0.3, 0.08, 2.55, x, 2.55, porchZ, roofMat, parent);
   for (const sx of [-porchW * 0.42, porchW * 0.42]) {
     box(0.12, 2.15, 0.12, x + sx, 1.35, porchZ - 1.05, trim, parent);

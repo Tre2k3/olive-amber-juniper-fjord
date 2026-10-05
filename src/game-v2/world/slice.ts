@@ -7,6 +7,8 @@ import { sidewalkRun } from "./kits/street";
 import { grass as grassMatKit } from "./kits/materials";
 import { matureTree, palmTree, shadeTree, shrub as kitShrub, streetTree } from "./kits/trees";
 import { bench, planter, streetlight, trashBin } from "./kits/props";
+import { addGround, clearGround } from "./ground";
+import { footMarker, plantFeet, solePlane } from "./feet";
 
 export { carBody };
 
@@ -214,24 +216,27 @@ function sign(title: string, sub: string, w: number, h: number) {
   return { plane, mat };
 }
 
-function actor(url: string, w: number, h: number, x: number, z: number, parent: THREE.Object3D) {
+function actor(url: string, w: number, h: number, footPad: number, pxH: number, x: number, z: number, parent: THREE.Object3D) {
   const g = new THREE.Group();
   g.position.set(x, 0, z);
   const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(0.38, 14),
-    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.38, depthWrite: false }),
+    new THREE.CircleGeometry(0.34, 14),
+    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4, depthWrite: false }),
   );
+  shadow.name = "contact-shadow";
   shadow.rotation.x = -Math.PI / 2;
-  shadow.position.y = 0.035;
+  shadow.position.y = 0.01;
   g.add(shadow);
+  g.add(footMarker());
   const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.18, side: THREE.DoubleSide });
   figureMats.push(mat);
-  const sprite = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+  const sprite = new THREE.Mesh(solePlane(w, h, footPad, pxH), mat);
   sprite.name = "sprite";
-  sprite.position.y = h / 2;
+  sprite.position.y = 0;
   sprite.castShadow = true;
   g.add(sprite);
   parent.add(g);
+  plantFeet(g);
   new THREE.TextureLoader().load(url, (tex) => {
     tex.colorSpace = THREE.SRGBColorSpace;
     mat.map = tex;
@@ -242,7 +247,7 @@ function actor(url: string, w: number, h: number, x: number, z: number, parent: 
 
 function spawn(asset: Spawnable, x: number, z: number, parent: THREE.Object3D) {
   const size = frameSize(asset);
-  const g = actor(size.src, size.w, size.h, x, z, parent);
+  const g = actor(size.src, size.w, size.h, size.footPad, size.pxH, x, z, parent);
   g.userData.asset = asset;
   g.userData.views = asset.views;
   g.userData.heading = Math.PI;
@@ -474,6 +479,7 @@ function signal(x: number, z: number, parent: THREE.Object3D) {
 export function buildSlice(): SliceWorld {
   figureMats.length = 0;
   resetVehicleCards();
+  clearGround();
   const scene = new THREE.Scene();
   const skyDay = skyTex(false);
   const skyNight = skyTex(true);
@@ -515,6 +521,8 @@ export function buildSlice(): SliceWorld {
   const walk = sidewalkMat();
   box(156, 0.06, 9.1, 8, 0.03, 0, asphalt, exterior);
   box(9.1, 0.06, 48, 8, 0.03, -2, asphalt, exterior);
+  addGround({ minX: -70, maxX: 86, minZ: -4.55, maxZ: 4.55, y: 0.06 });
+  addGround({ minX: 3.45, maxX: 12.55, minZ: -26, maxZ: 22, y: 0.06 });
   sidewalkRun(exterior, 6.35, -62, 78, [[-38.2, -32.4], [-18.6, -14.2]]);
   sidewalkRun(exterior, -6.35, -62, 78, [[31.2, 36.4]]);
   box(0.34, 0.22, 40, 4.55, 0.11, -2, curbMat, exterior);
@@ -582,7 +590,7 @@ export function buildSlice(): SliceWorld {
     spawn(ped.female03, -5.15, 6.4, exterior),
   ];
   const shopper = spawn(ped.male04, 16.4, 6.35, exterior);
-  const porch = spawn(characters.mamaDee, -22.4, 6.55, exterior);
+  const porch = spawn(characters.mamaDee, -20.5, 10.05, exterior);
   const hqIdle = spawn(characters.nitro, 58.5, 6.4, exterior);
   const unc = spawn(characters.uncJ, 40.5, -6.35, exterior);
   const strike = spawn(characters.strike, 24.2, -6.3, exterior);
@@ -762,6 +770,7 @@ export function buildSlice(): SliceWorld {
   const courtZ = -22;
   const courtMat = new THREE.MeshStandardMaterial({ map: courtTexture(), roughness: 0.62 });
   mesh(new THREE.PlaneGeometry(22, 14), courtMat, courtX, 0.04, courtZ, exterior).rotation.x = -Math.PI / 2;
+  addGround({ minX: courtX - 11, maxX: courtX + 11, minZ: courtZ - 7, maxZ: courtZ + 7, y: 0.04 });
   const fence = chainMat();
   box(22.4, 2.6, 0.08, courtX, 1.3, courtZ - 7.1, fence, exterior);
   box(9.2, 2.6, 0.08, courtX - 6.4, 1.3, courtZ + 7.1, fence, exterior);
@@ -822,7 +831,7 @@ export function buildSlice(): SliceWorld {
     exterior.add(light);
     courtLights.push(light);
   }
-  const og = spawn(characters.courtOg, courtX, courtZ + 9.1, exterior);
+  const og = spawn(characters.courtOg, courtX, courtZ + 5.6, exterior);
   billboards.push(og);
 
   buildHomeInterior(home, homeSolids, glowMats);
@@ -846,7 +855,7 @@ export function buildSlice(): SliceWorld {
     hoop: west.hoop,
     hoops: [west.hoop, east.hoop],
     backboards: [west.board, east.board],
-    courtOg: { x: courtX, z: courtZ + 9.1 },
+    courtOg: { x: courtX, z: courtZ + 5.6 },
     wardrobe: { x: -3.5, z: -2.5 },
     kAnchor: { x: 1.15, z: 1.9 },
     sun,
@@ -916,6 +925,7 @@ function buildHomeInterior(group: THREE.Group, solids: Solid[], glow: THREE.Mesh
   light.position.set(0, 2.5, 0);
   group.add(light);
   group.userData.lights = [light];
+  addGround({ minX: -5, maxX: 5, minZ: 196, maxZ: 204, y: 0 });
 }
 
 function buildHqInterior(group: THREE.Group, solids: Solid[], glow: THREE.MeshStandardMaterial[]) {
@@ -995,8 +1005,9 @@ function buildHqInterior(group: THREE.Group, solids: Solid[], glow: THREE.MeshSt
     glow.push(bulb);
     mesh(new THREE.SphereGeometry(0.06, 8, 6), bulb, -4 + i * 1.6, 2.95, 0.2, group);
   }
-  const kSize = frameSize(characters.kBlanco);
-  const k = actor(kSize.src, kSize.w, kSize.h, 1.15, 1.9, group);
+  const kGroup = spawn(characters.kBlanco, 1.15, 1.9, group);
+  kGroup.userData.heading = 0;
+  const k = kGroup;
   const pack = box(0.28, 0.16, 0.22, 4.6, 1.22, 2.15, gold, group);
   const light = new THREE.PointLight(0xffe2b0, 0, 20, 2);
   light.position.set(0, 2.8, 0);
@@ -1004,5 +1015,6 @@ function buildHqInterior(group: THREE.Group, solids: Solid[], glow: THREE.MeshSt
   light2.position.set(4.6, 2.3, 1.4);
   group.add(light, light2);
   group.userData.lights = [light, light2];
+  addGround({ minX: 72, maxX: 88, minZ: 194, maxZ: 206, y: 0.01 });
   return { kSprite: k.getObjectByName("sprite")!, counterPack: pack };
 }
