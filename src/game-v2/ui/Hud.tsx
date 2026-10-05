@@ -10,6 +10,8 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
         <Chip label="RESPECT" value={String(state.respect)} />
         <Chip label={placeName(state.place)} value={state.night ? "NIGHT" : "DAY"} />
         {state.carrying && <Chip label="DROP" value="ON" />}
+        {state.boost && <Chip label="FED" value="GO" />}
+        {state.fit !== "default" && <Chip label="FIT" value={state.fit.toUpperCase()} />}
       </div>
       <div className="absolute right-3 top-3 w-24 rounded-md border border-[#e0b33a55] bg-[#0d0d0dcc] p-2 sm:top-4 sm:w-36">
         <div className="text-[10px] tracking-[0.18em] text-[#e0b33a]">MEMPHIS</div>
@@ -18,6 +20,13 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
       <div className="absolute left-3 right-[7.5rem] top-[7.15rem] rounded-md bg-[#0d0d0dcc] px-3 py-2 text-center text-sm sm:left-1/2 sm:right-auto sm:top-4 sm:max-w-[70vw] sm:-translate-x-1/2">
         {state.mission}
       </div>
+      <div className="absolute left-3 top-[10.6rem] flex gap-1 text-[10px] tracking-[0.14em] sm:left-1/2 sm:top-14 sm:-translate-x-1/2">
+        <Mark on={state.marks.fish} label="FISH" />
+        <Mark on={state.marks.bowl} label="BOWL" />
+        <Mark on={state.marks.food} label="EAT" />
+        <Mark on={state.marks.race} label="RUN" />
+      </div>
+      {state.log && <Log state={state} />}
       {state.dialogue && <Dialogue line={state.dialogue} />}
       {state.charge > 0 && (
         <div className="absolute bottom-28 left-1/2 h-2 w-40 -translate-x-1/2 overflow-hidden rounded bg-[#0d0d0d] sm:bottom-24">
@@ -43,7 +52,7 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
         <Round label="SHOT" onPointerDown={() => action("SpaceDown")} onPointerUp={() => action("SpaceUp")} />
       </div>
       <div className="absolute bottom-3 right-4 hidden text-[11px] tracking-wide text-[#f4efe4aa] sm:block">
-        WASD move · E interact · Space shoot · N night
+        WASD move · E interact · Space shoot · N night · M card
       </div>
     </div>
   );
@@ -56,13 +65,40 @@ function placeName(place: HudState["place"]) {
   return "THE BLOCK";
 }
 
+function Mark({ on, label }: { on: boolean; label: string }) {
+  return (
+    <div className={`rounded px-2 py-1 ${on ? "bg-[#e0b33a] text-[#0d0d0d]" : "bg-[#0d0d0dcc] text-[#f4efe488]"}`}>{label}</div>
+  );
+}
+
+function Log({ state }: { state: HudState }) {
+  return (
+    <div className="absolute left-3 top-[12.4rem] w-56 rounded-md border border-[#e0b33a] bg-[#0d0d0df2] p-3 text-sm sm:left-4 sm:top-28">
+      <div className="text-[10px] tracking-[0.18em] text-[#e0b33a]">BLOCK CARD</div>
+      <div className="mt-2">Fit {state.fit}</div>
+      <div>Bait {state.bait}</div>
+      <div>Best bowl {state.bestBowl}</div>
+      <div>Best run {state.bestRace ? `${state.bestRace.toFixed(1)}s` : "—"}</div>
+      <div className="mt-2 text-xs text-[#f4efe4aa]">Court fit pockets shots. River fit holds the bite. Night fit owns the strip.</div>
+    </div>
+  );
+}
+
 function Dialogue({ line }: { line: string }) {
   const [name, text] = line.includes(" — ") ? line.split(" — ") : ["", line];
   const portrait = name.startsWith("Court")
     ? characters.courtOg.views.front.src
     : name.startsWith("K")
       ? characters.kBlanco.portrait
-      : characters.benji.views.front.src;
+      : name.startsWith("Mama")
+        ? characters.mamaDee.views.front.src
+        : name.startsWith("Unc")
+          ? characters.uncJ.views.front.src
+          : name.startsWith("Nitro") || name.startsWith("Night")
+            ? characters.nitro.views.front.src
+            : name.startsWith("Strike") || name.startsWith("901")
+              ? characters.strike.views.front.src
+              : characters.benji.views.front.src;
   return (
     <div className="absolute bottom-40 left-1/2 flex w-[min(94vw,520px)] -translate-x-1/2 items-center gap-3 rounded-md border border-[#e0b33a] bg-[#0d0d0df2] px-3 py-3 sm:bottom-20">
       <img src={portrait} alt="" className="h-16 w-12 shrink-0 object-contain object-bottom" />

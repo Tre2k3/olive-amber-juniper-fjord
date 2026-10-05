@@ -5,6 +5,22 @@ import { buildSlice, carBody, type SliceWorld } from "./world/slice";
 import { presentVehicles } from "./world/kits/vehicles";
 import { characters, frameSize } from "./assets/characters";
 import { footMarker, plantFeet, solePlane } from "./world/feet";
+import {
+  activityCharge,
+  activityPrompt,
+  cancelApproach,
+  cityMission,
+  crossFinish,
+  freshCity,
+  hookFish,
+  locked,
+  pullEarly,
+  tickCity,
+  useSpot,
+  type City,
+  type PlayEvent,
+  type Spot,
+} from "./play/city";
 
 type Car = { lane: number; s: number; speed: number; mesh: THREE.Group };
 
@@ -67,6 +83,45 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   ball.position.set(world.hoop.x + 4, 0.16, world.hoop.z);
   world.scene.add(ball);
 
+  const rod = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.02, 0.025, 1.35, 6),
+    new THREE.MeshStandardMaterial({ color: 0x6b3a22, roughness: 0.7 }),
+  );
+  rod.position.set(0.38, 1.05, 0.05);
+  rod.rotation.z = -0.7;
+  rod.visible = false;
+  player.add(rod);
+  const bobber = new THREE.Mesh(
+    new THREE.SphereGeometry(0.08, 10, 8),
+    new THREE.MeshStandardMaterial({ color: 0xe0b33a, emissive: 0xe0b33a, emissiveIntensity: 0.4 }),
+  );
+  bobber.visible = false;
+  bobber.position.set(-16, 0.18, -81);
+  world.scene.add(bobber);
+  const bowlBall = new THREE.Mesh(
+    new THREE.SphereGeometry(0.16, 16, 12),
+    new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.35, metalness: 0.4 }),
+  );
+  bowlBall.visible = false;
+  world.scene.add(bowlBall);
+  const pinMat = new THREE.MeshStandardMaterial({ color: 0xf4efe4, roughness: 0.45 });
+  const pinNeck = new THREE.MeshStandardMaterial({ color: 0xc4473a, roughness: 0.5 });
+  const pins: THREE.Mesh[] = [];
+  const pinHome: THREE.Vector3[] = [];
+  const rack = [[0], [-0.26, 0.26], [-0.52, 0, 0.52], [-0.78, -0.26, 0.26, 0.78]];
+  rack.forEach((row, i) => {
+    row.forEach((ox) => {
+      const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.1, 0.46, 8), pinMat);
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.06, 8), pinNeck);
+      band.position.y = 0.08;
+      pin.add(band);
+      pin.position.set(92 + ox, 0.36, -29.4 - i * 0.34);
+      pinHome.push(pin.position.clone());
+      world.scene.add(pin);
+      pins.push(pin);
+    });
+  });
+
   const textures: Partial<Record<Facing, THREE.Texture>> = {};
   const loader = new THREE.TextureLoader();
   for (const face of ["front", "back", "left", "right"] as const) {
@@ -107,6 +162,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   let interactHeld = false;
   let ballHeld = false;
   let pinBall: THREE.Vector3 | null = null;
+  let logOpen = false;
+  const city: City = freshCity();
   const ballVel = new THREE.Vector3();
   player.position.set(-30.2, 0, 5.55);
 
@@ -118,6 +175,14 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       delivered?: boolean;
       mission?: string;
       dialogue?: string;
+      bait?: number;
+      fit?: City["fit"];
+      fed?: boolean;
+      fished?: boolean;
+      bowled?: boolean;
+      raced?: boolean;
+      bestBowl?: number;
+      bestRace?: number;
     } | null;
     if (saved && Number.isFinite(saved.dollars)) dollars = saved.dollars!;
     if (saved && Number.isFinite(saved.respect)) respect = saved.respect!;
@@ -125,15 +190,24 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (saved?.delivered) delivered = true;
     if (saved?.mission) mission = saved.mission;
     if (saved?.dialogue) dialogue = saved.dialogue;
+    if (saved && Number.isFinite(saved.bait)) city.bait = saved.bait!;
+    if (saved?.fit) city.fit = saved.fit;
+    if (saved?.fed) city.fed = true;
+    if (saved?.fished) city.fished = true;
+    if (saved?.bowled) city.bowled = true;
+    if (saved?.raced) city.raced = true;
+    if (saved && Number.isFinite(saved.bestBowl)) city.bestBowl = saved.bestBowl!;
+    if (saved && Number.isFinite(saved.bestRace)) city.bestRace = saved.bestRace!;
   } catch {
     /* fresh slice */
   }
 
   const onKey = (e: KeyboardEvent, down: boolean) => {
-    if (["KeyW", "KeyA", "KeyS", "KeyD", "Space", "KeyN", "KeyE", "ShiftLeft"].includes(e.code)) e.preventDefault();
+    if (["KeyW", "KeyA", "KeyS", "KeyD", "Space", "KeyN", "KeyE", "KeyM", "ShiftLeft"].includes(e.code)) e.preventDefault();
     if (down) keys.add(e.code);
     else keys.delete(e.code);
     if (down && e.code === "KeyN") night = !night;
+    if (down && e.code === "KeyM") logOpen = !logOpen;
   };
   const kd = (e: KeyboardEvent) => onKey(e, true);
   const ku = (e: KeyboardEvent) => onKey(e, false);
@@ -181,7 +255,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (hudAcc > 0.12) {
       hudAcc = 0;
       push(hud());
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ dollars, respect, carrying, delivered, mission, dialogue }));
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        dollars, respect, carrying, delivered, mission, dialogue,
+        bait: city.bait, fit: city.fit, fed: city.fed, fished: city.fished, bowled: city.bowled, raced: city.raced,
+        bestBowl: city.bestBowl, bestRace: city.bestRace,
+      }));
     }
   };
   frame = requestAnimationFrame(loop);
@@ -194,7 +272,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       respect,
       mission,
       prompt: promptFor(),
-      charge: place === "court" ? charge : 0,
+      charge: place === "court" ? charge : activityCharge(city),
       night,
       made,
       taken,
@@ -202,23 +280,33 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       carrying,
       x: player.position.x,
       z: player.position.z,
+      fit: city.fit,
+      bait: city.bait,
+      boost: city.boost > 0,
+      log: logOpen,
+      marks: { fish: city.fished, bowl: city.bowled, food: city.fed, race: city.raced },
+      bestBowl: city.bestBowl,
+      bestRace: city.bestRace,
     };
   }
 
   function promptFor() {
+    const live = activityPrompt(city);
+    if (live) return live;
     if (place === "street" && near(world.homeDoor, 1.4)) return "E  Enter home";
     if (place === "street" && near(world.hqDoor, 1.6)) return "E  Enter SackReligious";
     if (place === "home" && nearLocal(world.homeIn, 1.3, 0, 200)) return "E  Leave home";
     if (place === "hq" && nearLocal(world.hqIn, 1.4, 80, 200)) return "E  Leave HQ";
     if (place === "hq" && nearLocal(world.kAnchor, 2.2, 80, 200)) return delivered ? "E  Talk to K Blanco" : "E  Talk to K Blanco";
-    if (place === "home" && nearLocal(world.wardrobe, 1.35, 0, 200)) return "E  Open wardrobe";
+    if (place === "home" && nearLocal(world.wardrobe, 1.35, 0, 200)) return "E  Change fit";
     if (near(world.courtOg, 1.8)) return carrying ? "E  Deliver to Court OG" : "E  Talk to Court OG";
-    if (place === "street" && near(world.districts.bowlDoor, 2.4)) return "E  901 Bowl";
-    if (place === "street" && near(world.districts.pier, 2.2)) return "E  Fish the river";
-    if (place === "street" && near(world.districts.bait, 2.2)) return "E  Bait shop";
-    if (place === "street" && near(world.districts.meetStart, 2.6)) return "E  Night run start";
-    if (place === "street" && near(world.districts.truckOrder, 2.4)) return "E  Order";
+    if (place === "street" && near(world.districts.bowlDoor, 2.4)) return "E  Roll at 901 Bowl";
+    if (place === "street" && near(world.districts.pier, 2.2)) return city.bait > 0 ? "E  Cast (bait on)" : "E  Cast a line";
+    if (place === "street" && near(world.districts.bait, 2.2)) return "E  Buy bait  $15";
+    if (place === "street" && near(world.districts.meetStart, 2.6)) return "E  Run the strip";
+    if (place === "street" && near(world.districts.truckOrder, 2.4)) return "E  Order at the window";
     if (place === "court") return ballHeld ? "Hold to shoot" : "E  Pick up ball";
+    if (namedPed(1.7)) return "E  Talk";
     return "";
   }
 
@@ -232,18 +320,23 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   function step(dt: number, hold: boolean, interact: boolean) {
     applyNight();
+    const busy = locked(city);
+    const steer = (keys.has("KeyD") ? 1 : 0) - (keys.has("KeyA") ? 1 : 0) + touchX;
     const basis = cameraBasis();
     const sx = (keys.has("KeyD") ? 1 : 0) - (keys.has("KeyA") ? 1 : 0) + touchX;
     const sy = (keys.has("KeyW") ? 1 : 0) - (keys.has("KeyS") ? 1 : 0) + touchY;
     const len = Math.hypot(sx, sy);
-    moving = len > 0.15;
+    moving = !busy && len > 0.15;
     if (moving) walkTime += dt;
     if (moving) {
       facing = Math.abs(sx) > Math.abs(sy) ? (sx > 0 ? "right" : "left") : sy > 0 ? "back" : "front";
       camDist = null;
       camHeight = null;
       camLookY = null;
-      const speed = (keys.has("ShiftLeft") ? 6.4 : 4.1) * Math.min(1, len);
+      let speed = (keys.has("ShiftLeft") ? 6.4 : 4.1) * Math.min(1, len);
+      if (city.race) speed = city.fit === "night" ? 11.4 : 9.4;
+      else if (city.fit === "night") speed *= 1.12;
+      if (city.boost > 0) speed *= 1.22;
       const mx = (basis.right.x * sx + basis.fwd.x * sy) / len * speed;
       const mz = (basis.right.z * sx + basis.fwd.z * sy) / len * speed;
       player.position.x += mx * dt;
@@ -267,6 +360,16 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     world.counterPack.visible = !carrying && !delivered;
 
     if (interact) tryEnter();
+    const play = tickCity(city, dt, hold, steer);
+    if (play) grant(play);
+    if (city.race && player.position.x > -19.5 && player.position.z < -33 && player.position.z > -40.2) {
+      const finish = crossFinish(city);
+      if (finish) grant(finish);
+    }
+    rod.visible = Boolean(city.fish);
+    bobber.visible = Boolean(city.fish);
+    if (city.fish) bobber.position.y = 0.16 + Math.sin(performance.now() / 180) * 0.04;
+    presentBowl();
     updatePlace();
     updateBall(dt, hold, interact);
     updateTraffic(dt);
@@ -313,6 +416,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   }
 
   function tryEnter() {
+    if (city.fish) {
+      grant(city.fish.phase === "bite" ? hookFish(city) : pullEarly(city));
+      return;
+    }
+    if (city.bowl?.phase === "aim") {
+      grant(cancelApproach(city));
+      resetPins();
+      return;
+    }
     if (place === "street" && near(world.homeDoor, 1.4)) {
       place = "home";
       player.position.set(world.homeIn.x, 0, 201.2);
@@ -341,7 +453,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return;
     }
     if (place === "home" && nearLocal(world.wardrobe, 1.35, 0, 200)) {
-      dialogue = "Wardrobe — Default fit stays on. Hat, chain, cross, and the green kicks.";
+      grant(useSpot(city, "wardrobe", dollars));
       return;
     }
     if (place === "hq" && nearLocal(world.hqIn, 1.4, 80, 200)) {
@@ -350,23 +462,30 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return;
     }
     if (place === "street" && near(world.districts.bowlDoor, 2.4)) {
-      dialogue = "901 Bowl — Lanes are open. Shoes at the desk, neon stays on.";
+      const play = useSpot(city, "bowl", dollars);
+      if (play.teleport) {
+        player.position.set(play.teleport.x, 0, play.teleport.z);
+        resetPins();
+      }
+      grant(play);
       return;
     }
     if (place === "street" && near(world.districts.pier, 2.2)) {
-      dialogue = "River — This spot is live. Drop a line off the pier.";
+      grant(useSpot(city, "pier", dollars));
       return;
     }
     if (place === "street" && near(world.districts.bait, 2.2)) {
-      dialogue = "Bait shop — Worms, tackle, cooler. The river is right there.";
+      grant(useSpot(city, "bait", dollars));
       return;
     }
     if (place === "street" && near(world.districts.meetStart, 2.6)) {
-      dialogue = "Night run — Start line is lit. Cars stage on the strip.";
+      const play = useSpot(city, "meet", dollars);
+      if (play.teleport) player.position.set(play.teleport.x, 0, play.teleport.z);
+      grant(play);
       return;
     }
     if (place === "street" && near(world.districts.truckOrder, 2.4)) {
-      dialogue = "Food trucks — Crown, 901, and Soul. Order at the window.";
+      grant(useSpot(city, "truck", dollars));
       return;
     }
     if (near(world.courtOg, 1.8)) {
@@ -377,12 +496,72 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         respect += 10;
         dialogue = "Court OG — Drop's in. Eighty SackDollars, and that's Respect.";
         mission = "Delivery complete. The 901 court is open.";
+        const next = cityMission(city, true);
+        if (next) mission = next;
       } else if (delivered) {
         dialogue = "Court OG — We good. The 901 is open.";
       } else {
         dialogue = "Court OG — K said a drop was coming. You holding it?";
       }
+      return;
     }
+    const who = namedPed(1.7);
+    if (who && place === "street") grant(useSpot(city, who, dollars));
+  }
+
+  function grant(play: PlayEvent) {
+    if (play.dollars) dollars = Math.max(0, dollars + play.dollars);
+    if (play.respect) respect += play.respect;
+    if (play.dialogue) dialogue = play.dialogue;
+    if (play.mission && delivered) mission = play.mission;
+    if (play.pins != null) knockPins(play.pins);
+  }
+
+  function namedPed(r: number): Spot | null {
+    let best: Spot | null = null;
+    let bestD = r;
+    for (const ped of world.pedestrians) {
+      const id = (ped.userData.asset as { id?: string } | undefined)?.id;
+      const spot = id === "mama-dee" ? "mama" : id === "unc-j" ? "unc" : id === "nitro" ? "nitro" : id === "strike" ? "strike" : null;
+      if (!spot) continue;
+      const d = Math.hypot(player.position.x - ped.position.x, player.position.z - ped.position.z);
+      if (d < bestD) {
+        bestD = d;
+        best = spot;
+      }
+    }
+    return best;
+  }
+
+  function resetPins() {
+    pins.forEach((pin, i) => {
+      const home = pinHome[i];
+      if (!home) return;
+      pin.position.copy(home);
+      pin.rotation.set(0, 0, 0);
+      pin.visible = true;
+    });
+    bowlBall.visible = false;
+  }
+
+  function knockPins(count: number) {
+    pins.forEach((pin, i) => {
+      if (i >= count) return;
+      pin.rotation.z = i % 2 === 0 ? 1.15 : -1.15;
+      pin.position.y = 0.16;
+      pin.position.z -= 0.18;
+    });
+  }
+
+  function presentBowl() {
+    const bowl = city.bowl;
+    if (!bowl || bowl.phase !== "roll") {
+      if (!bowl) bowlBall.visible = false;
+      return;
+    }
+    const t = 1 - Math.max(0, bowl.left) / 1.05;
+    bowlBall.visible = true;
+    bowlBall.position.set(92 + bowl.aim * 1.5 * t, 0.24, -18 + -12 * t);
   }
 
   function updatePlace() {
@@ -416,6 +595,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         const dist = Math.hypot(dx, dz) || 1;
         const power = 4.2 + charge * 7.5;
         ballVel.set((dx / dist) * power, 4.2 + charge * 4.8, (dz / dist) * power);
+        if (city.fit === "court") {
+          ballVel.x += (dx / dist) * 1.4;
+          ballVel.z += (dz / dist) * 1.4;
+        }
         ballHeld = false;
         taken += 1;
         charge = 0;
@@ -663,7 +846,18 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     press(code: string) {
       keys.add(code);
       pulses.set(code, 12);
-      if (code === "KeyE") interactQueued = true;
+      if (code === "KeyE") {
+        tryEnter();
+        api.dollars = dollars;
+        api.respect = respect;
+        api.mission = mission;
+        api.dialogue = dialogue;
+        api.carrying = carrying;
+        api.x = player.position.x;
+        api.z = player.position.z;
+        api.place = place;
+        push(hud());
+      }
     },
     toggleNight() {
       night = !night;
@@ -698,6 +892,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       if (opts.delivered != null) delivered = opts.delivered;
       if (opts.night != null) night = opts.night;
       if (opts.facing) facing = opts.facing;
+      city.fish = null;
+      city.bowl = null;
+      city.race = null;
+      rod.visible = false;
+      bobber.visible = false;
+      bowlBall.visible = false;
       if (opts.place === "home") {
         place = "home";
         player.position.set(opts.x ?? 0, 0, opts.z ?? 201.2);

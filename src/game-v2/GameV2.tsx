@@ -16,6 +16,13 @@ const EMPTY: HudState = {
   carrying: false,
   x: -30.2,
   z: 5.55,
+  fit: "default",
+  bait: 0,
+  boost: false,
+  log: false,
+  marks: { fish: false, bowl: false, food: false, race: false },
+  bestBowl: 0,
+  bestRace: 0,
 };
 
 export function GameV2() {

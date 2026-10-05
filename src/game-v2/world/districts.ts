@@ -123,7 +123,7 @@ export function buildDistricts(
   return {
     bowlDoor: { x: 92, z: -15.2 },
     pier: { x: -16, z: -70 },
-    bait: { x: -30, z: -60 },
+    bait: { x: -30, z: -55.6 },
     meetStart: { x: -40, z: -36 },
     truckOrder: { x: 72, z: 20 },
   };
@@ -328,6 +328,7 @@ function meet(
   walk(parent, -38, -30.4, 36, 2.2);
   const paint = new THREE.MeshStandardMaterial({ color: 0xf4efe4, roughness: 0.5 });
   box(0.35, 0.02, 6, -40, 0.08, -36, paint, parent);
+  box(0.35, 0.02, 6, -19.2, 0.08, -36, paint, parent);
   box(8, 0.2, 0.2, -40, 4.2, -32.2, paint, parent);
   box(0.12, 4.2, 0.12, -44, 2.1, -32.2, paint, parent);
   box(0.12, 4.2, 0.12, -36, 2.1, -32.2, paint, parent);
@@ -336,6 +337,13 @@ function meet(
   const startBoard = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 1.3), start);
   startBoard.position.set(-40, 3.5, -32.05);
   parent.add(startBoard);
+  const finish = sign("FINISH", "901", "#39ff14", "#e0b33a");
+  glow.push(finish);
+  const finishBoard = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.1), finish);
+  finishBoard.position.set(-19.2, 3.2, -32.05);
+  parent.add(finishBoard);
+  box(0.12, 3.4, 0.12, -21.4, 1.7, -32.2, paint, parent);
+  box(0.12, 3.4, 0.12, -17, 1.7, -32.2, paint, parent);
 
   const shop = new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 0.75 });
   box(10, 4.2, 6, -50, 2.1, -26, shop, parent);

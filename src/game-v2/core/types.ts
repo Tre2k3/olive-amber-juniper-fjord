@@ -23,6 +23,13 @@ export type HudState = {
   carrying: boolean;
   x: number;
   z: number;
+  fit: string;
+  bait: number;
+  boost: boolean;
+  log: boolean;
+  marks: { fish: boolean; bowl: boolean; food: boolean; race: boolean };
+  bestBowl: number;
+  bestRace: number;
 };
 
 export type V2Public = {
