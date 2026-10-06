@@ -17,8 +17,11 @@ function tex(kind: VehicleKind, face: Face) {
   const key = `${kind}-${face}`;
   let map = cache.get(key);
   if (!map) {
-    map = loader.load(`/game-v2/vehicles/${key}.png?v=2`);
+    map = loader.load(`/game-v2/vehicles/${key}.png?v=4`);
     map.colorSpace = THREE.SRGBColorSpace;
+    map.generateMipmaps = false;
+    map.minFilter = THREE.LinearFilter;
+    map.magFilter = THREE.LinearFilter;
     cache.set(key, map);
   }
   return map;
@@ -54,8 +57,8 @@ export function carBody(kind: VehicleKind) {
   };
   const mat = new THREE.MeshBasicMaterial({
     map: views.left,
-    transparent: true,
-    alphaTest: 0.18,
+    transparent: false,
+    alphaTest: 0.45,
     side: THREE.DoubleSide,
   });
   const card = new THREE.Mesh(new THREE.PlaneGeometry(spec.length, spec.height), mat);

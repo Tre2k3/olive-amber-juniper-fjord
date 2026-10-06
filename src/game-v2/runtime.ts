@@ -71,7 +71,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   const avatarMat = characterMaterial();
   const avatar = new THREE.Mesh(solePlane(benji.w, benji.h, benji.footPad, benji.pxH, benji.centerPx, benji.pxW), avatarMat);
   avatar.position.y = 0;
-  avatar.renderOrder = 3;
+  avatar.renderOrder = 6;
   avatar.castShadow = true;
   player.add(avatar);
   const carried = new THREE.Mesh(
@@ -130,7 +130,6 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   });
 
   const textures: Partial<Record<Facing, THREE.Texture>> = {};
-  let walkTex: THREE.Texture | undefined;
   const loader = new THREE.TextureLoader();
   for (const face of ["front", "back", "left", "right"] as const) {
     loader.load(characters.benji.views[face].src, (tex) => {
@@ -139,18 +138,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       if (face === facing) applyBenji(face);
     });
   }
-  const benjiWalk = characters.benji.views.walk;
-  if (benjiWalk) {
-    loader.load(benjiWalk.src, (tex) => {
-      solidCutout(tex);
-      walkTex = tex;
-    });
-  }
   let glideX = 0;
   let glideZ = 0;
-  let walkDist = 0;
-  let strideEnergy = 0;
-  let benjiStride = false;
 
   const lanes = productionLanes();
   const cars = spawnTraffic(world, lanes);
@@ -438,17 +427,6 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     }
     player.position.x += glideX * dt;
     player.position.z += glideZ * dt;
-    const glide = Math.hypot(glideX, glideZ);
-    const movingNow = !busy && glide > 0.22;
-    strideEnergy += ((movingNow ? 1 : 0) - strideEnergy) * (1 - Math.exp(-3.4 * dt));
-    if (glide > 0.12) {
-      const stepLen = Math.max(0.72, glide * 0.4);
-      walkDist += (glide * dt) / stepLen;
-    }
-    if (strideEnergy > 0.62) benjiStride = true;
-    else if (strideEnergy < 0.25) benjiStride = false;
-    player.userData.gait = strideEnergy;
-    player.userData.phase = walkDist;
     player.userData.life = ((player.userData.life as number) ?? 0) + dt;
     if (place === "court" && ballHeld && hold) facing = faceAlong(world.hoop.x - player.position.x, world.hoop.z - player.position.z);
     const zone = collisionZone();
@@ -923,13 +901,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   function applyBenji(face: Facing) {
     const mat = avatar.material as THREE.MeshBasicMaterial;
-    const frac = ((walkDist % 1) + 1) % 1;
-    const planted = frac < 0.16 || frac > 0.84;
-    // PARTIAL walk art: front has a stride frame. Back, left, and right are standing only.
-    const stride = face === "front" && benjiStride && Boolean(walkTex) && !planted;
-    const pose = stride ? "walk" : face;
-    if (avatar.userData.pose === pose && mat.map) return;
-    const tex = stride ? walkTex : textures[face];
+    // Standing frames only. The walk sheets are a different crop, so swapping them pops the body.
+    if (avatar.userData.pose === face && mat.map) return;
+    const tex = textures[face];
     if (!tex) return;
     const size = frameSize(characters.benji, face);
     mat.map = tex;
@@ -937,16 +911,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     avatar.geometry.dispose();
     avatar.geometry = solePlane(size.w, size.h, size.footPad, size.pxH, size.centerPx, size.pxW);
     avatar.position.set(0, 0, 0);
-    avatar.userData.pose = pose;
+    avatar.userData.pose = face;
     avatar.userData.face = face;
   }
 
-  function rock(mesh: THREE.Object3D, host: THREE.Object3D) {
-    const gait = (host.userData.gait as number) ?? 0;
-    const phase = (host.userData.phase as number) ?? 0;
-    const life = (host.userData.life as number) ?? 0;
-    const energy = Math.min(1, gait);
-    mesh.rotation.z = energy > 0.08 ? Math.sin(phase * Math.PI * 2) * 0.06 * energy : Math.sin(life * 0.8) * 0.02;
+  function rock(mesh: THREE.Object3D, _host: THREE.Object3D) {
+    mesh.rotation.z = 0;
   }
 
   function presentScale(_host: THREE.Object3D) {
@@ -969,21 +939,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       face = abs < 0.75 ? "front" : abs > 2.35 ? "back" : rel > 0 ? "left" : "right";
       if (!tex[face]) face = "front";
     }
-    const gait = (host.userData.gait as number) ?? 0;
-    let striding = Boolean(host.userData.striding);
-    if (gait > 0.55) striding = true;
-    else if (gait < 0.22) striding = false;
-    host.userData.striding = striding;
-    const walkMap = host.userData.walkTex as THREE.Texture | undefined;
-    const phase = (host.userData.phase as number) ?? 0;
-    const frac = ((phase % 1) + 1) % 1;
-    const planted = frac < 0.16 || frac > 0.84;
-    const showWalk = striding && Boolean(walkMap) && face === "front" && !planted;
-    const pose = showWalk ? "walk" : face;
+    const pose = face;
     if (asset && mesh.userData.pose !== pose) {
-      const map = showWalk ? walkMap : tex?.[face];
+      const map = tex?.[face];
       if (map) {
-        const size = frameSize(asset, showWalk ? "walk" : face);
+        const size = frameSize(asset, face);
         mesh.geometry.dispose();
         mesh.geometry = solePlane(size.w, size.h, size.footPad, size.pxH, size.centerPx, size.pxW);
         mesh.userData.pose = pose;

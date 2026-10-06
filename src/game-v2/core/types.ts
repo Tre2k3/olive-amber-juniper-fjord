@@ -17,6 +17,7 @@ export type HudState = {
   prompt: string;
   charge: number;
   night: boolean;
+  golden: boolean;
   made: number;
   taken: number;
   dialogue: string;

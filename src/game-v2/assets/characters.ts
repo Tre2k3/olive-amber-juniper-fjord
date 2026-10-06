@@ -39,7 +39,7 @@ export type CharacterAsset = {
 const cut = (src: string): Cutout => {
   const bounds = characterBounds[src];
   if (!bounds) throw new Error(`No alpha bounds for ${src}`);
-  return { src: `${src}?v=7`, footPad: bounds.bottomPadding, ...bounds };
+  return { src: `${src}?v=9`, footPad: bounds.bottomPadding, ...bounds };
 };
 
 const turnaround = (folder: string) => ({

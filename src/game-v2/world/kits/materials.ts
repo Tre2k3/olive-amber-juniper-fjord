@@ -29,16 +29,16 @@ export function siding(hex: string) {
     g.fillStyle = hex;
     g.fillRect(0, 0, w, h);
     for (let y = 0; y < h; y += 10) {
-      g.fillStyle = "rgba(0,0,0,0.14)";
-      g.fillRect(0, y, w, 2);
-      g.fillStyle = "rgba(255,255,255,0.08)";
-      g.fillRect(0, y + 2, w, 1);
+      g.fillStyle = "rgba(0,0,0,0.28)";
+      g.fillRect(0, y, w, 3);
+      g.fillStyle = "rgba(255,255,255,0.16)";
+      g.fillRect(0, y + 3, w, 2);
     }
     g.fillStyle = "rgba(80,50,30,0.08)";
     for (let i = 0; i < 40; i++) g.fillRect((i * 37) % w, (i * 19) % h, 18, 3);
   }, 256, 256, true);
-  map.repeat.set(2.2, 1.4);
-  return std(map, 0.86);
+  map.repeat.set(2.4, 2.6);
+  return std(map, 0.82);
 }
 
 export function shingle(hex: string) {
@@ -47,18 +47,44 @@ export function shingle(hex: string) {
     g.fillRect(0, 0, w, h);
     g.strokeStyle = "rgba(0,0,0,0.35)";
     g.lineWidth = 2;
-    const rowH = 18;
+    const rowH = 28;
     for (let y = 0; y < h; y += rowH) {
-      const off = (y / rowH) % 2 ? 16 : 0;
-      for (let x = -32 + off; x < w; x += 32) {
-        g.strokeRect(x, y, 32, rowH);
-        g.fillStyle = y % 36 === 0 ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)";
-        g.fillRect(x + 2, y + 2, 28, rowH - 4);
+      const off = (y / rowH) % 2 ? 22 : 0;
+      for (let x = -48 + off; x < w; x += 46) {
+        const n = (x + y) % 24;
+        g.fillStyle = `rgb(${92 + n},${68 + (n % 10)},${48 + (n % 6)})`;
+        g.fillRect(x + 2, y + 2, 42, rowH - 5);
+        g.strokeStyle = "rgba(30,18,10,0.65)";
+        g.strokeRect(x, y, 46, rowH);
       }
     }
   }, 256, 256, true);
-  map.repeat.set(3, 2);
-  return std(map, 0.92);
+  map.repeat.set(3.2, 2.2);
+  return std(map, 0.9);
+}
+
+let brickMat: THREE.MeshStandardMaterial | null = null;
+
+export function brick() {
+  if (brickMat) return brickMat;
+  const map = canvasTex((g, w, h) => {
+    g.fillStyle = "#cbb8aa";
+    g.fillRect(0, 0, w, h);
+    const bw = 40;
+    const bh = 16;
+    const gap = 4;
+    for (let row = 0; row * (bh + gap) < h; row++) {
+      const off = row % 2 ? bw / 2 : 0;
+      for (let x = -bw + off; x < w; x += bw + gap) {
+        const n = Math.abs((row * 5 + x) % 22);
+        g.fillStyle = `rgb(${132 + n},${58 + (n % 8)},${42 + (n % 6)})`;
+        g.fillRect(x, row * (bh + gap), bw, bh);
+      }
+    }
+  }, 256, 256, true);
+  map.repeat.set(2.4, 1.6);
+  brickMat = std(map, 0.86);
+  return brickMat;
 }
 
 export function asphalt() {

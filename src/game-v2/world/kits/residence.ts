@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import type { Solid } from "../../core/types";
-import { concreteSlab, mulch, shingle, siding, trim } from "./materials";
-import { mailbox } from "./props";
-import { ornamental, shrub } from "./trees";
+import { brick, concreteSlab, mulch, shingle, siding, trim } from "./materials";
+import { mailbox, picketFence } from "./props";
+import { crepeMyrtle, matureTree, ornamental, shrub } from "./trees";
 import { addGround } from "../ground";
 
 function box(w: number, h: number, d: number, x: number, y: number, z: number, mat: THREE.Material, parent: THREE.Object3D) {
@@ -68,6 +68,7 @@ export function residence(
   doorColor: string,
   openDoor: boolean,
   style: HouseStyle = 0,
+  hero = false,
 ) {
   const wallH = 3.05;
   const base = 0.42;
@@ -78,24 +79,44 @@ export function residence(
   box(0.12, wallH, d + 0.08, x + w / 2, base + wallH / 2, z, trim, parent);
 
   const roofMat = shingle("#" + roofColor.toString(16).padStart(6, "0"));
-  const roof = new THREE.Mesh(gable(w + 1.5, d + 1.35, style === 2 ? 1.75 : 1.4), roofMat);
-  roof.position.set(x, base + wallH, z);
-  roof.castShadow = true;
-  parent.add(roof);
-  const eave = d / 2 + 0.7;
-  box(w + 1.55, 0.12, 0.18, x, base + wallH + 0.02, z - eave, trim, parent);
-  box(w + 1.55, 0.12, 0.18, x, base + wallH + 0.02, z + eave, trim, parent);
-  if (style !== 0) {
-    const brick = new THREE.MeshStandardMaterial({ color: 0x8d4a3a, roughness: 0.85 });
-    box(0.55, 1.35, 0.55, x + w * 0.28, base + wallH + 0.7, z + 0.2, brick, parent);
-    box(0.7, 0.1, 0.7, x + w * 0.28, base + wallH + 1.4, z + 0.2, brick, parent);
-  }
+  const brickMat = brick();
+  const rise = style === 2 ? 1.7 : 1.35;
+  const run = d / 2 + 0.65;
+  const len = Math.hypot(run, rise);
+  const pitch = Math.atan2(rise, run);
+  const south = new THREE.Mesh(new THREE.BoxGeometry(w + 1.7, 0.09, len), roofMat);
+  south.rotation.x = -pitch;
+  south.position.set(x, base + wallH + rise * 0.46, z - run * 0.38);
+  south.castShadow = true;
+  south.receiveShadow = true;
+  parent.add(south);
+  const north = new THREE.Mesh(new THREE.BoxGeometry(w + 1.7, 0.09, len), roofMat);
+  north.rotation.x = pitch;
+  north.position.set(x, base + wallH + rise * 0.46, z + run * 0.38);
+  north.castShadow = true;
+  parent.add(north);
+  const gableEnd = new THREE.Mesh(gable(d + 0.3, 0.1, rise), siding(wall));
+  gableEnd.rotation.y = Math.PI / 2;
+  gableEnd.position.set(x - w / 2 - 0.02, base + wallH, z);
+  parent.add(gableEnd);
+  const gableEast = gableEnd.clone();
+  gableEast.position.x = x + w / 2 + 0.02;
+  parent.add(gableEast);
+  const metal = new THREE.MeshStandardMaterial({ color: 0x2c3034, roughness: 0.4, metalness: 0.55 });
+  box(w + 1.6, 0.08, 0.1, x, base + wallH + 0.06, z - d / 2 - 0.62, metal, parent);
+  box(0.08, wallH * 0.92, 0.08, x - w / 2 + 0.15, base + wallH * 0.46, z - d / 2 - 0.2, metal, parent);
 
   const front = z - d / 2;
   const faceZ = front - 0.08;
   windowUnit(parent, glow, x - w * 0.28, base + 1.75, faceZ, Math.PI);
   windowUnit(parent, glow, x + w * 0.28, base + 1.75, faceZ, Math.PI);
   windowUnit(parent, glow, x - w / 2 - 0.08, base + 1.7, z, -Math.PI / 2);
+  const shutter = new THREE.MeshStandardMaterial({ color: style === 1 ? 0x1e3348 : 0x241c18, roughness: 0.7 });
+  for (const sx of [-w * 0.28, w * 0.28]) {
+    box(0.1, 1.22, 0.05, x + sx - 0.68, base + 1.75, faceZ - 0.04, shutter, parent);
+    box(0.1, 1.22, 0.05, x + sx + 0.68, base + 1.75, faceZ - 0.04, shutter, parent);
+  }
+  box(w + 0.08, 1.05, 0.1, x, base + 0.52, faceZ - 0.06, brickMat, parent);
 
   const doorMat = new THREE.MeshStandardMaterial({ color: doorColor, roughness: 0.65 });
   box(1.15, 2.25, 0.1, x, base + 1.15, faceZ - 0.02, trim, parent);
@@ -115,8 +136,16 @@ export function residence(
     y: 0.48,
   });
   box(porchW + 0.3, 0.08, 2.55, x, 2.55, porchZ, roofMat, parent);
+  const porchGable = new THREE.Mesh(gable(porchW + 0.5, 0.22, 0.72), roofMat);
+  porchGable.position.set(x, 2.58, porchZ - 1.2);
+  porchGable.castShadow = true;
+  parent.add(porchGable);
   for (const sx of [-porchW * 0.42, porchW * 0.42]) {
-    box(0.12, 2.15, 0.12, x + sx, 1.35, porchZ - 1.05, trim, parent);
+    box(0.38, 0.7, 0.38, x + sx, 0.55, porchZ - 1.05, brickMat, parent);
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 1.22, 10), trim);
+    col.position.set(x + sx, 1.52, porchZ - 1.05);
+    col.castShadow = true;
+    parent.add(col);
   }
   box(porchW * 0.9, 0.05, 0.05, x, 0.72, porchZ - 1.05, trim, parent);
   box(porchW * 0.9, 0.05, 0.05, x, 0.42, porchZ - 1.05, trim, parent);
@@ -141,6 +170,36 @@ export function residence(
   parent.add(bed);
   shrub(x - w * 0.32, front - 0.45, parent, 1);
   shrub(x + w * 0.34, front - 0.4, parent, 0.85);
+  shrub(x - w * 0.46, front - 0.2, parent, 0.7);
+  shrub(x + w * 0.46, front - 0.22, parent, 0.75);
+  for (let i = -3; i <= 3; i++) {
+    if (i === 0) continue;
+    shrub(x + i * (w * 0.15), front - 2.45, parent, i % 2 === 0 ? 0.7 : 0.5);
+  }
+  const flower = new THREE.MeshStandardMaterial({
+    color: style === 1 ? 0xf2e2a0 : style === 2 ? 0xe07a32 : 0xd45078,
+    roughness: 0.55,
+  });
+  for (const sx of [-w * 0.28, w * 0.22, w * 0.4]) {
+    const bloom = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), flower);
+    bloom.position.set(x + sx, 0.22, front - 0.55);
+    parent.add(bloom);
+  }
+  if (style !== 1) picketFence(x + (style === 0 ? -1 : 1) * w * 0.42, front - 2.15, 2.4, parent);
+  if (hero) {
+    matureTree(x - 2.4, front - 3.3, parent);
+    crepeMyrtle(x + 2.2, front - 3.1, parent);
+    const pot = new THREE.MeshStandardMaterial({ color: 0x8a4030, roughness: 0.8 });
+    const bloom = new THREE.MeshStandardMaterial({ color: 0xd45078, roughness: 0.55 });
+    for (const sx of [-porchW * 0.34, porchW * 0.34]) {
+      box(0.26, 0.28, 0.26, x + sx, 0.66, porchZ - 0.15, pot, parent);
+      const flower = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), bloom);
+      flower.position.set(x + sx, 0.92, porchZ - 0.15);
+      parent.add(flower);
+    }
+    box(0.46, 0.06, 0.42, x + porchW * 0.22, 0.62, porchZ + 0.15, deck, parent);
+    box(0.46, 0.38, 0.06, x + porchW * 0.22, 0.86, porchZ + 0.32, trim, parent);
+  }
   if (style === 2) ornamental(x + w * 0.15, front - 2.4, parent);
 
   const walk0 = front - 4.2;
@@ -156,10 +215,26 @@ export function residence(
   mailbox(x - w * 0.46, front - 2.15, parent, style === 2);
 
   if (openDoor) {
-    solids.push({ minX: x - w / 2, maxX: x - 0.7, minZ: front, maxZ: z + d / 2 });
-    solids.push({ minX: x + 0.7, maxX: x + w / 2, minZ: front, maxZ: z + d / 2 });
+    // Opening matches the door frame (~1.16m). resolve() expands solids by the
+    // body radius, so a wider hole lets the player walk the siding.
+    const mouth = 0.58;
+    solids.push({ minX: x - w / 2, maxX: x - mouth, minZ: front, maxZ: z + d / 2 });
+    solids.push({ minX: x + mouth, maxX: x + w / 2, minZ: front, maxZ: z + d / 2 });
     solids.push({ minX: x - w / 2, maxX: x + w / 2, minZ: front + 1.15, maxZ: z + d / 2 });
   } else {
     solids.push({ minX: x - w / 2, maxX: x + w / 2, minZ: front, maxZ: z + d / 2 });
   }
+  const railZ = porchZ - 1.05;
+  const colR = 0.2;
+  for (const sx of [-porchW * 0.42, porchW * 0.42]) {
+    solids.push({
+      minX: x + sx - colR,
+      maxX: x + sx + colR,
+      minZ: railZ - colR,
+      maxZ: railZ + colR,
+    });
+  }
+  const gap = 0.78;
+  solids.push({ minX: x - porchW * 0.46, maxX: x - gap, minZ: railZ - 0.06, maxZ: railZ + 0.08 });
+  solids.push({ minX: x + gap, maxX: x + porchW * 0.46, minZ: railZ - 0.06, maxZ: railZ + 0.08 });
 }

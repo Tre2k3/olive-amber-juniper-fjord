@@ -137,3 +137,17 @@ export function shrub(x: number, z: number, parent: THREE.Object3D, s = 1) {
   b.castShadow = false;
   b.rotation.y = Math.PI / 2;
 }
+
+export function crepeMyrtle(x: number, z: number, parent: THREE.Object3D) {
+  for (const [ox, oz] of [[0, 0], [0.22, 0.08], [-0.16, 0.12]] as const) {
+    const t = mesh(new THREE.CylinderGeometry(0.04, 0.07, 1.7, 6), bark(), x + ox, 0.85, z + oz, parent);
+    t.rotation.z = ox * 0.8;
+  }
+  const mat = new THREE.MeshStandardMaterial({
+    map: canopy(5, "#8a3058", "#d06088", "#f0a0b8"),
+    transparent: true,
+    alphaTest: 0.12,
+    side: THREE.DoubleSide,
+  });
+  crown(x, z, 1.85, 1.5, 1.15, mat, parent);
+}

@@ -68,14 +68,175 @@ function artPlane(url: string, w: number, h: number, x: number, y: number, z: nu
     map: tex,
     emissive: 0xfff4ea,
     emissiveMap: tex,
-    emissiveIntensity: 0.42,
-    roughness: 0.72,
+    emissiveIntensity: 0.55,
+    roughness: 0.62,
     side: THREE.FrontSide,
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
   mesh.position.set(x, y, z);
   mesh.rotation.y = rotY;
   parent.add(mesh);
+  return mesh;
+}
+
+function layRoom(url: string, x: number, z: number, parent: THREE.Object3D) {
+  const tex = new THREE.TextureLoader().load(url);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(7.15, 6.5), new THREE.MeshBasicMaterial({ map: tex }));
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(x, 0.1, z);
+  parent.add(mesh);
+}
+
+function hangArt(url: string, w: number, h: number, x: number, y: number, z: number, rotY: number, parent: THREE.Object3D) {
+  const holder = new THREE.Group();
+  holder.position.set(x, y, z);
+  holder.rotation.y = rotY;
+  const frame = new THREE.MeshStandardMaterial({ color: 0xc9a15b, roughness: 0.4, metalness: 0.4 });
+  const plane = artPlane(url, w, h, 0, 0, 0.02, 0, holder);
+  plane.position.z = 0.02;
+  box(w + 0.16, 0.08, 0.08, 0, h / 2 + 0.02, 0, frame, holder);
+  box(w + 0.16, 0.08, 0.08, 0, -h / 2 - 0.02, 0, frame, holder);
+  box(0.08, h + 0.16, 0.08, -w / 2 - 0.02, 0, 0, frame, holder);
+  box(0.08, h + 0.16, 0.08, w / 2 + 0.02, 0, 0, frame, holder);
+  parent.add(holder);
+}
+
+function canvasWet() {
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 256;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#140c10";
+  g.fillRect(0, 0, 512, 256);
+  for (let i = 0; i < 28; i++) {
+    g.fillStyle = i % 2 ? "rgba(180,30,24,0.22)" : "rgba(40,16,18,0.45)";
+    g.fillRect((i * 47) % 480, 20 + ((i * 29) % 200), 36 + (i % 4) * 18, 3);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(3, 2);
+  return tex;
+}
+
+function woodCourt() {
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 512;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#6a4630";
+  g.fillRect(0, 0, 512, 512);
+  for (let x = 0; x < 512; x += 28) {
+    g.fillStyle = x % 56 === 0 ? "#5a3824" : "#7a5438";
+    g.fillRect(x, 0, 26, 512);
+  }
+  g.strokeStyle = "#f2efe6";
+  g.lineWidth = 6;
+  g.strokeRect(24, 24, 464, 464);
+  g.beginPath();
+  g.moveTo(256, 24);
+  g.lineTo(256, 488);
+  g.stroke();
+  g.strokeStyle = "#ff4a12";
+  g.lineWidth = 4;
+  g.strokeRect(24, 150, 140, 212);
+  g.beginPath();
+  g.arc(256, 256, 70, 0, Math.PI * 2);
+  g.stroke();
+  g.fillStyle = "#1a0906";
+  g.beginPath();
+  g.ellipse(256, 250, 46, 34, 0, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = "#ffb15a";
+  g.beginPath();
+  g.ellipse(242, 246, 5, 8, 0, 0, Math.PI * 2);
+  g.fill();
+  g.beginPath();
+  g.ellipse(270, 246, 5, 8, 0, 0, Math.PI * 2);
+  g.fill();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function dressApproach(exterior: THREE.Object3D, solids: Solid[], glow: THREE.MeshStandardMaterial[], hx: number, frontZ: number) {
+  const dark = new THREE.MeshStandardMaterial({ color: 0x140e10, roughness: 0.55, metalness: 0.3 });
+  const pumpkinMat = new THREE.MeshStandardMaterial({ color: 0xe85a12, emissive: 0xff5a18, emissiveIntensity: 0.35, roughness: 0.48 });
+  const warm = new THREE.MeshStandardMaterial({ color: 0xffd2a0, emissive: 0xffb45a, emissiveIntensity: 0.7, roughness: 0.35 });
+  glow.push(warm);
+  const boothX = hx - 10.6;
+  const boothZ = frontZ - 4.6;
+  box(0.12, 1.7, 0.12, boothX - 1.15, 0.85, boothZ, dark, exterior);
+  box(0.12, 1.7, 0.12, boothX + 1.15, 0.85, boothZ, dark, exterior);
+  const sign = signPlane("TICKETS  $10", "#ff4a12", 2.5, 0.62);
+  sign.position.set(boothX, 1.85, boothZ);
+  sign.rotation.y = Math.PI;
+  exterior.add(sign);
+  solids.push({ minX: boothX - 1.3, maxX: boothX + 1.3, minZ: boothZ - 0.2, maxZ: boothZ + 0.2 });
+  const pumpkin = (x: number, z: number, s: number) => {
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.32 * s, 14, 12), pumpkinMat);
+    body.scale.set(1.05, 0.82, 1.05);
+    body.position.set(x, 0.28 * s, z);
+    body.castShadow = true;
+    exterior.add(body);
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.035 * s, 0.05 * s, 0.14 * s, 6), dark);
+    stem.position.set(x, 0.52 * s, z);
+    exterior.add(stem);
+    const slit = new THREE.MeshStandardMaterial({ color: 0x2a1008, emissive: 0xffc56a, emissiveIntensity: 0.45 });
+    for (const ox of [-0.1, 0.1]) {
+      const eye = new THREE.Mesh(new THREE.BoxGeometry(0.07 * s, 0.07 * s, 0.05), slit);
+      eye.position.set(x + ox * s, 0.32 * s, z - 0.26 * s);
+      exterior.add(eye);
+    }
+  };
+  pumpkin(hx - 6.4, frontZ - 5.2, 1.15);
+  pumpkin(hx - 4.6, frontZ - 5.5, 0.8);
+  pumpkin(hx + 5.2, frontZ - 5.3, 1.2);
+  pumpkin(hx + 7.1, frontZ - 5.6, 0.85);
+  pumpkin(hx + 3.1, frontZ - 5.15, 0.7);
+  const rail = (x1: number, z1: number, x2: number, z2: number) => {
+    const len = Math.hypot(x2 - x1, z2 - z1);
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(len, 0.07, 0.07), dark);
+    bar.position.set((x1 + x2) / 2, 0.95, (z1 + z2) / 2);
+    bar.rotation.y = Math.atan2(-(z2 - z1), x2 - x1);
+    exterior.add(bar);
+    const midX = (x1 + x2) / 2;
+    const midZ = (z1 + z2) / 2;
+    for (const [px, pz] of [
+      [x1, z1],
+      [midX, midZ],
+      [x2, z2],
+    ] as const) box(0.08, 1.05, 0.08, px, 0.52, pz, dark, exterior);
+  };
+  rail(hx - 4.6, frontZ - 4.6, hx - 1.35, frontZ - 4.6);
+  rail(hx + 1.35, frontZ - 4.6, hx + 4.8, frontZ - 4.6);
+  for (let i = 0; i < 11; i++) {
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), warm);
+    bulb.position.set(hx - 9 + i * 1.8, 4.55, frontZ - 0.45);
+    exterior.add(bulb);
+  }
+}
+
+function signPlane(title: string, color: string, w: number, h: number) {
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 128;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#12080a";
+  g.fillRect(0, 0, 512, 128);
+  g.strokeStyle = color;
+  g.lineWidth = 8;
+  g.strokeRect(6, 6, 500, 116);
+  g.fillStyle = color;
+  g.font = "800 54px sans-serif";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText(title, 256, 64);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex }));
   return mesh;
 }
 
@@ -126,29 +287,43 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
 
   const facadeTex = new THREE.TextureLoader().load("/game-v2/places/haunt/facade.png");
   facadeTex.colorSpace = THREE.SRGBColorSpace;
+  facadeTex.repeat.set(1, 0.8);
+  facadeTex.offset.set(0, 0.2);
   const facade = new THREE.Mesh(
-    new THREE.PlaneGeometry(24, 13.5),
-    new THREE.MeshBasicMaterial({ map: facadeTex, transparent: true, alphaTest: 0.35, side: THREE.DoubleSide }),
+    new THREE.PlaneGeometry(22, 11.2),
+    new THREE.MeshBasicMaterial({ map: facadeTex, transparent: true, alphaTest: 0.08, side: THREE.DoubleSide }),
   );
-  facade.position.set(hx, 6.75, frontZ);
+  facade.position.set(hx, 5.8, frontZ);
   facade.rotation.y = Math.PI;
   facade.scale.x = -1;
   exterior.add(facade);
 
-  const apron = new THREE.MeshStandardMaterial({ color: 0x2a2428, roughness: 0.92 });
-  box(30, 0.08, 8.5, hx, 0.05, 7.4, apron, exterior);
-  addGround({ minX: hx - 16, maxX: hx + 16, minZ: 4.4, maxZ: 12.2, y: 0.1 });
-  box(22, 0.06, 2.2, -78, 0.07, 6.35, apron, exterior);
-  addGround({ minX: -94, maxX: -62, minZ: 5.05, maxZ: 7.7, y: 0.12 });
+  const wetTex = canvasWet();
+  const wet = new THREE.MeshStandardMaterial({
+    map: wetTex,
+    emissive: 0xff2a18,
+    emissiveMap: wetTex,
+    emissiveIntensity: 0.35,
+    roughness: 0.22,
+    metalness: 0.45,
+  });
+  glow.push(wet);
+  const plaza = new THREE.Mesh(new THREE.PlaneGeometry(40, 14), wet);
+  plaza.rotation.x = -Math.PI / 2;
+  plaza.position.set(hx, 0.045, 6.6);
+  exterior.add(plaza);
+  addGround({ minX: hx - 20, maxX: hx + 18, minZ: 0.2, maxZ: 12.4, y: 0.06 });
 
-  const porch = new THREE.PointLight(0xff3a22, 0, 18, 2);
+  const porch = new THREE.PointLight(0xff3a22, 0, 22, 2);
   porch.position.set(hx, 5.2, frontZ - 1.4);
   exterior.add(porch);
   lamps.push(porch);
-  const ticketGlow = new THREE.PointLight(0xffb45a, 0, 8, 2);
-  ticketGlow.position.set(hx - 7.2, 2.2, frontZ - 1.2);
+  const ticketGlow = new THREE.PointLight(0xffb45a, 0, 10, 2);
+  ticketGlow.position.set(hx - 8.2, 2.4, frontZ - 2.4);
   exterior.add(ticketGlow);
   lamps.push(ticketGlow);
+
+  dressApproach(exterior, streetSolids, glow, hx, frontZ);
 
   for (const tx of [hx - 14, hx + 14]) {
     const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 3.2, 6), trim);
@@ -176,23 +351,24 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   const solids: Solid[] = [];
   const lights: THREE.PointLight[] = [];
   const wall = new THREE.MeshStandardMaterial({ color: 0x211418, roughness: 0.86 });
-  const frame = new THREE.MeshStandardMaterial({ color: 0xc9a15b, roughness: 0.45, metalness: 0.35 });
 
   for (const room of ROOMS) {
     const floor = new THREE.MeshStandardMaterial({ color: room.color, roughness: 0.78 });
     box(7.7, 0.08, 7.5, room.x + 4, 0.04, room.z + 4, floor, group);
     const art = ROOM_ART[room.name];
     if (art) {
-      const front = room.z === 0;
-      const px = front ? room.x + 1.65 : room.x + 4;
-      const pz = room.z + 7.55;
-      const w = front ? 2.75 : 5.35;
-      const hgt = 2.55;
-      artPlane(art, w, hgt, px, 2.2, pz, Math.PI, group);
-      box(0.07, hgt + 0.16, 0.07, px - w / 2, 2.2, pz, frame, group);
-      box(0.07, hgt + 0.16, 0.07, px + w / 2, 2.2, pz, frame, group);
-      box(w + 0.12, 0.07, 0.07, px, 2.2 + hgt / 2, pz, frame, group);
-      box(w + 0.12, 0.07, 0.07, px, 2.2 - hgt / 2, pz, frame, group);
+      if (room.name === "FINAL COURT") {
+        hangArt(art, 7.2, 3.9, room.x + 7.62, 2.05, room.z + 4, -Math.PI / 2, group);
+      } else if (room.name === "FOYER") {
+        hangArt(art, 6.8, 3.85, room.x + 0.28, 2.05, room.z + 4, Math.PI / 2, group);
+        layRoom(art, room.x + 4, room.z + 4, group);
+      } else if (room.z === 0) {
+        hangArt(art, 7.2, 3.85, room.x + 4, 2.05, room.z + 0.28, 0, group);
+        layRoom(art, room.x + 4, room.z + 4, group);
+      } else {
+        hangArt(art, 7.2, 3.85, room.x + 4, 2.05, room.z + 7.55, Math.PI, group);
+        layRoom(art, room.x + 4, room.z + 4, group);
+      }
     }
     roomSign(room.name, room.x + 4, 3.72, room.z + 7.15, group);
     const light = new THREE.PointLight(room.light, 0, 10, 2);
@@ -252,7 +428,7 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
       group,
       lights,
       gate: { x: hx, z: frontZ - 1.55 },
-      ticket: { x: hx - 7.4, z: frontZ - 2.3 },
+      ticket: { x: hx - 10.6, z: frontZ - 5.5 },
       out: { x: hx, z: frontZ - 2.6 },
       inside: { x: 4, z: OZ + 2.8 },
       exit: { x: 4, z: 1.2 },
@@ -271,14 +447,6 @@ function dressRooms(group: THREE.Group, glow: THREE.MeshStandardMaterial[]) {
   glow.push(wax);
 
   box(1.3, 0.04, 5.4, 4, 0.08, 3.2, cloth, group);
-  const chandelier = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), gold);
-  chandelier.position.set(4, 2.85, 3.4);
-  group.add(chandelier);
-  for (const ox of [-0.28, 0.28]) {
-    const arm = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), wax);
-    arm.position.set(4 + ox, 2.7, 3.4);
-    group.add(arm);
-  }
 
   for (let i = 0; i < 5; i++) box(1.5, 0.16, 0.7, 10.2, 0.2 + i * 0.28, 2.2 + i * 0.55, wood, group);
   box(0.9, 1.1, 0.9, 13.4, 0.55, 5.4, wood, group);
@@ -339,9 +507,17 @@ function dressRooms(group: THREE.Group, glow: THREE.MeshStandardMaterial[]) {
   core.position.set(34.4, 1.1, 12.2);
   group.add(core);
 
+  const courtTex = woodCourt();
   const court = new THREE.Mesh(
-    new THREE.PlaneGeometry(6.4, 5.4),
-    new THREE.MeshStandardMaterial({ color: 0x12140e, roughness: 0.55, metalness: 0.08 }),
+    new THREE.PlaneGeometry(6.6, 5.6),
+    new THREE.MeshStandardMaterial({
+      map: courtTex,
+      emissive: 0xffffff,
+      emissiveMap: courtTex,
+      emissiveIntensity: 0.28,
+      roughness: 0.42,
+      metalness: 0.12,
+    }),
   );
   court.rotation.x = -Math.PI / 2;
   court.position.set(44, 0.09, 12.2);

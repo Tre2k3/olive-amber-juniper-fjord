@@ -13,7 +13,7 @@ export type City = {
   bestRace: number;
   boost: number;
   fish: { phase: "wait" | "bite"; left: number; baited: boolean } | null;
-  bowl: { phase: "aim" | "roll"; power: number; aim: number; left: number; pins: number } | null;
+  bowl: { phase: "aim" | "roll" | "show"; power: number; aim: number; left: number; pins: number } | null;
   race: { left: number; limit: number } | null;
   menu: number;
 };
@@ -61,8 +61,9 @@ export function freshCity(): City {
 export function activityPrompt(city: City): string {
   if (city.fish?.phase === "wait") return "Line is out. Wait on the bite.";
   if (city.fish?.phase === "bite") return "BITE — E";
-  if (city.bowl?.phase === "aim") return "Hold Space. A/D aim. Release to roll. E steps off.";
-  if (city.bowl?.phase === "roll") return "Rolling.";
+  if (city.bowl?.phase === "aim") return "Hold Space. A/D aim the pocket. Release to roll.";
+  if (city.bowl?.phase === "roll") return "";
+  if (city.bowl?.phase === "show") return "";
   if (city.race) return `Sprint east to the finish. ${city.race.left.toFixed(1)}s`;
   return "";
 }
@@ -105,13 +106,14 @@ export function tickCity(city: City, dt: number, hold: boolean, steer: number): 
     else if (city.bowl.power > 0.04) {
       city.bowl.pins = scorePins(city.bowl.power, city.bowl.aim);
       city.bowl.phase = "roll";
-      city.bowl.left = 1.05;
+      city.bowl.left = 1.65;
     }
   } else if (city.bowl?.phase === "roll") {
     city.bowl.left -= dt;
     if (city.bowl.left <= 0) {
       const pins = city.bowl.pins;
-      city.bowl = null;
+      city.bowl.phase = "show";
+      city.bowl.left = 1.15;
       city.bowled = true;
       city.bestBowl = Math.max(city.bestBowl, pins);
       const pay = pins * 6;
@@ -120,10 +122,13 @@ export function tickCity(city: City, dt: number, hold: boolean, steer: number): 
         pins,
         dollars: pay,
         respect,
-        dialogue: pins >= 8 ? `901 Bowl — ${pins} down. The pocket paid $${pay}.` : `901 Bowl — ${pins} pins. $${pay} on the lane.`,
+        dialogue: pins >= 8 ? `${pins} in the pocket. $${pay}.` : `${pins} pins. $${pay}.`,
         mission: cityMission(city, true) ?? undefined,
       };
     }
+  } else if (city.bowl?.phase === "show") {
+    city.bowl.left -= dt;
+    if (city.bowl.left <= 0) city.bowl = null;
   }
   if (city.race) {
     city.race.left -= dt;
@@ -150,7 +155,7 @@ export function crossFinish(city: City): PlayEvent | null {
   };
 }
 
-export function useSpot(city: City, spot: Spot, dollars: number): PlayEvent & { used: boolean } {
+export function triggerSpot(city: City, spot: Spot, dollars: number): PlayEvent & { used: boolean } {
   if (spot === "pier") return cast(city);
   if (spot === "bowl") return approach(city);
   if (spot === "bait") return buyBait(city, dollars);
@@ -162,7 +167,7 @@ export function useSpot(city: City, spot: Spot, dollars: number): PlayEvent & { 
 
 export function cancelApproach(city: City): PlayEvent {
   city.bowl = null;
-  return { dialogue: "901 Bowl — Stepped off the approach." };
+  return { dialogue: "" };
 }
 
 export function pullEarly(city: City): PlayEvent {
@@ -197,9 +202,9 @@ function cast(city: City): PlayEvent & { used: boolean } {
 }
 
 function approach(city: City): PlayEvent & { used: boolean } {
-  if (city.bowl) return { used: true, dialogue: "901 Bowl — Finish the roll." };
+  if (city.bowl) return { used: true, dialogue: "" };
   city.bowl = { phase: "aim", power: 0, aim: 0, left: 0, pins: 0 };
-  return { used: true, teleport: { x: 92, z: -18 }, dialogue: "Strike — Approach is yours. Pocket sits just past half charge." };
+  return { used: true, teleport: { x: 92, z: -17.6 }, dialogue: "" };
 }
 
 function buyBait(city: City, dollars: number): PlayEvent & { used: boolean } {

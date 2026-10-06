@@ -1,46 +1,65 @@
-export type GroundPad = {
+export type WalkSurface = {
+  id: string;
   minX: number;
   maxX: number;
   minZ: number;
   maxZ: number;
   /** Top of the walkable surface. */
   y: number;
+  /** Higher priority wins only when the foot has left its current surface. */
+  priority: number;
 };
 
-const pads: GroundPad[] = [];
+const pads: WalkSurface[] = [];
+let nextId = 1;
 
-/** Just enough to keep soles off the surface. Not a hover. */
-export const GROUND_EPSILON = 0.02;
+/** Soles sit just above the visual floor so the court cannot cover the shoes. */
+export const GROUND_EPSILON = 0.03;
 
 export function clearGround() {
   pads.length = 0;
+  nextId = 1;
 }
 
-export function addGround(pad: GroundPad) {
-  pads.push(pad);
+export function addGround(pad: {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+  y: number;
+  id?: string;
+  priority?: number;
+}) {
+  pads.push({
+    id: pad.id ?? `surface-${nextId++}`,
+    minX: pad.minX,
+    maxX: pad.maxX,
+    minZ: pad.minZ,
+    maxZ: pad.maxZ,
+    y: pad.y,
+    priority: pad.priority ?? Math.round(pad.y * 1000),
+  });
 }
 
-/** Highest surface under the point. Open ground is 0. */
-export function groundHeightAt(x: number, z: number) {
-  let y = 0;
+function contains(pad: WalkSurface, x: number, z: number) {
+  return x >= pad.minX && x <= pad.maxX && z >= pad.minZ && z <= pad.maxZ;
+}
+
+/** Exact surface under the foot. Stays on the current surface until the foot leaves it. */
+export function walkableSurfaceAt(x: number, z: number, currentId?: string) {
+  let stay: WalkSurface | undefined;
+  let best: WalkSurface | undefined;
   for (const pad of pads) {
-    if (x < pad.minX || x > pad.maxX || z < pad.minZ || z > pad.maxZ) continue;
-    if (pad.y > y) y = pad.y;
+    if (!contains(pad, x, z)) continue;
+    if (currentId && pad.id === currentId) stay = pad;
+    if (!best || pad.priority > best.priority || (pad.priority === best.priority && pad.y > best.y)) best = pad;
   }
-  return y;
+  if (stay) return { id: stay.id, y: stay.y };
+  if (best) return { id: best.id, y: best.y };
+  return { id: "ground", y: 0 };
 }
 
-/**
- * Highest surface under a foot-sized footprint.
- * Keeps a sole from dropping through a slab joint or a curb edge.
- */
-export function standHeight(x: number, z: number) {
-  const r = 0.18;
-  return Math.max(
-    groundHeightAt(x, z),
-    groundHeightAt(x - r, z),
-    groundHeightAt(x + r, z),
-    groundHeightAt(x, z - r),
-    groundHeightAt(x, z + r),
-  );
+/** Height of the surface the point is inside. Open ground is 0. No neighbor sampling. */
+export function groundHeightAt(x: number, z: number) {
+  return walkableSurfaceAt(x, z).y;
 }
