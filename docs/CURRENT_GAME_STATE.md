@@ -42,7 +42,7 @@ Status words: **DONE**, **PARTIAL**, **PLACEHOLDER**, **BROKEN**, **NOT STARTED*
 | HQ exterior | PARTIAL | Black/gold boutique massing at x=24, z=-16.4. Playable door. Not a match for the reference boards. |
 | HQ interior | PARTIAL | Separate room offset to z≈200. K Blanco stands inside. Showroom is a furnished box, not the reference interior. |
 | 901 Court | PARTIAL | Painted court, two goals, fence, lights, OG, ball. Custom-looking but still simple. |
-| Downtown | NOT STARTED | No district. A few skyline boxes sit at z≈-46. You cannot enter a downtown. |
+| Downtown | FIRST BLOCK | Riverfront street south of the cross street, plus storefronts on the east end of 901 Ave. Not a full downtown. |
 | Riverfront | PARTIAL | Pier, water, bait shop, cast/hook minigame. Not a full river district. |
 | Bowling | PARTIAL | 901 Bowl building, four lane strips, pins as boxes. E locks Benji into one lane and a first-person roll. Not a real alley. |
 | Racing | PARTIAL | Night strip. E teleports to the start and you sprint east on foot. No cars driven. |

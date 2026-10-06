@@ -450,7 +450,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     separateBodies();
     if (place === "street" || place === "court") {
       if (player.position.x < -104) { player.position.x = -104; glideX = 0; }
-      if (player.position.x > 118) { player.position.x = 118; glideX = 0; }
+      if (player.position.x > 148) { player.position.x = 148; glideX = 0; }
       if (player.position.z < -92) { player.position.z = -92; glideZ = 0; }
       if (player.position.z > 40) { player.position.z = 40; glideZ = 0; }
       resolve(player.position, 0.34, zone.solids, zone.ox, zone.oz);

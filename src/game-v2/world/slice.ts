@@ -12,6 +12,7 @@ import { characterMaterial, footMarker, plantFeet, solePlane, solidCutout } from
 import { buildDistricts, type DistrictAnchors } from "./districts";
 import { buildHaunt, type HauntWorld } from "./haunt";
 import { buildGoal } from "./kits/hoop";
+import { buildDowntown } from "./kits/city";
 
 export { carBody };
 
@@ -347,7 +348,7 @@ export function buildSlice(): SliceWorld {
   const skyGolden = skyTex("golden");
   const skyNight = skyTex("night");
   scene.background = skyDay;
-  scene.fog = new THREE.Fog(0xd7cbb8, 28, 96);
+  scene.fog = new THREE.Fog(0xd7cbb8, 32, 140);
 
   const exterior = new THREE.Group();
   const home = new THREE.Group();
@@ -362,11 +363,11 @@ export function buildSlice(): SliceWorld {
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.bias = -0.0004;
   sun.shadow.camera.near = 2;
-  sun.shadow.camera.far = 110;
+  sun.shadow.camera.far = 160;
   sun.shadow.camera.left = -70;
-  sun.shadow.camera.right = 80;
+  sun.shadow.camera.right = 140;
   sun.shadow.camera.top = 50;
-  sun.shadow.camera.bottom = -50;
+  sun.shadow.camera.bottom = -72;
   scene.add(sun);
   const hemi = new THREE.HemisphereLight(0xf0d7b0, 0x7d6240, 1.85);
   scene.add(hemi);
@@ -379,12 +380,16 @@ export function buildSlice(): SliceWorld {
   const asphalt = asphaltTex();
   mesh(new THREE.PlaneGeometry(200, 160), grassMatKit(), 8, 0, -6, exterior).rotation.x = -Math.PI / 2;
   mesh(new THREE.PlaneGeometry(46, 16), grassMatKit(), -28, 0.006, 16, exterior).rotation.x = -Math.PI / 2;
+  mesh(new THREE.PlaneGeometry(90, 70), grassMatKit(), 150, 0.001, 2, exterior).rotation.x = -Math.PI / 2;
   box(156, 0.06, 8.2, 8, 0.03, 0, asphalt, exterior);
+  box(50, 0.06, 8.2, 111, 0.03, 0, asphalt, exterior);
   box(9.1, 0.06, 48, 8, 0.03, -2, asphalt, exterior);
-  addGround({ minX: -70, maxX: 86, minZ: -4.1, maxZ: 4.1, y: 0.06 });
+  addGround({ minX: -70, maxX: 136, minZ: -4.1, maxZ: 4.1, y: 0.06 });
   addGround({ minX: 3.45, maxX: 12.55, minZ: -26, maxZ: 22, y: 0.06 });
   sidewalkRun(exterior, 6.35, -62, 78, [[-38.2, -32.4], [-18.6, -14.2]]);
   sidewalkRun(exterior, -6.35, -62, 78, [[31.2, 36.4]]);
+  sidewalkRun(exterior, 6.35, 78, 132, []);
+  sidewalkRun(exterior, -6.35, 78, 132, []);
   box(0.34, 0.22, 40, 4.55, 0.11, -2, curbMat, exterior);
   box(0.34, 0.22, 40, 11.45, 0.11, -2, curbMat, exterior);
   for (let x = -46; x < 68; x += 16) {
@@ -394,11 +399,11 @@ export function buildSlice(): SliceWorld {
 
   const yellow = new THREE.MeshStandardMaterial({ color: 0xe6c15a, roughness: 0.55 });
   const white = new THREE.MeshStandardMaterial({ color: 0xf2efe6, roughness: 0.7 });
-  for (let x = -48; x < 70; x += 4.2) {
+  for (let x = -48; x < 124; x += 4.2) {
     if (x > 2 && x < 14) continue;
     box(1.7, 0.02, 0.12, x, 0.07, 0, yellow, exterior);
   }
-  for (let x = -40; x < 70; x += 6) {
+  for (let x = -40; x < 124; x += 6) {
     box(2.4, 0.015, 0.08, x, 0.07, 3.45, white, exterior);
     box(2.4, 0.015, 0.08, x, 0.07, -3.45, white, exterior);
   }
@@ -719,30 +724,6 @@ export function buildSlice(): SliceWorld {
   streetSolids.push({ minX: hqX - 9, maxX: hqX + 9, minZ: hqZ - 5.5, maxZ: hqZ + 3.6 });
   box(14, 0.08, 6.5, hqX, 0.05, hqZ + 8.2, concrete, exterior);
 
-  const towerMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    roughness: 0.35,
-    metalness: 0.45,
-    map: canvasTex((g, w, h) => {
-      g.fillStyle = "#8ea0b4";
-      g.fillRect(0, 0, w, h);
-      g.fillStyle = "#d7e7f4";
-      for (let y = 8; y < h; y += 18) for (let x = 6; x < w; x += 16) g.fillRect(x, y, 8, 10);
-    }, 128, 256, true),
-    emissive: 0xffe0b0,
-    emissiveIntensity: 0.05,
-  });
-  glowMats.push(towerMat);
-  for (const [tx, th] of [
-    [8, 14],
-    [14, 22],
-    [20, 16],
-    [28, 26],
-    [36, 18],
-  ] as const) {
-    box(3.2, th, 3.2, tx, th / 2, -46, towerMat, exterior);
-  }
-
   const courtX = 66;
   const courtZ = -22;
   const courtMap = courtTexture();
@@ -955,6 +936,7 @@ export function buildSlice(): SliceWorld {
   billboards.push(og);
   pair(og, benchMate);
 
+  buildDowntown(exterior, streetSolids, glowMats, lamps);
   const districts = buildDistricts(exterior, streetSolids, glowMats, lamps, (asset, x, z, pts, speed) => {
     const g = spawn(asset, x, z, exterior);
     g.userData.route = { pts, i: 1, dir: 1, speed, phase: x };
