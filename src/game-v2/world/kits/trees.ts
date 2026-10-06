@@ -1,6 +1,10 @@
 import * as THREE from "three";
 import { bark, canvasTex, mulch } from "./materials";
 
+const yawCards: THREE.Object3D[] = [];
+const crownMats = new Map<string, THREE.MeshStandardMaterial>();
+const aim = new THREE.Vector3();
+
 function mesh(geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, parent: THREE.Object3D) {
   const m = new THREE.Mesh(geo, mat);
   m.position.set(x, y, z);
@@ -9,24 +13,52 @@ function mesh(geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: numb
   return m;
 }
 
+/** Drop crowns from a previous world build so a remount does not yaw dead meshes. */
+export function resetFoliage() {
+  yawCards.length = 0;
+}
+
+function rgba(hex: string, a: number) {
+  const n = hex.replace("#", "");
+  const r = parseInt(n.slice(0, 2), 16);
+  const g = parseInt(n.slice(2, 4), 16);
+  const b = parseInt(n.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+/** One rounded crown. Corners stay clear so the quad never reads as a card. */
 function canopy(seed: number, dark: string, mid: string, lite: string) {
   return canvasTex((g, w, h) => {
     g.clearRect(0, 0, w, h);
-    const colors = [dark, mid, mid, lite, dark];
-    for (let i = 0; i < 26; i++) {
-      const cx = 28 + ((i * 41 + seed * 17) % 200);
-      const cy = 24 + ((i * 33 + seed * 11) % 190);
-      const rx = 46 + ((i * 13 + seed) % 28);
-      const ry = 36 + ((i * 9 + seed) % 22);
-      g.fillStyle = colors[i % colors.length]!;
+    const spots: [number, number, number, number][] = [
+      [0.5, 0.46, 0.26, 0.28],
+      [0.32, 0.52, 0.16, 0.16],
+      [0.68, 0.5, 0.16, 0.17],
+      [0.5, 0.28, 0.14, 0.13],
+      [0.4, 0.34, 0.12, 0.12],
+      [0.62, 0.34, 0.12, 0.13],
+      [0.48, 0.62, 0.15, 0.12],
+    ];
+    const colors = [dark, mid, lite, mid, dark];
+    for (let i = 0; i < spots.length; i++) {
+      const spot = spots[i]!;
+      const jitter = ((seed * 13 + i * 7) % 5) / 100;
+      const cx = w * (spot[0] + (i % 2 ? jitter : -jitter));
+      const cy = h * (spot[1] + jitter * 0.3);
+      const rx = w * spot[2];
+      const ry = h * spot[3];
+      const color = colors[i % colors.length]!;
+      const grd = g.createRadialGradient(cx, cy, Math.min(rx, ry) * 0.12, cx, cy, Math.max(rx, ry));
+      grd.addColorStop(0, rgba(color, 1));
+      grd.addColorStop(0.7, rgba(color, 0.92));
+      grd.addColorStop(1, rgba(color, 0));
+      g.fillStyle = grd;
       g.beginPath();
-      g.ellipse(cx, cy, rx, ry, (seed + i) * 0.55, 0, Math.PI * 2);
+      g.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
       g.fill();
     }
   }, 256, 256);
 }
-
-const crownMats = new Map<string, THREE.MeshStandardMaterial>();
 
 function leafMat(key: string, seed: number, dark: string, mid: string, lite: string) {
   const hit = crownMats.get(key);
@@ -34,30 +66,37 @@ function leafMat(key: string, seed: number, dark: string, mid: string, lite: str
   const mat = new THREE.MeshStandardMaterial({
     map: canopy(seed, dark, mid, lite),
     transparent: true,
-    alphaTest: 0.45,
+    alphaTest: 0.35,
     side: THREE.DoubleSide,
     roughness: 1,
+    depthWrite: true,
   });
   crownMats.set(key, mat);
   return mat;
 }
 
-/** Irregular tilted clumps. Not three vertical cards crossed into an X. */
-function crown(x: number, z: number, y: number, w: number, h: number, mat: THREE.Material, parent: THREE.Object3D) {
-  const cards: [number, number, number, number, number][] = [
-    [0.35, 0.72, 0, 0.06, 0.88],
-    [1.25, -0.48, w * 0.18, -0.14, 0.6],
-    [2.15, 0.55, -w * 0.16, -0.04, 0.56],
-    [0.8, 1.12, 0.04, 0.16, 0.48],
-    [2.55, 0.82, -0.06, -0.22, 0.42],
-    [1.7, -0.7, w * 0.08, 0.02, 0.38],
-  ];
-  for (const [yaw, tilt, ox, oy, s] of cards) {
-    const card = mesh(new THREE.PlaneGeometry(w * s, h * s), mat, x + ox, y + oy * h, z, parent);
-    card.rotation.order = "YXZ";
-    card.rotation.y = yaw;
-    card.rotation.x = tilt;
-    card.castShadow = false;
+function billboard(w: number, h: number, x: number, y: number, z: number, mat: THREE.Material, parent: THREE.Object3D) {
+  const card = mesh(new THREE.PlaneGeometry(w, h), mat, x, y, z, parent);
+  card.castShadow = false;
+  card.userData.yawBillboard = 1;
+  yawCards.push(card);
+  return card;
+}
+
+/**
+ * Camera-facing canopy. One or two upright planes, never a tilted card that
+ * turns edge-on. Cheaper than the old six-plane crown.
+ */
+function crown(x: number, z: number, y: number, w: number, h: number, mat: THREE.Material, parent: THREE.Object3D, layers = 1) {
+  billboard(w, h, x, y, z, mat, parent);
+  if (layers > 1) billboard(w * 0.72, h * 0.64, x + w * 0.04, y + h * 0.1, z + 0.18, mat, parent);
+}
+
+/** Yaw every crown so the flat side never faces the camera. */
+export function faceFoliage(cam: THREE.Vector3) {
+  for (const card of yawCards) {
+    card.getWorldPosition(aim);
+    card.lookAt(cam.x, aim.y, cam.z);
   }
 }
 
@@ -119,25 +158,12 @@ export function palmTree(x: number, z: number, parent: THREE.Object3D) {
     }
   }, 256, 256);
   const mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.08, side: THREE.DoubleSide });
-  crown(x, z, 4.5, 3.2, 2.4, mat, parent);
+  crown(x, z, 4.5, 3.2, 2.4, mat, parent, 1);
 }
 
 export function shrub(x: number, z: number, parent: THREE.Object3D, s = 1) {
   const mat = leafMat("shrub", 6, "#1e4e28", "#347238", "#5a9450");
-  const h = 0.62 * s;
-  const w = 0.9 * s;
-  const poses: [number, number, number][] = [
-    [0.4, 0.35, 0],
-    [1.5, -0.4, 0.04],
-    [2.4, 0.55, -0.05],
-  ];
-  for (const [yaw, tilt, oy] of poses) {
-    const card = mesh(new THREE.PlaneGeometry(w, h), mat, x, 0.28 * s + oy, z, parent);
-    card.rotation.order = "YXZ";
-    card.rotation.y = yaw;
-    card.rotation.x = tilt;
-    card.castShadow = false;
-  }
+  billboard(0.95 * s, 0.7 * s, x, 0.34 * s, z, mat, parent);
 }
 
 export function crepeMyrtle(x: number, z: number, parent: THREE.Object3D) {

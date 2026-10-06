@@ -7,6 +7,7 @@ import type { Facing, HudState, Place, Solid, V2Public } from "./core/types";
 import { productionLanes, sampleLane, type Lane } from "./roads/lanes";
 import { buildSlice, carBody, type SliceWorld } from "./world/slice";
 import { presentVehicles } from "./world/kits/vehicles";
+import { faceFoliage } from "./world/kits/trees";
 import { characters, frameSize } from "./assets/characters";
 import { characterMaterial, footMarker, plantFeet, seatOnGround, solePlane, solidCutout } from "./world/feet";
 import {
@@ -138,8 +139,18 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       if (face === facing) applyBenji(face);
     });
   }
+  const strideTex: Partial<Record<Facing, THREE.Texture>> = {};
+  const frontStride = characters.benji.views.walk;
+  if (frontStride) {
+    loader.load(frontStride.src, (tex) => {
+      solidCutout(tex);
+      strideTex.front = tex;
+    });
+  }
   let glideX = 0;
   let glideZ = 0;
+  /** Distance walked. Stride sheets flip on this, not on a timer. */
+  let travel = 0;
 
   const lanes = productionLanes();
   const cars = spawnTraffic(world, lanes);
@@ -247,7 +258,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   window.addEventListener("keyup", ku);
   window.addEventListener("blur", clearKeys);
 
-  const api: V2Public = { x: player.position.x, y: player.position.y, z: player.position.z, facing, place, cars: [], dollars, respect, mission, carrying, dialogue };
+  const api: V2Public = { x: player.position.x, y: player.position.y, z: player.position.z, facing, place, cars: [], dollars, respect, mission, carrying, dialogue, pose: facing };
   (window as unknown as { __SACK_V2__?: V2Public }).__SACK_V2__ = api;
 
   let hudAcc = 0;
@@ -427,6 +438,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     }
     player.position.x += glideX * dt;
     player.position.z += glideZ * dt;
+    travel += Math.hypot(glideX, glideZ) * dt;
     player.userData.life = ((player.userData.life as number) ?? 0) + dt;
     if (place === "court" && ballHeld && hold) facing = faceAlong(world.hoop.x - player.position.x, world.hoop.z - player.position.z);
     const zone = collisionZone();
@@ -480,12 +492,14 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     updatePeds(dt);
     faceAvatar();
     placeCamera(dt);
+    faceFoliage(camera.position);
     composer.render();
 
     api.x = player.position.x;
     api.y = player.position.y;
     api.z = player.position.z;
     api.facing = facing;
+    api.pose = String(avatar.userData.pose ?? facing);
     api.place = place;
     api.cars = cars.map((car) => ({
       x: car.mesh.position.x,
@@ -901,17 +915,24 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   function applyBenji(face: Facing) {
     const mat = avatar.material as THREE.MeshBasicMaterial;
-    // Standing frames only. The walk sheets are a different crop, so swapping them pops the body.
-    if (avatar.userData.pose === face && mat.map) return;
-    const tex = textures[face];
+    const speed = Math.hypot(glideX, glideZ);
+    const stepping = speed > 0.28 && (travel / 1.9) % 1 >= 0.5;
+    const stride = stepping ? strideTex[face] : undefined;
+    const pose = stride ? `${face}-walk` : face;
+    if (avatar.userData.pose === pose && mat.map) return;
+    const tex = stride ?? textures[face];
     if (!tex) return;
-    const size = frameSize(characters.benji, face);
+    // Standing mesh only. The stride sheet is a different crop, so a new plane pops the body.
+    if (avatar.userData.box !== face) {
+      const size = frameSize(characters.benji, face);
+      avatar.geometry.dispose();
+      avatar.geometry = solePlane(size.w, size.h, size.footPad, size.pxH, size.centerPx, size.pxW);
+      avatar.userData.box = face;
+    }
     mat.map = tex;
     mat.needsUpdate = true;
-    avatar.geometry.dispose();
-    avatar.geometry = solePlane(size.w, size.h, size.footPad, size.pxH, size.centerPx, size.pxW);
     avatar.position.set(0, 0, 0);
-    avatar.userData.pose = face;
+    avatar.userData.pose = pose;
     avatar.userData.face = face;
   }
 
@@ -927,7 +948,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const mesh = sprite as THREE.Mesh;
     const mat = mesh.material as THREE.MeshBasicMaterial;
     const asset = host.userData.asset as Parameters<typeof frameSize>[0] | undefined;
-    const tex = host.userData.tex as Partial<Record<Facing, THREE.Texture>> | undefined;
+    const tex = host.userData.tex as Partial<Record<Facing | "walk", THREE.Texture>> | undefined;
     const heading = (host.userData.heading as number) ?? Math.PI;
     const toCam = yawTo(host, camera.position);
     let rel = toCam - heading;
@@ -939,13 +960,20 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       face = abs < 0.75 ? "front" : abs > 2.35 ? "back" : rel > 0 ? "left" : "right";
       if (!tex[face]) face = "front";
     }
-    const pose = face;
+    const gait = (host.userData.gait as number) ?? 0;
+    const phase = (host.userData.phase as number) ?? 0;
+    const walkMap = face === "front" ? tex?.walk : undefined;
+    const stepping = Boolean(walkMap) && gait > 0.22 && ((phase % 1) + 1) % 1 >= 0.5;
+    const pose = stepping ? `${face}-walk` : face;
     if (asset && mesh.userData.pose !== pose) {
-      const map = tex?.[face];
+      const map = stepping ? walkMap : tex?.[face];
       if (map) {
-        const size = frameSize(asset, face);
-        mesh.geometry.dispose();
-        mesh.geometry = solePlane(size.w, size.h, size.footPad, size.pxH, size.centerPx, size.pxW);
+        if (mesh.userData.box !== face) {
+          const size = frameSize(asset, face);
+          mesh.geometry.dispose();
+          mesh.geometry = solePlane(size.w, size.h, size.footPad, size.pxH, size.centerPx, size.pxW);
+          mesh.userData.box = face;
+        }
         mesh.userData.pose = pose;
         mesh.userData.face = face;
         mat.map = map;

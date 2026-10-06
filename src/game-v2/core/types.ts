@@ -45,4 +45,6 @@ export type V2Public = {
   mission: string;
   carrying: boolean;
   dialogue: string;
+  /** Standing view, or `${facing}-walk` while a stride sheet is showing. */
+  pose: string;
 };

@@ -5,7 +5,7 @@ import { carBody, resetVehicleCards } from "./kits/vehicles";
 import { residence } from "./kits/residence";
 import { sidewalkRun } from "./kits/street";
 import { concreteSlab, grass as grassMatKit } from "./kits/materials";
-import { crepeMyrtle, matureTree, ornamental, shadeTree, shrub as kitShrub, streetTree } from "./kits/trees";
+import { crepeMyrtle, matureTree, ornamental, resetFoliage, shadeTree, shrub as kitShrub, streetTree } from "./kits/trees";
 import { bench, hydrant, picketFence, planter, stormDrain, streetlight, trashBin } from "./kits/props";
 import { addGround, clearGround } from "./ground";
 import { characterMaterial, footMarker, plantFeet, solePlane, solidCutout } from "./feet";
@@ -234,7 +234,7 @@ function spawn(asset: Spawnable, x: number, z: number, parent: THREE.Object3D) {
   g.userData.asset = asset;
   g.userData.views = asset.views;
   g.userData.heading = Math.PI;
-  const tex: Partial<Record<Facing, THREE.Texture>> = {};
+  const tex: Partial<Record<Facing | "walk", THREE.Texture>> = {};
   g.userData.tex = tex;
   for (const face of ["front", "back", "left", "right"] as const) {
     const view = asset.views[face];
@@ -242,6 +242,13 @@ function spawn(asset: Spawnable, x: number, z: number, parent: THREE.Object3D) {
     new THREE.TextureLoader().load(view.src, (map) => {
       solidCutout(map);
       tex[face] = map;
+    });
+  }
+  const walk = asset.views.walk;
+  if (walk) {
+    new THREE.TextureLoader().load(walk.src, (map) => {
+      solidCutout(map);
+      tex.walk = map;
     });
   }
   return g;
@@ -333,6 +340,7 @@ function signal(x: number, z: number, parent: THREE.Object3D) {
 export function buildSlice(): SliceWorld {
   figureMats.length = 0;
   resetVehicleCards();
+  resetFoliage();
   clearGround();
   const scene = new THREE.Scene();
   const skyDay = skyTex("day");

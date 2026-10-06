@@ -12,7 +12,7 @@ Status words: **DONE**, **PARTIAL**, **PLACEHOLDER**, **BROKEN**, **NOT STARTED*
 |---|---|---|
 | WASD | DONE | Direct screen movement in `src/game-v2/runtime.ts`. A and D move left and right. W moves away. S moves toward the camera. |
 | Arrow keys | DONE | `ArrowUp/Down/Left/Right` mapped to the same axes as WASD. |
-| Walking | PARTIAL | Moves and eases. Standing cutouts only. Walk-frame swaps were removed because they popped the body. |
+| Walking | PARTIAL | Moves and eases at 6.4 m/s. Front stride swaps inside the standing box. Back and sides stay on the standing frame, with no hop. |
 | Running | DONE | Shift uses 10.2 m/s. Night fit multiplies by 1.12. Fed boost multiplies by 1.22. Race overrides speed. |
 | Directional facing | DONE | Facing follows the movement vector. The card still faces the camera. |
 | Grounding | DONE | Sole plane and `walkableSurfaceAt()`. Foot contact is measured from the cutout alpha. No camera ground nudge. |
@@ -25,7 +25,7 @@ Status words: **DONE**, **PARTIAL**, **PLACEHOLDER**, **BROKEN**, **NOT STARTED*
 | System | Status | Why |
 |---|---|---|
 | Canonical named NPCs | PARTIAL | K Blanco, Court OG, Mama Dee, Unc J, Nitro, Strike use Character Bible cutouts (front/back/left/right). They are cards, not acted characters. |
-| Ambient pedestrians | PARTIAL | Eight illustrated variants. The runtime shows the standing frame only so they do not pop. No photo-humans in game-v2. |
+| Ambient pedestrians | PARTIAL | Eight illustrated variants. Walkers swap a stride sheet inside the standing box. Idle people stay on the standing frame. No photo-humans in game-v2. |
 | Walking | PARTIAL | A few sidewalk routes ease speed, brake into a stop, pause ~1.1–2.2s, then reverse. Most named people stand. |
 | Directional facing | PARTIAL | Named cast pick a view from heading vs camera. Front-only pedestrians yaw the card toward their heading, clamped so they do not go edge-on. Partners face each other. |
 | Grounding | PARTIAL | Same sole/ground system as Benji. |
@@ -110,10 +110,10 @@ People are **not** `THREE.Sprite`. Each person is a `THREE.Group` with a `THREE.
 - **Foot position:** `plantFeet()` sets the group Y to `standHeight(x,z) + GROUND_EPSILON` (0.03) minus parent Y.
 - **Ground sampling:** `groundHeightAt` returns the highest registered pad under the point, else 0. `standHeight` also samples ±0.18 m so a curb edge does not drop the sole.
 - **Alpha:** PNGs are pre-cut. Runtime does not chroma-key. `solidCutout()` disables mipmaps and uses linear filters. Material is `MeshBasicMaterial`, `transparent: true`, `alphaTest: 0.02`, depth write on, polygon offset -4, render order 6. The black comic outline is the drawn stroke, not a runtime halo.
-- **Scale:** `presentScale()` returns 1. Height is the asset's meter height. Width is `height * pxW/pxH`. Walk sheets are not swapped in, so the body box does not pop.
+- **Scale:** `presentScale()` returns 1. Height is the asset's meter height. Width is `height * pxW/pxH`. A stride swaps the texture only. The mesh stays the standing size for that facing, so the body box does not pop.
 - **Shadow:** a flat dark ellipse on the group (`shadow` mesh). Characters also cast a shadow from the card.
 - **Facing:** named cast with back/left/right textures pick a view from the angle between `userData.heading` and the camera, then billboard the plane at the camera. Front-only pedestrians yaw the plane toward their heading, clamped to 1.25 rad off the camera.
-- **Walk:** standing frames only. `rock()` forces `rotation.z` to 0. There is no stride swap, no hop, and no scale pop. Walk PNGs exist on disk but are not shown.
+- **Walk:** Benji's front sheet and each pedestrian's front sheet alternate with the standing frame on distance (`travel / 1.9` for Benji, route phase for pedestrians). Back, left, and right have no stride sheet, so those views stay still. `rock()` forces `rotation.z` to 0. There is no hop and no scale pop.
 - **Files:** `src/game-v2/world/feet.ts`, `src/game-v2/world/ground.ts`, `src/game-v2/assets/characters.ts`, `src/game-v2/runtime.ts` (`applyBenji`, `applyCard`, `updatePeds`, `faceCompany`), `src/game-v2/world/slice.ts` (`actor`, `spawn`). Legacy `src/game/` is donor code and is not this renderer.
 
 Why someone can still look wrong:
@@ -123,7 +123,7 @@ Why someone can still look wrong:
 - **Transparent:** a hole left in the source PNG. `alphaTest` is 0.02, so it no longer punches out dark cloth.
 - **Over-cropped:** the source PNG was cropped that way. Runtime does not crop further.
 - **Jagged outline:** the ink stroke is one pixel of feather. Thickening it smears the drawing.
-- **No walk cycle:** the standing card translates. Side and back views do not have a stride frame.
+- **No full turnaround cycle:** back, left, and right still have no stride sheet. Walking away or sideways keeps the standing card.
 
 ## 8. Input and movement
 

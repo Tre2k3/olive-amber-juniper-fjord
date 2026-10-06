@@ -11,7 +11,7 @@ The GitHub branch `feat/grok-reference-driven-rebuild` on the remote was still `
 ## P1
 
 1. **The home block is still short of the concept boards.** Benji's house is modular geometry (roof, porch, brick skirt, yard), not a pasted facade. HQ, court, bowl, river, trucks, and the strip were not rebuilt in this pass. `mountStreetKit()` is still unused on purpose.
-2. **Characters are still cards.** Standing cutouts, camera-facing. Live renderer is `src/game-v2` (`alphaTest` 0.02, no stride swap). `src/game` is donor code. There is no body rig and no real walk cycle.
+2. **Characters are still cards.** Front-facing Benji and the sidewalk pedestrians swap a stride sheet inside the standing body box. Back, left, and right stay on the standing frame (no hop). There is no body rig. Trees on the block are yaw billboards (one or two planes), not tilted leaf cards. `src/game` is donor code.
 3. **No downtown, no park, no drivable car.** The city the packs describe is not in the runtime.
 4. **Story ends at a four-item checklist.** After the K Blanco drop and fish/bowl/eat/race, the mission string says the block is open. There is no next chapter.
 5. **Lint exits 0 with 7 warnings.** They are the `GameV2` effect dependency literal, legacy `src/game` hooks, and one unused eslint-disable. No `useSpot` errors. `test:smoke`, `test:foundation`, and `test:slice` now drive the live `window.__SACK_V2__` route (movement, grounding, hero door, traffic). They do not boot the donor `window.__sack` engine.
@@ -31,7 +31,7 @@ The GitHub branch `feat/grok-reference-driven-rebuild` on the remote was still `
 - Pedestrians are duplicated (same eight drawings).
 - Interior camera has no street-side occlusion. Buildings fill the lens.
 - Mobile controls are untested on a real phone beyond a 390×844 frame.
-- `GameV2.tsx` effect dependency is the literal `9` so the loop remounts. It is a hack and lint warns on it.
+- `GameV2.tsx` effect dependency is the literal `11` so the loop remounts. It is a hack and lint warns on it.
 - Sandbox git history (`b1e87c1` and parents) does **not** share commits with GitHub. Do not force-push that history. It would orphan the real repo.
 
 ## P3

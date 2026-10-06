@@ -15,7 +15,9 @@
  * S / Down moves toward the camera and shows front.
  *
  * Walk art is PARTIAL. Front has standing + one stride frame.
- * Back, left, and right are standing frames only.
+ * Back, left, and right are standing frames only. Those views
+ * translate. They do not bob, hop, or scale.
+ * A stride swaps the map onto the standing mesh. The body box does not change.
  */
 import { characterBounds, type AlphaBounds } from "./character-bounds";
 
@@ -120,7 +122,9 @@ export type FittedFrame = {
   centerPx: number;
 };
 
-/** Fit a frame in the standing-front body box. Sole stays at y=0. Width cannot exceed that box. */
+/** Fit a frame in the standing-front body box. Sole stays at y=0. Width cannot exceed that box.
+ *  The walk result can still be shorter than the standing mesh. Do not rebuild geometry from it.
+ */
 export function frameSize(
   asset: { height: number; views: { front: Cutout; walk?: Cutout } & Partial<Record<Facing, Cutout>> },
   facing: Facing | "walk" = "front",
