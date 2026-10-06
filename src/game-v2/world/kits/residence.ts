@@ -187,12 +187,13 @@ export function residence(
   windowUnit(parent, glow, x - w * 0.28, base + 1.75, faceZ, Math.PI);
   windowUnit(parent, glow, x + w * 0.28, base + 1.75, faceZ, Math.PI);
   windowUnit(parent, glow, x - w / 2 - 0.08, base + 1.7, z, -Math.PI / 2);
-  const shutter = shutterMat(style === 1 ? 0x1e3348 : style === 2 ? 0x6a3030 : 0x241c18);
+  const shutter = shutterMat(hero ? 0x6b2a22 : style === 1 ? 0x1e3348 : style === 2 ? 0x6a3030 : 0x1f3d32);
   for (const sx of [-w * 0.28, w * 0.28]) {
     box(0.1, 1.22, 0.05, x + sx - 0.68, base + 1.75, faceZ - 0.04, shutter, parent);
     box(0.1, 1.22, 0.05, x + sx + 0.68, base + 1.75, faceZ - 0.04, shutter, parent);
   }
   box(w + 0.08, 1.05, 0.1, x, base + 0.52, faceZ - 0.06, brickMat, parent);
+  box(w + 0.2, 0.08, 0.16, x, base + 1.08, faceZ - 0.1, trim, parent);
   box(0.1, 1.05, d * 0.92, x - w / 2 - 0.02, base + 0.52, z + 0.15, brickMat, parent);
   box(0.1, 1.05, d * 0.92, x + w / 2 + 0.02, base + 0.52, z + 0.15, brickMat, parent);
   if (style === 1) box(w, 0.95, 0.1, x, base + 0.5, z + d / 2 + 0.04, brickMat, parent);
@@ -239,6 +240,7 @@ export function residence(
     col.castShadow = true;
     parent.add(col);
   }
+  box(porchW * 0.92, 0.14, 0.16, x, 2.16, porchZ - 1.05, trim, parent);
   box(porchW * 0.9, 0.05, 0.05, x, 0.98, porchZ - 1.05, trim, parent);
   box(porchW * 0.9, 0.05, 0.05, x, 0.42, porchZ - 1.05, trim, parent);
   for (let i = 0; i < 5; i++) {

@@ -12,37 +12,29 @@ function mesh(geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: numb
 function canopy(seed: number, dark: string, mid: string, lite: string) {
   return canvasTex((g, w, h) => {
     g.clearRect(0, 0, w, h);
-    const blobs: [number, number, number, string][] = [
-      [0.5, 0.62, 0.36, dark],
-      [0.3, 0.5, 0.24, mid],
-      [0.7, 0.48, 0.22, mid],
-      [0.48, 0.3, 0.18, dark],
-      [0.58, 0.72, 0.16, lite],
-      [0.36, 0.7, 0.14, mid],
-    ];
-    blobs.forEach(([cx, cy, r, col], i) => {
-      const ox = ((seed + i * 13) % 11) - 5;
-      const grd = g.createRadialGradient(cx * w + ox, cy * h, 8, cx * w, cy * h, r * w);
-      grd.addColorStop(0, col);
-      grd.addColorStop(0.75, col);
-      grd.addColorStop(1, "rgba(0,0,0,0)");
-      g.fillStyle = grd;
+    const colors = [dark, mid, mid, lite, dark];
+    for (let i = 0; i < 26; i++) {
+      const cx = 28 + ((i * 41 + seed * 17) % 200);
+      const cy = 24 + ((i * 33 + seed * 11) % 190);
+      const rx = 46 + ((i * 13 + seed) % 28);
+      const ry = 36 + ((i * 9 + seed) % 22);
+      g.fillStyle = colors[i % colors.length]!;
       g.beginPath();
-      g.ellipse(cx * w + ox, cy * h, r * w, r * h * 0.78, seed + i, 0, Math.PI * 2);
+      g.ellipse(cx, cy, rx, ry, (seed + i) * 0.55, 0, Math.PI * 2);
       g.fill();
-    });
+    }
   }, 256, 256);
 }
 
 const crownMats = new Map<string, THREE.MeshStandardMaterial>();
 
-function leafMat(key: string, seed: number, dark: string, mid: string, lite: string, alpha = 0.1) {
+function leafMat(key: string, seed: number, dark: string, mid: string, lite: string) {
   const hit = crownMats.get(key);
   if (hit) return hit;
   const mat = new THREE.MeshStandardMaterial({
     map: canopy(seed, dark, mid, lite),
     transparent: true,
-    alphaTest: alpha,
+    alphaTest: 0.45,
     side: THREE.DoubleSide,
     roughness: 1,
   });
@@ -50,18 +42,22 @@ function leafMat(key: string, seed: number, dark: string, mid: string, lite: str
   return mat;
 }
 
+/** Irregular tilted clumps. Not three vertical cards crossed into an X. */
 function crown(x: number, z: number, y: number, w: number, h: number, mat: THREE.Material, parent: THREE.Object3D) {
-  const clusters = [
-    { ox: 0, oz: 0, s: 1, oy: 0 },
-    { ox: w * 0.22, oz: w * 0.08, s: 0.7, oy: -h * 0.16 },
-    { ox: -w * 0.18, oz: -w * 0.06, s: 0.62, oy: -h * 0.08 },
+  const cards: [number, number, number, number, number][] = [
+    [0.35, 0.72, 0, 0.06, 0.88],
+    [1.25, -0.48, w * 0.18, -0.14, 0.6],
+    [2.15, 0.55, -w * 0.16, -0.04, 0.56],
+    [0.8, 1.12, 0.04, 0.16, 0.48],
+    [2.55, 0.82, -0.06, -0.22, 0.42],
+    [1.7, -0.7, w * 0.08, 0.02, 0.38],
   ];
-  for (const cluster of clusters) {
-    for (const yaw of [0.15, Math.PI / 3, (2 * Math.PI) / 3]) {
-      const card = mesh(new THREE.PlaneGeometry(w * cluster.s, h * cluster.s), mat, x + cluster.ox, y + cluster.oy, z + cluster.oz, parent);
-      card.rotation.y = yaw;
-      card.castShadow = false;
-    }
+  for (const [yaw, tilt, ox, oy, s] of cards) {
+    const card = mesh(new THREE.PlaneGeometry(w * s, h * s), mat, x + ox, y + oy * h, z, parent);
+    card.rotation.order = "YXZ";
+    card.rotation.y = yaw;
+    card.rotation.x = tilt;
+    card.castShadow = false;
   }
 }
 
@@ -127,12 +123,19 @@ export function palmTree(x: number, z: number, parent: THREE.Object3D) {
 }
 
 export function shrub(x: number, z: number, parent: THREE.Object3D, s = 1) {
-  const mat = leafMat("shrub", 6, "#1e4e28", "#347238", "#5a9450", 0.12);
+  const mat = leafMat("shrub", 6, "#1e4e28", "#347238", "#5a9450");
   const h = 0.62 * s;
   const w = 0.9 * s;
-  for (const yaw of [0, Math.PI / 3, (2 * Math.PI) / 3]) {
-    const card = mesh(new THREE.PlaneGeometry(w, h), mat, x, 0.28 * s, z, parent);
+  const poses: [number, number, number][] = [
+    [0.4, 0.35, 0],
+    [1.5, -0.4, 0.04],
+    [2.4, 0.55, -0.05],
+  ];
+  for (const [yaw, tilt, oy] of poses) {
+    const card = mesh(new THREE.PlaneGeometry(w, h), mat, x, 0.28 * s + oy, z, parent);
+    card.rotation.order = "YXZ";
     card.rotation.y = yaw;
+    card.rotation.x = tilt;
     card.castShadow = false;
   }
 }
@@ -142,6 +145,6 @@ export function crepeMyrtle(x: number, z: number, parent: THREE.Object3D) {
     const t = mesh(new THREE.CylinderGeometry(0.04, 0.07, 1.7, 6), bark(), x + ox, 0.85, z + oz, parent);
     t.rotation.z = ox * 0.8;
   }
-  const mat = leafMat("crepe", 5, "#8a3058", "#d06088", "#f0a0b8", 0.12);
+  const mat = leafMat("crepe", 5, "#8a3058", "#d06088", "#f0a0b8");
   crown(x, z, 1.85, 1.5, 1.15, mat, parent);
 }

@@ -14,7 +14,7 @@ The GitHub branch `feat/grok-reference-driven-rebuild` on the remote was still `
 2. **Characters are still cards.** Standing cutouts, camera-facing. Live renderer is `src/game-v2` (`alphaTest` 0.02, no stride swap). `src/game` is donor code. There is no body rig and no real walk cycle.
 3. **No downtown, no park, no drivable car.** The city the packs describe is not in the runtime.
 4. **Story ends at a four-item checklist.** After the K Blanco drop and fish/bowl/eat/race, the mission string says the block is open. There is no next chapter.
-5. **Lint exits 0 with 7 warnings.** They are the `GameV2` effect dependency literal, legacy `src/game` hooks, and one unused eslint-disable. No `useSpot` errors. `npm run test:smoke`, `test:foundation`, and `test:slice` still drive the legacy `window.__sack` / "ENTER MEMPHIS" game. The live route is game-v2 (`window.__SACK_V2__`), so those three scripts time out. That is a test-target mismatch, not a home-block crash.
+5. **Lint exits 0 with 7 warnings.** They are the `GameV2` effect dependency literal, legacy `src/game` hooks, and one unused eslint-disable. No `useSpot` errors. `test:smoke`, `test:foundation`, and `test:slice` now drive the live `window.__SACK_V2__` route (movement, grounding, hero door, traffic). They do not boot the donor `window.__sack` engine.
 6. **Save does not restore where you are.** Position, place, and time of day reset. A reload puts Benji back on the sidewalk with his money and mission flags.
 
 ## P2
@@ -31,7 +31,7 @@ The GitHub branch `feat/grok-reference-driven-rebuild` on the remote was still `
 - Pedestrians are duplicated (same eight drawings).
 - Interior camera has no street-side occlusion. Buildings fill the lens.
 - Mobile controls are untested on a real phone beyond a 390×844 frame.
-- `GameV2.tsx` effect dependency is the literal `5` so the loop remounts. It is a hack and lint warns on it.
+- `GameV2.tsx` effect dependency is the literal `9` so the loop remounts. It is a hack and lint warns on it.
 - Sandbox git history (`b1e87c1` and parents) does **not** share commits with GitHub. Do not force-push that history. It would orphan the real repo.
 
 ## P3

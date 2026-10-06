@@ -37,8 +37,20 @@ async function shot(name, opts) {
   return state;
 }
 
+const hero = { x: -32, z: 6.15, yaw: 0, facing: "back", dist: 6.2, height: 2.15, lookY: 2.35 };
+await shot("01-benji-home-day", hero);
+await shot("02-benji-home-golden", { ...hero, golden: true });
+await shot("03-benji-home-night", { ...hero, night: true });
 await shot("04-porch", { x: -32, z: 8.2, yaw: 0, facing: "back", dist: 8.4, height: 2.05, lookY: 1.9 });
 await shot("05-roof-eaves", { x: -32, z: 7.5, yaw: 0, facing: "back", dist: 6.8, height: 1.55, lookY: 3.55 });
+await shot("06-landscaping", { x: -34.2, z: 6.4, yaw: 0.35, facing: "back", dist: 5.6, height: 1.7, lookY: 1.15 });
 await shot("07-driveway-coupe", { x: -33.2, z: 7.15, yaw: -0.91, facing: "left", dist: 6.4, height: 1.75, lookY: 1.05 });
+await shot("08-sidewalk-curb", { x: -24, z: 4.6, yaw: Math.PI / 2, facing: "right", dist: 4.2, height: 1.35, lookY: 0.55 });
+await shot("09-street-east", { x: -48, z: 4.4, yaw: Math.PI / 2, facing: "right", dist: 5.5, height: 1.7, lookY: 1.15 });
+await shot("10-street-west", { x: 18, z: 4.5, yaw: -Math.PI / 2, facing: "left", dist: 5.8, height: 1.75, lookY: 1.15 });
+await shot("11-pedestrians", { x: -18.5, z: 4.3, yaw: 0.25, facing: "back", dist: 7.2, height: 2.1, lookY: 1.35 });
+await shot("12-traffic", { x: -8, z: 3.2, yaw: Math.PI / 2, facing: "right", dist: 7.5, height: 2.4, lookY: 0.85, frames: 8 });
+await shot("13-golden-wide", { x: -30, z: 2.6, yaw: 0.2, facing: "back", golden: true, dist: 11, height: 3.6, lookY: 1.7 });
+await shot("14-mobile", { ...hero, viewport: { width: 390, height: 844 } });
 console.log("ERRORS", errors.slice(0, 8));
 await browser.close();
