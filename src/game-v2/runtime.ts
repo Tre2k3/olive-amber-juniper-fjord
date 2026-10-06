@@ -1065,19 +1065,19 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   function applyNight() {
     const outside = place === "street" || place === "court";
-    world.sun.intensity = night ? 0.22 : golden ? 2.35 : outside ? 2.45 : 0.85;
-    world.sun.color.set(night ? 0x243044 : golden ? 0xff7a28 : 0xfff1d6);
-    world.sun.position.set(golden ? -52 : -22, golden ? 6.2 : 28, golden ? 24 : 14);
-    world.hemi.intensity = night ? 0.42 : golden ? 0.55 : outside ? 0.68 : 0.7;
-    world.hemi.color.set(night ? 0x31465f : golden ? 0xffc48a : 0xcfe6ff);
-    world.hemi.groundColor.set(night ? 0x1a140e : golden ? 0x7a4a28 : 0x5d7a48);
-    renderer.toneMappingExposure = night ? 0.98 : golden ? 1.22 : 1.05;
+    world.sun.intensity = night ? 0.22 : golden ? 2.35 : outside ? 2.85 : 0.85;
+    world.sun.color.set(night ? 0x243044 : golden ? 0xff7a28 : 0xffe0b0);
+    world.sun.position.set(golden ? -52 : -18, golden ? 6.2 : 26, golden ? 24 : 18);
+    world.hemi.intensity = night ? 0.42 : golden ? 0.55 : outside ? 0.78 : 0.7;
+    world.hemi.color.set(night ? 0x31465f : golden ? 0xffc48a : 0xd4ecff);
+    world.hemi.groundColor.set(night ? 0x1a140e : golden ? 0x7a4a28 : 0x6a6840);
+    renderer.toneMappingExposure = night ? 0.98 : golden ? 1.22 : outside ? 1.16 : 1.05;
     bloom.strength = night ? 0.38 : golden ? 0.28 : 0.14;
     world.scene.background = night ? world.skyNight : golden ? world.skyGolden : world.skyDay;
     const fog = world.scene.fog as THREE.Fog;
     fog.color.setHex(night ? 0x141820 : golden ? 0xf0c090 : 0xc5d4e2);
-    fog.near = night ? 16 : golden ? 12 : 24;
-    fog.far = night ? 72 : golden ? 58 : 90;
+    fog.near = night ? 16 : golden ? 12 : 34;
+    fog.far = night ? 72 : golden ? 58 : 120;
     const hqDay = world.exterior.getObjectByName("hq-plate-day");
     const hqNight = world.exterior.getObjectByName("hq-plate-night");
     if (hqDay) hqDay.visible = !night || !hqNight;
@@ -1277,9 +1277,13 @@ function spawnTraffic(world: SliceWorld, lanes: Lane[]): Car[] {
     { lane: 1, s: 4 },
     { lane: 1, s: 22 },
     { lane: 1, s: 40 },
+    { lane: 2, s: 8 },
+    { lane: 2, s: 36 },
+    { lane: 2, s: 62 },
+    { lane: 2, s: 92 },
   ];
   spec.forEach((item, i) => {
-    const mesh = carBody((["sedan", "sedan", "suv", "sedan", "van", "suv", "sedan", "sedan"] as const)[i]!);
+    const mesh = carBody((["sedan", "sedan", "suv", "sedan", "van", "suv", "sedan", "sedan", "suv", "sedan", "van", "sedan"] as const)[i]!);
     const lamps = mesh.userData.headlights as THREE.MeshStandardMaterial[] | undefined;
     if (lamps) world.headlightMats.push(...lamps);
     const sample = sampleLane(lanes[item.lane]!, item.s);

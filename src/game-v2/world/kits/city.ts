@@ -351,8 +351,8 @@ export function buildDowntown(
   streetlight(108, -8.6, parent, lamps);
 
   const parked: [number, number, number, "sedan" | "suv"][] = [
-    [18, eastWestZ + 1.7, Math.PI / 2, "sedan"],
-    [60, eastWestZ + 1.7, Math.PI / 2, "suv"],
+    [18, eastWestZ + 3.35, Math.PI / 2, "sedan"],
+    [60, eastWestZ + 3.35, Math.PI / 2, "suv"],
   ];
   for (const [x, z, yaw, kind] of parked) {
     const car = carBody(kind);
@@ -367,7 +367,8 @@ export function buildDowntown(
   for (let x = 6; x < 80; x += 4.2) box(1.7, 0.02, 0.14, x, 0.075, eastWestZ, yellow, parent);
   box(76, 0.015, 0.08, 42, 0.07, eastWestZ - 3.55, paint, parent);
   box(76, 0.015, 0.08, 42, 0.07, eastWestZ + 3.55, paint, parent);
-  for (let i = 0; i < 8; i++) box(0.55, 0.02, 0.7, 11.2, 0.08, eastWestZ - 3.2 + i * 0.95, paint, parent);
+  for (let i = 0; i < 9; i++) box(0.7, 0.02, 0.85, 11.2, 0.08, eastWestZ - 3.4 + i * 0.85, paint, parent);
+  for (let i = 0; i < 9; i++) box(0.7, 0.02, 0.85, 48, 0.08, eastWestZ - 3.4 + i * 0.85, paint, parent);
 
   box(0.12, 4.2, 0.12, 12.4, 2.1, eastWestZ + 5.1, metal, parent);
   box(1.6, 0.1, 0.1, 13.1, 4.05, eastWestZ + 5.1, metal, parent);

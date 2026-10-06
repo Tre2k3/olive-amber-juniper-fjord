@@ -123,9 +123,9 @@ function skyTex(mode: "day" | "golden" | "night") {
       g.fillStyle = grd;
       g.fillRect(0, 0, w, h);
     } else {
-      grd.addColorStop(0, "#3e86c8");
-      grd.addColorStop(0.45, "#8ec4ee");
-      grd.addColorStop(0.82, "#d5e7f4");
+      grd.addColorStop(0, "#2a74c4");
+      grd.addColorStop(0.4, "#79b6ef");
+      grd.addColorStop(0.78, "#d2e6f6");
       grd.addColorStop(1, "#e7efe4");
       g.fillStyle = grd;
       g.fillRect(0, 0, w, h);
@@ -954,12 +954,54 @@ export function buildSlice(): SliceWorld {
   pair(og, benchMate);
 
   buildDowntown(exterior, streetSolids, glowMats, lamps);
-  const districts = buildDistricts(exterior, streetSolids, glowMats, lamps, (asset, x, z, pts, speed) => {
+  const pace = (asset: Spawnable, x: number, z: number, pts: { x: number; z: number }[], speed: number) => {
     const g = spawn(asset, x, z, exterior);
     g.userData.route = { pts, i: 1, dir: 1, speed, phase: x };
+    g.userData.heading = Math.atan2(pts[1]!.x - pts[0]!.x, pts[1]!.z - pts[0]!.z);
     pedestrians.push(g);
     billboards.push(g);
-  });
+  };
+  const districts = buildDistricts(exterior, streetSolids, glowMats, lamps, pace);
+  const cast = [
+    characters.pedestrian.male01,
+    characters.pedestrian.female01,
+    characters.pedestrian.male02,
+    characters.pedestrian.female02,
+    characters.pedestrian.male03,
+    characters.pedestrian.female03,
+    characters.pedestrian.male04,
+    characters.pedestrian.female04,
+  ];
+  const beats: { who: number; x: number; z: number; a: number; b: number; za: number; zb: number; speed: number }[] = [
+    { who: 0, x: 22, z: -48.4, a: 18, b: 70, za: -48.4, zb: -48.4, speed: 0.82 },
+    { who: 1, x: 40, z: -48.85, a: 20, b: 72, za: -48.85, zb: -48.85, speed: 0.74 },
+    { who: 2, x: 58, z: -48.35, a: 24, b: 74, za: -48.35, zb: -48.35, speed: 0.9 },
+    { who: 3, x: 70, z: -48.8, a: 22, b: 74, za: -48.8, zb: -48.8, speed: 0.7 },
+    { who: 4, x: 20, z: -59.9, a: 16, b: 74, za: -59.9, zb: -59.9, speed: 0.86 },
+    { who: 5, x: 32, z: -60.45, a: 18, b: 72, za: -60.45, zb: -60.45, speed: 0.78 },
+    { who: 6, x: 46, z: -59.85, a: 20, b: 74, za: -59.85, zb: -59.85, speed: 0.96 },
+    { who: 7, x: 58, z: -60.4, a: 18, b: 70, za: -60.4, zb: -60.4, speed: 0.72 },
+    { who: 0, x: 68, z: -59.95, a: 22, b: 74, za: -59.95, zb: -59.95, speed: 0.88 },
+    { who: 1, x: 47.4, z: -54, a: 47.4, b: 47.4, za: -48.7, zb: -60.1, speed: 0.7 },
+    { who: 2, x: 49.1, z: -57, a: 49.1, b: 49.1, za: -60.1, zb: -48.6, speed: 0.66 },
+    { who: 4, x: 98, z: 6.45, a: 90, b: 124, za: 6.45, zb: 6.45, speed: 0.86 },
+    { who: 5, x: 112, z: 6.15, a: 92, b: 126, za: 6.15, zb: 6.15, speed: 0.94 },
+    { who: 6, x: 108, z: -6.4, a: 98, b: 128, za: -6.4, zb: -6.4, speed: 0.8 },
+  ];
+  for (const beat of beats) {
+    pace(cast[beat.who]!, beat.x, beat.z, [
+      { x: beat.a, z: beat.za },
+      { x: beat.b, z: beat.zb },
+    ], beat.speed);
+  }
+  const cornerA = spawn(characters.pedestrian.female04, 40.4, -48.2, exterior);
+  const cornerB = spawn(characters.pedestrian.male03, 41.3, -48.55, exterior);
+  cornerA.userData.idle = true;
+  cornerB.userData.idle = true;
+  cornerA.userData.partner = cornerB;
+  cornerB.userData.partner = cornerA;
+  pedestrians.push(cornerA, cornerB);
+  billboards.push(cornerA, cornerB);
 
   buildHomeInterior(home, homeSolids, glowMats);
   const interior = buildHqInterior(hq, hqSolids, glowMats);
