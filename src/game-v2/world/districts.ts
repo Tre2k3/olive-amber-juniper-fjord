@@ -198,7 +198,6 @@ function bowling(
   box(2.2, 1.1, 0.4, x - 6.6, 1.3, z + 4.5, new THREE.MeshStandardMaterial({ color: 0x6a4328, roughness: 0.7 }), parent);
   lamp(x, 4.4, z + 6, 0xff4fd8, parent, lamps);
   lamp(x, 3.2, z - 2, 0xffb45a, parent, lamps);
-  dressFront(parent, glow, x, z + 8.2, 1, 8.2, h, "901 BOWL", 0xff3ea5);
 }
 
 function river(
