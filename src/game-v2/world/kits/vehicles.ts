@@ -10,8 +10,6 @@ const SIZE: Record<VehicleKind, { length: number; width: number; height: number 
   coupe: { length: 4.9, width: 1.9, height: 1.4 },
 };
 
-const wheelGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.16, 10);
-const wheelMat = new THREE.MeshStandardMaterial({ color: 0x161616, roughness: 0.72 });
 const loader = new THREE.TextureLoader();
 const cache = new Map<string, THREE.Texture>();
 
@@ -74,23 +72,6 @@ export function carBody(kind: VehicleKind) {
   shadow.rotation.x = -Math.PI / 2;
   shadow.position.y = 0.012;
   shadow.scale.set(1.05, 1.15, 1);
-  const belly = new THREE.Mesh(
-    new THREE.BoxGeometry(spec.length * 0.62, 0.1, spec.width * 0.46),
-    new THREE.MeshStandardMaterial({ color: 0x161616, roughness: 0.85 }),
-  );
-  belly.position.y = 0.18;
-  g.add(belly);
-  for (const [fx, fz] of [
-    [0.32, 0.36],
-    [0.32, -0.36],
-    [-0.32, 0.36],
-    [-0.32, -0.36],
-  ] as const) {
-    const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-    wheel.rotation.x = Math.PI / 2;
-    wheel.position.set(fx * spec.length, 0.28, fz * spec.width);
-    g.add(wheel);
-  }
   g.add(shadow);
   const rec: VehicleCard = { group: g, card, mat, kind, views, face: "left" };
   g.userData.card = rec;
