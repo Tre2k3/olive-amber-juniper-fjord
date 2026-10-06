@@ -4,7 +4,7 @@ import { characters, frameSize, type Facing, type Spawnable } from "../assets/ch
 import { carBody, resetVehicleCards } from "./kits/vehicles";
 import { residence } from "./kits/residence";
 import { sidewalkRun } from "./kits/street";
-import { concreteSlab, grass as grassMatKit } from "./kits/materials";
+import { concreteSlab, grass as grassMatKit, surface } from "./kits/materials";
 import { crepeMyrtle, matureTree, ornamental, resetFoliage, shadeTree, shrub as kitShrub, streetTree } from "./kits/trees";
 import { bench, hydrant, picketFence, planter, stormDrain, streetlight, trashBin } from "./kits/props";
 import { addGround, clearGround } from "./ground";
@@ -134,54 +134,8 @@ function skyTex(mode: "day" | "golden" | "night") {
       haze.addColorStop(1, "rgba(232,236,228,0.55)");
       g.fillStyle = haze;
       g.fillRect(0, 0, w, h);
-      g.fillStyle = "rgba(255,255,255,0.42)";
-      for (const [cx, cy] of [
-        [160, 78],
-        [210, 70],
-        [250, 86],
-        [400, 120],
-        [460, 108],
-        [520, 126],
-        [680, 64],
-        [730, 74],
-        [840, 148],
-        [900, 136],
-      ] as const) {
-        g.beginPath();
-        g.ellipse(cx, cy, 46, 16, 0, 0, Math.PI * 2);
-        g.fill();
-      }
     }
   }, 1024, 512);
-}
-
-function asphaltTex() {
-  const tex = canvasTex((g, w, h) => {
-    g.fillStyle = "#34383e";
-    g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 9000; i++) {
-      const shade = 36 + ((i * 13) % 28);
-      g.fillStyle = `rgb(${shade},${shade + 2},${shade + 5})`;
-      g.fillRect((i * 73) % w, (i * 41) % h, i % 5 === 0 ? 4 : 2, 2);
-    }
-    g.fillStyle = "rgba(62, 66, 72, 0.7)";
-    g.beginPath();
-    g.ellipse(150, 180, 90, 36, 0.2, 0, Math.PI * 2);
-    g.fill();
-    g.fillStyle = "rgba(22, 24, 28, 0.55)";
-    g.fillRect(280, 70, 120, 48);
-    g.fillRect(40, 300, 80, 34);
-    g.strokeStyle = "rgba(18, 18, 20, 0.65)";
-    g.lineWidth = 2;
-    g.beginPath();
-    g.moveTo(30, 240);
-    g.lineTo(110, 220);
-    g.lineTo(150, 260);
-    g.lineTo(190, 250);
-    g.stroke();
-  }, 512, 512, true);
-  tex.repeat.set(7, 2.4);
-  return new THREE.MeshStandardMaterial({ map: tex, roughness: 0.93, metalness: 0.05 });
 }
 
 const figureMats: THREE.MeshBasicMaterial[] = [];
@@ -394,13 +348,12 @@ export function buildSlice(): SliceWorld {
   const hqSolids: Solid[] = [];
   const glowMats: THREE.MeshStandardMaterial[] = [];
   const headlightMats: THREE.MeshStandardMaterial[] = [];
-  const asphalt = asphaltTex();
   mesh(new THREE.PlaneGeometry(200, 160), grassMatKit(), 8, 0, -6, exterior).rotation.x = -Math.PI / 2;
   mesh(new THREE.PlaneGeometry(46, 16), grassMatKit(), -28, 0.006, 16, exterior).rotation.x = -Math.PI / 2;
   mesh(new THREE.PlaneGeometry(90, 70), grassMatKit(), 150, 0.001, 2, exterior).rotation.x = -Math.PI / 2;
-  box(156, 0.06, 8.2, 8, 0.03, 0, asphalt, exterior);
-  box(50, 0.06, 8.2, 111, 0.03, 0, asphalt, exterior);
-  box(9.1, 0.06, 48, 8, 0.03, -2, asphalt, exterior);
+  box(156, 0.06, 8.2, 8, 0.03, 0, surface("/game-v2/materials/asphalt.jpg", 156 / 3.4, 8.2 / 3.4, 0.95), exterior);
+  box(50, 0.06, 8.2, 111, 0.03, 0, surface("/game-v2/materials/asphalt.jpg", 50 / 3.4, 8.2 / 3.4, 0.95), exterior);
+  box(9.1, 0.06, 48, 8, 0.03, -2, surface("/game-v2/materials/asphalt.jpg", 9.1 / 3.4, 48 / 3.4, 0.95), exterior);
   addGround({ minX: -70, maxX: 136, minZ: -4.1, maxZ: 4.1, y: 0.06 });
   addGround({ minX: 3.45, maxX: 12.55, minZ: -26, maxZ: 22, y: 0.06 });
   sidewalkRun(exterior, 6.35, -62, 78, [[-38.2, -32.4], [-18.6, -14.2]]);
@@ -582,7 +535,7 @@ export function buildSlice(): SliceWorld {
   picketFence(48.2, 9.15, 2.2, exterior);
   bench(8.4, 8.15, Math.PI, exterior);
   planter(5.5, 8.2, exterior);
-  box(3.4, 0.05, 6.2, -35.6, 0.04, 8.4, asphalt, exterior);
+  box(3.4, 0.05, 6.2, -35.6, 0.04, 8.4, surface("/game-v2/materials/asphalt.jpg", 1, 2, 0.95), exterior);
   box(3.2, 0.04, 1.5, -35.6, 0.04, 4.55, concreteSlab(2), exterior);
   hydrant(-38.4, 5.15, exterior);
   const coupe = parkedCar(-35.4, 8.9, 2.35, "coupe", exterior);

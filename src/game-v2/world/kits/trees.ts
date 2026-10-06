@@ -114,10 +114,26 @@ export function shadeTree(x: number, z: number, parent: THREE.Object3D, scale = 
   crown(x, z, 2.85 * scale, 2.8 * scale, 2.2 * scale, mat, parent);
 }
 
+let leafCard: THREE.MeshStandardMaterial | null = null;
+
+function streetLeaves() {
+  if (leafCard) return leafCard;
+  const map = new THREE.TextureLoader().load("/game-v2/materials/leaves.png");
+  map.colorSpace = THREE.SRGBColorSpace;
+  leafCard = new THREE.MeshStandardMaterial({
+    map,
+    transparent: true,
+    alphaTest: 0.2,
+    side: THREE.DoubleSide,
+    roughness: 0.86,
+    depthWrite: true,
+  });
+  return leafCard;
+}
+
 export function streetTree(x: number, z: number, parent: THREE.Object3D, scale = 1) {
   trunk(x, z, 2.8 * scale, 0.11 * scale, parent);
-  const mat = leafMat("street", 4, "#24562c", "#3d7a38", "#6aa45a");
-  crown(x, z, 3.3 * scale, 1.8 * scale, 2.0 * scale, mat, parent);
+  crown(x, z, 3.3 * scale, 2.15 * scale, 2.35 * scale, streetLeaves(), parent);
 }
 
 export function ornamental(x: number, z: number, parent: THREE.Object3D) {

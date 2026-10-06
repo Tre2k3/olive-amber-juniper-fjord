@@ -3,7 +3,7 @@ import type { Solid } from "../core/types";
 import type { Spawnable } from "../assets/characters";
 import { characters } from "../assets/characters";
 import { addGround } from "./ground";
-import { concreteSlab } from "./kits/materials";
+import { concreteSlab, surface } from "./kits/materials";
 import { palmTree, streetTree } from "./kits/trees";
 import { carBody } from "./kits/vehicles";
 import { dressFront } from "./kits/city";
@@ -74,8 +74,8 @@ function lamp(x: number, y: number, z: number, color: number, parent: THREE.Obje
   into.push(light);
 }
 
-function road(parent: THREE.Object3D, x: number, z: number, w: number, d: number, asphalt: THREE.Material) {
-  box(w, 0.06, d, x, 0.03, z, asphalt, parent);
+function road(parent: THREE.Object3D, x: number, z: number, w: number, d: number) {
+  box(w, 0.06, d, x, 0.03, z, surface("/game-v2/materials/asphalt.jpg", Math.max(1, w / 3.4), Math.max(1, d / 3.4), 0.95), parent);
   addGround({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, y: 0.06 });
 }
 
@@ -92,17 +92,16 @@ export function buildDistricts(
   lamps: THREE.PointLight[],
   pace: Pace,
 ): DistrictAnchors {
-  const asphalt = new THREE.MeshStandardMaterial({ color: 0x3a4048, roughness: 0.92 });
   const brick = new THREE.MeshStandardMaterial({ color: 0x2a2428, roughness: 0.86 });
   const wood = new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.8 });
   const pink = glowMat(0xff3ea5, 0.8);
   const warm = glowMat(0xffb45a, 0.45);
   glow.push(pink, warm);
 
-  bowling(parent, solids, glow, lamps, brick, pink, asphalt);
-  river(parent, solids, glow, lamps, asphalt, wood, warm);
+  bowling(parent, solids, glow, lamps, brick, pink);
+  river(parent, solids, glow, lamps, wood, warm);
   trucks(parent, solids, glow, lamps, warm);
-  meet(parent, solids, glow, lamps, asphalt, warm);
+  meet(parent, solids, glow, lamps, warm);
 
   pace(characters.pedestrian.female02, 90, -10.2, [
     { x: 78, z: -10.2 },
@@ -137,11 +136,10 @@ function bowling(
   lamps: THREE.PointLight[],
   brick: THREE.Material,
   pink: THREE.Material,
-  asphalt: THREE.Material,
 ) {
   const x = 92;
   const z = -24;
-  road(parent, 94, 0, 28, 9.1, asphalt);
+  road(parent, 94, 0, 28, 9.1);
   walk(parent, 94, -6.35, 28, 2.35);
   walk(parent, 92, -11.2, 6, 7.2);
 
@@ -205,11 +203,10 @@ function river(
   solids: Solid[],
   glow: THREE.MeshStandardMaterial[],
   lamps: THREE.PointLight[],
-  asphalt: THREE.Material,
   wood: THREE.Material,
   warm: THREE.Material,
 ) {
-  road(parent, -16, -36, 8, 52, asphalt);
+  road(parent, -16, -36, 8, 52);
   walk(parent, -20.6, -36, 2.2, 52);
   walk(parent, -11.4, -36, 2.2, 52);
   for (let z = -16; z > -58; z -= 10) {
@@ -322,10 +319,9 @@ function meet(
   solids: Solid[],
   glow: THREE.MeshStandardMaterial[],
   lamps: THREE.PointLight[],
-  asphalt: THREE.Material,
   warm: THREE.Material,
 ) {
-  road(parent, -38, -36, 40, 8, asphalt);
+  road(parent, -38, -36, 40, 8);
   walk(parent, -38, -30.4, 36, 2.2);
   const paint = new THREE.MeshStandardMaterial({ color: 0xf4efe4, roughness: 0.5 });
   box(0.35, 0.02, 6, -40, 0.08, -36, paint, parent);

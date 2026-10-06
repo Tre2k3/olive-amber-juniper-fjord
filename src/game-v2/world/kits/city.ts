@@ -1,20 +1,20 @@
 import * as THREE from "three";
 import type { Solid } from "../../core/types";
 import { addGround } from "../ground";
-import { asphalt, brick, concreteSlab } from "./materials";
+import { concreteSlab, surface } from "./materials";
 import { bench, hydrant, planter, streetlight, trashBin } from "./props";
 import { streetTree } from "./trees";
 import { carBody } from "./vehicles";
 
 const metal = new THREE.MeshStandardMaterial({ color: 0x1a1c20, roughness: 0.42, metalness: 0.55 });
 const glass = new THREE.MeshStandardMaterial({
-  color: 0xd5e6f2,
-  roughness: 0.06,
-  metalness: 0.35,
+  color: 0xc5d6e4,
+  roughness: 0.04,
+  metalness: 0.72,
   transparent: true,
-  opacity: 0.45,
-  emissive: 0xffc98a,
-  emissiveIntensity: 0.22,
+  opacity: 0.58,
+  emissive: 0x9eb4c6,
+  emissiveIntensity: 0.12,
 });
 const interior = new THREE.MeshStandardMaterial({
   color: 0xffe0b8,
@@ -25,39 +25,6 @@ const interior = new THREE.MeshStandardMaterial({
 const stone = new THREE.MeshStandardMaterial({ color: 0xc4b8a4, roughness: 0.86 });
 const recess = new THREE.MeshStandardMaterial({ color: 0x14110e, roughness: 0.92 });
 const bulk = new THREE.MeshStandardMaterial({ color: 0x241c18, roughness: 0.8 });
-const plasterCache = new Map<string, THREE.MeshStandardMaterial>();
-
-function plaster(hex: string) {
-  const hit = plasterCache.get(hex);
-  if (hit) return hit;
-  const c = document.createElement("canvas");
-  c.width = 256;
-  c.height = 256;
-  const g = c.getContext("2d")!;
-  g.fillStyle = hex;
-  g.fillRect(0, 0, 256, 256);
-  for (let i = 0; i < 4200; i++) {
-    const v = 255 - ((i * 17) % 40);
-    g.fillStyle = `rgba(${v},${v},${v},0.05)`;
-    g.fillRect((i * 13) % 256, (i * 29) % 256, 4, 3);
-  }
-  g.strokeStyle = "rgba(60,40,20,0.12)";
-  g.lineWidth = 1;
-  for (let y = 42; y < 256; y += 42) {
-    g.beginPath();
-    g.moveTo(0, y);
-    g.lineTo(256, y);
-    g.stroke();
-  }
-  const map = new THREE.CanvasTexture(c);
-  map.colorSpace = THREE.SRGBColorSpace;
-  map.wrapS = THREE.RepeatWrapping;
-  map.wrapT = THREE.RepeatWrapping;
-  map.repeat.set(2.4, 3.2);
-  const mat = new THREE.MeshStandardMaterial({ map, roughness: 0.9, metalness: 0 });
-  plasterCache.set(hex, mat);
-  return mat;
-}
 
 function box(w: number, h: number, d: number, x: number, y: number, z: number, mat: THREE.Material, parent: THREE.Object3D) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
@@ -113,7 +80,8 @@ function punched(parent: THREE.Object3D, x: number, y: number, z: number, face: 
   box(w + 0.1, 0.07, 0.14, x, y + h / 2 + 0.02, out(0.08), stone, parent);
   box(w + 0.12, h + 0.1, 0.08, x, y, out(0.05), metal, parent);
   box(w, h, 0.18, x, y, out(0.02), recess, parent);
-  box(w - 0.1, h - 0.14, 0.04, x, y, out(0.1), lit ? interior : glass, parent);
+  box(w - 0.16, h - 0.2, 0.05, x, y, out(-0.02), lit ? interior : recess, parent);
+  box(w - 0.1, h - 0.14, 0.04, x, y, out(0.1), glass, parent);
   box(0.045, h - 0.1, 0.05, x, y, out(0.12), metal, parent);
 }
 
@@ -130,7 +98,9 @@ export function storefront(
   const crown = floors >= 5;
   const bodyFloors = crown ? floors - 1 : floors;
   const bodyH = ground + (bodyFloors - 1) * story + 0.45;
-  const wall = spec.wall ? plaster(spec.wall) : brick();
+  const wall = spec.wall
+    ? surface("/game-v2/materials/stucco.jpg", Math.max(1, spec.w / 3.2), Math.max(1, bodyH / 2.6), 0.92, Number.parseInt(spec.wall.slice(1), 16))
+    : surface("/game-v2/materials/brick.jpg", Math.max(1, spec.w / 2.2), Math.max(1, bodyH / 1.6), 0.86, 0xffc8b0);
   const face = spec.face;
   const front = spec.z + face * (spec.d / 2);
   const out = (n: number) => front + face * n;
@@ -152,8 +122,8 @@ export function storefront(
   const shopW = bay - doorW - 0.25;
   const shopX = spec.x - doorW * 0.55;
   box(shopW, 0.62, 0.1, shopX, 0.4, out(0.08), bulk, parent);
-  box(shopW, 1.7, 0.08, shopX, 1.6, out(0.05), recess, parent);
-  box(shopW - 0.12, 1.5, 0.04, shopX, 1.6, out(0.12), interior, parent);
+  box(shopW, 1.7, 0.08, shopX, 1.6, out(0.02), interior, parent);
+  box(shopW - 0.12, 1.5, 0.04, shopX, 1.6, out(0.12), glass, parent);
   const mullions = Math.max(2, Math.round(shopW / 1.15));
   for (let i = 0; i <= mullions; i++) {
     box(0.055, 1.55, 0.06, shopX - shopW / 2 + (shopW * i) / mullions, 1.6, out(0.14), metal, parent);
@@ -245,10 +215,11 @@ const towerGlass = new THREE.MeshStandardMaterial({
   emissive: 0xffe2c0,
   emissiveIntensity: 0.06,
 });
-const towerStone = new THREE.MeshStandardMaterial({ color: 0xcfc6b8, roughness: 0.84 });
 
 function tower(parent: THREE.Object3D, x: number, z: number, w: number, d: number, h: number, glassy: boolean) {
-  const skin = glassy ? towerGlass : towerStone;
+  const skin = glassy
+    ? towerGlass
+    : surface("/game-v2/materials/stone.jpg", Math.max(1, w / 5), Math.max(1, h / 6), 0.8, 0xf4f1ea);
   box(w, h, d, x, h / 2, z, skin, parent);
   box(w + 0.4, 0.35, d + 0.4, x, h - 0.15, z, metal, parent);
   const bands = glassy ? 3.4 : 2.8;
@@ -314,14 +285,14 @@ export function buildDowntown(
   glow: THREE.MeshStandardMaterial[],
   lamps: THREE.PointLight[],
 ) {
-  const road = asphalt();
+  const road = surface("/game-v2/materials/asphalt.jpg", 84 / 3.4, 8.2 / 3.4, 0.95);
   const eastWestZ = -54;
   box(84, 0.06, 8.2, 42, 0.03, eastWestZ, road, parent);
   addGround({ minX: 0, maxX: 84, minZ: eastWestZ - 4.1, maxZ: eastWestZ + 4.1, y: 0.06 });
   slabs(parent, eastWestZ + 6.2, 2, 80);
   box(78, 0.16, 0.28, 42, 0.08, eastWestZ + 4.35, stone, parent);
 
-  box(9.1, 0.06, 30, 8, 0.03, -40, road, parent);
+  box(9.1, 0.06, 30, 8, 0.03, -40, surface("/game-v2/materials/asphalt.jpg", 9.1 / 3.4, 30 / 3.4, 0.95), parent);
   addGround({ minX: 3.45, maxX: 12.55, minZ: -55, maxZ: -25, y: 0.06 });
   addGround({ minX: 12.7, maxX: 14.8, minZ: -52, maxZ: -28, y: 0.17 });
   for (let z = -52; z < -28; z += 1.55) box(2.1, 0.1, 1.45, 13.7, 0.12, z + 0.7, concreteSlab(Math.round(z)), parent);

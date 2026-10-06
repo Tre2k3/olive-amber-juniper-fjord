@@ -89,26 +89,20 @@ export function shingle(hex: string) {
 
 let brickMat: THREE.MeshStandardMaterial | null = null;
 
+export function surface(url: string, sx: number, sy: number, roughness: number, color = 0xffffff, ox = 0, oy = 0) {
+  const map = new THREE.TextureLoader().load(url);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.wrapS = THREE.RepeatWrapping;
+  map.wrapT = THREE.RepeatWrapping;
+  map.repeat.set(sx, sy);
+  map.offset.set(ox, oy);
+  map.anisotropy = 8;
+  return new THREE.MeshStandardMaterial({ map, color, roughness, metalness: 0.02 });
+}
+
 export function brick() {
   if (brickMat) return brickMat;
-  const map = canvasTex((g, w, h) => {
-    g.fillStyle = "#cbb8aa";
-    g.fillRect(0, 0, w, h);
-    const bw = 40;
-    const bh = 16;
-    const gap = 4;
-    for (let row = 0; row * (bh + gap) < h; row++) {
-      const off = row % 2 ? bw / 2 : 0;
-      for (let x = -bw + off; x < w; x += bw + gap) {
-        const n = Math.abs((row * 5 + x) % 22);
-        g.fillStyle = `rgb(${132 + n},${58 + (n % 8)},${42 + (n % 6)})`;
-        g.fillRect(x, row * (bh + gap), bw, bh);
-      }
-    }
-  }, 256, 256, true);
-  map.repeat.set(2.4, 1.6);
-  const rough = roughnessTex();
-  brickMat = new THREE.MeshStandardMaterial({ map, roughnessMap: rough, roughness: 0.88, metalness: 0.02 });
+  brickMat = surface("/game-v2/materials/brick.jpg", 2.4, 1.8, 0.86, 0xffc8b0);
   return brickMat;
 }
 
@@ -116,49 +110,15 @@ let asphaltMat: THREE.MeshStandardMaterial | null = null;
 
 export function asphalt() {
   if (asphaltMat) return asphaltMat;
-  const map = canvasTex((g, w, h) => {
-    g.fillStyle = "#3a3e44";
-    g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 2400; i++) {
-      const s = 42 + ((i * 13) % 26);
-      g.fillStyle = `rgb(${s},${s + 2},${s + 4})`;
-      g.fillRect((i * 47) % w, (i * 29) % h, i % 7 === 0 ? 5 : 2, 2);
-    }
-    g.fillStyle = "rgba(28,30,34,0.4)";
-    g.fillRect(40, 300, 90, 22);
-    g.strokeStyle = "rgba(20,20,22,0.4)";
-    g.lineWidth = 2;
-    g.beginPath();
-    g.moveTo(20, 220);
-    g.lineTo(140, 200);
-    g.stroke();
-  }, 256, 256, true);
-  map.repeat.set(6, 3);
-  asphaltMat = new THREE.MeshStandardMaterial({ map, roughness: 0.94, metalness: 0.02 });
+  asphaltMat = surface("/game-v2/materials/asphalt.jpg", 8, 4, 0.95);
   return asphaltMat;
 }
 
 export function concreteSlab(seed: number) {
-  const key = Math.abs(seed) % 6;
+  const key = Math.abs(seed) % 4;
   const hit = concreteCache.get(key);
   if (hit) return hit;
-  const map = canvasTex((g, w, h) => {
-    const n = key * 3;
-    g.fillStyle = `rgb(${178 + n},${174 + n},${166 + n})`;
-    g.fillRect(0, 0, w, h);
-    g.strokeStyle = "rgba(90,80,70,0.4)";
-    g.strokeRect(2, 2, w - 4, h - 4);
-    if (key % 3 === 0) {
-      g.strokeStyle = "rgba(60,50,40,0.4)";
-      g.beginPath();
-      g.moveTo(16, 24);
-      g.lineTo(w * 0.62, h * 0.78);
-      g.stroke();
-    }
-    g.fillStyle = "rgba(80,70,60,0.18)";
-    for (let i = 0; i < 16; i++) g.fillRect((i * 19 + key) % w, (i * 11) % h, 6, 2);
-  }, 128, 128);
-  const mat = new THREE.MeshStandardMaterial({ map, roughness: 0.96 });
+  const mat = surface("/game-v2/materials/sidewalk.jpg", 0.5, 0.5, 0.94, 0xffffff, (key % 2) * 0.5, Math.floor(key / 2) * 0.5);
   concreteCache.set(key, mat);
   return mat;
 }

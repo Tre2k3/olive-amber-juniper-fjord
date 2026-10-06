@@ -45,7 +45,7 @@ export function GameV2() {
       dead = true;
       stop();
     };
-  }, [19]);
+  }, [20]);
 
   return (
     <div className="fixed inset-0 bg-[#071018]">
