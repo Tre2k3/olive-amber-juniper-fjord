@@ -2,7 +2,7 @@ import * as THREE from "three";
 import type { Solid } from "../../core/types";
 import { addGround } from "../ground";
 import { asphalt, brick, concreteSlab } from "./materials";
-import { streetlight } from "./props";
+import { bench, hydrant, planter, streetlight, trashBin } from "./props";
 import { streetTree } from "./trees";
 import { carBody } from "./vehicles";
 
@@ -238,6 +238,75 @@ function slabs(parent: THREE.Object3D, z: number, x0: number, x1: number) {
   }
 }
 
+const towerGlass = new THREE.MeshStandardMaterial({
+  color: 0xc5d4e0,
+  roughness: 0.12,
+  metalness: 0.48,
+  emissive: 0xffe2c0,
+  emissiveIntensity: 0.06,
+});
+const towerStone = new THREE.MeshStandardMaterial({ color: 0xcfc6b8, roughness: 0.84 });
+
+function tower(parent: THREE.Object3D, x: number, z: number, w: number, d: number, h: number, glassy: boolean) {
+  const skin = glassy ? towerGlass : towerStone;
+  box(w, h, d, x, h / 2, z, skin, parent);
+  box(w + 0.4, 0.35, d + 0.4, x, h - 0.15, z, metal, parent);
+  const bands = glassy ? 3.4 : 2.8;
+  for (let y = 5; y < h - 3; y += bands) {
+    box(w * 0.62, glassy ? 1.5 : 1.05, 0.06, x, y, z + d / 2 + 0.04, glassy ? glass : recess, parent);
+    box(0.06, glassy ? 1.5 : 1.05, d * 0.5, x + w / 2 + 0.04, y, z, glassy ? glass : recess, parent);
+  }
+}
+
+/** Far towers south of the river street. Not a walkable block. */
+function skyline(parent: THREE.Object3D, solids: Solid[]) {
+  const row: [number, number, number, number, number, boolean][] = [
+    [18, -76, 9, 8, 28, false],
+    [32, -80, 11, 9, 42, true],
+    [48, -74, 8, 8, 24, false],
+    [62, -82, 12, 10, 48, true],
+    [76, -76, 9, 8, 32, false],
+    [-6, -58, 8, 8, 36, true],
+  ];
+  for (const [x, z, w, d, h, glassy] of row) {
+    tower(parent, x, z, w, d, h, glassy);
+    solids.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
+  }
+}
+
+function mural(parent: THREE.Object3D, glow: THREE.MeshStandardMaterial[]) {
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 768;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#1c2430";
+  g.fillRect(0, 0, 512, 768);
+  g.fillStyle = "#e0b33a";
+  g.fillRect(24, 24, 464, 8);
+  g.fillRect(24, 736, 464, 8);
+  g.font = "700 120px sans-serif";
+  g.textAlign = "center";
+  g.fillText("901", 256, 220);
+  g.fillStyle = "#f4efe4";
+  g.font = "700 54px sans-serif";
+  g.fillText("MEMPHIS", 256, 300);
+  g.beginPath();
+  g.arc(256, 500, 90, 0, Math.PI * 2);
+  g.fillStyle = "#c4473a";
+  g.fill();
+  g.fillStyle = "#f4efe4";
+  g.fillRect(214, 470, 22, 22);
+  g.fillRect(276, 470, 22, 22);
+  const map = new THREE.CanvasTexture(c);
+  map.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.MeshStandardMaterial({ map, emissive: 0xffe0b0, emissiveMap: map, emissiveIntensity: 0.25, roughness: 0.6 });
+  glow.push(mat);
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 6.3), mat);
+  board.position.set(59.55, 9.2, -42.2);
+  board.rotation.y = Math.PI / 2;
+  parent.add(board);
+}
+
 /** Riverfront street south of the court, plus the east end of 901 Ave. */
 export function buildDowntown(
   parent: THREE.Object3D,
@@ -292,6 +361,47 @@ export function buildDowntown(
     parent.add(car);
     solids.push({ minX: x - 2.4, maxX: x + 2.4, minZ: z - 1.1, maxZ: z + 1.1 });
   }
+
+  const paint = new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.55 });
+  const yellow = new THREE.MeshStandardMaterial({ color: 0xe0b33a, roughness: 0.5 });
+  for (let x = 6; x < 80; x += 4.2) box(1.7, 0.02, 0.14, x, 0.075, eastWestZ, yellow, parent);
+  box(76, 0.015, 0.08, 42, 0.07, eastWestZ - 3.55, paint, parent);
+  box(76, 0.015, 0.08, 42, 0.07, eastWestZ + 3.55, paint, parent);
+  for (let i = 0; i < 8; i++) box(0.55, 0.02, 0.7, 11.2, 0.08, eastWestZ - 3.2 + i * 0.95, paint, parent);
+
+  box(0.12, 4.2, 0.12, 12.4, 2.1, eastWestZ + 5.1, metal, parent);
+  box(1.6, 0.1, 0.1, 13.1, 4.05, eastWestZ + 5.1, metal, parent);
+  box(0.28, 0.7, 0.28, 13.7, 3.7, eastWestZ + 5.1, metal, parent);
+  box(0.16, 0.16, 0.04, 13.86, 3.88, eastWestZ + 5.1, new THREE.MeshStandardMaterial({ color: 0xff3b30, emissive: 0xff3b30, emissiveIntensity: 0.7 }), parent);
+  box(0.16, 0.16, 0.04, 13.86, 3.68, eastWestZ + 5.1, yellow, parent);
+  box(0.16, 0.16, 0.04, 13.86, 3.48, eastWestZ + 5.1, new THREE.MeshStandardMaterial({ color: 0x39d353, emissive: 0x39d353, emissiveIntensity: 0.85 }), parent);
+  const beale = signMat("BEALE", "#f4efe4");
+  glow.push(beale);
+  const blade = new THREE.Mesh(new THREE.PlaneGeometry(1.35, 0.38), beale);
+  blade.position.set(12.4, 3.35, eastWestZ + 5.35);
+  blade.rotation.y = Math.PI / 2;
+  parent.add(blade);
+
+  bench(27, eastWestZ + 6.55, 0, parent);
+  bench(63, eastWestZ + 6.55, 0, parent);
+  planter(24, eastWestZ + 6.15, parent);
+  planter(41, eastWestZ + 6.2, parent);
+  planter(71, eastWestZ + 6.15, parent);
+  trashBin(33.5, eastWestZ + 6.15, parent);
+  hydrant(20.5, eastWestZ + 5.9, parent);
+  streetTree(30, eastWestZ + 6.4, parent, 0.75);
+  streetTree(64, eastWestZ + 6.35, parent, 0.8);
+
+  slabs(parent, eastWestZ - 6.15, 16, 78);
+  box(60, 0.16, 0.28, 47, 0.08, eastWestZ - 4.35, stone, parent);
+  streetTree(22, eastWestZ - 6.2, parent, 0.8);
+  streetTree(40, eastWestZ - 6.3, parent, 0.95);
+  streetTree(58, eastWestZ - 6.15, parent, 0.85);
+  streetTree(72, eastWestZ - 6.25, parent, 0.78);
+  for (const x of [26, 50, 68]) streetlight(x, eastWestZ - 6.05, parent, lamps);
+
+  skyline(parent, solids);
+  mural(parent, glow);
 }
 
 /** Cornice and awning on a building that is still a plain mass. No second sign. */

@@ -134,6 +134,23 @@ function skyTex(mode: "day" | "golden" | "night") {
       haze.addColorStop(1, "rgba(232,236,228,0.55)");
       g.fillStyle = haze;
       g.fillRect(0, 0, w, h);
+      g.fillStyle = "rgba(255,255,255,0.42)";
+      for (const [cx, cy] of [
+        [160, 78],
+        [210, 70],
+        [250, 86],
+        [400, 120],
+        [460, 108],
+        [520, 126],
+        [680, 64],
+        [730, 74],
+        [840, 148],
+        [900, 136],
+      ] as const) {
+        g.beginPath();
+        g.ellipse(cx, cy, 46, 16, 0, 0, Math.PI * 2);
+        g.fill();
+      }
     }
   }, 1024, 512);
 }
