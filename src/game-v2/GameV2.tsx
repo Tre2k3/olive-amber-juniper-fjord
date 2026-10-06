@@ -10,6 +10,7 @@ const EMPTY: HudState = {
   prompt: "",
   charge: 0,
   night: false,
+  golden: false,
   made: 0,
   taken: 0,
   dialogue: "",
@@ -44,7 +45,7 @@ export function GameV2() {
       dead = true;
       stop();
     };
-  }, []);
+  }, [7]);
 
   return (
     <div className="fixed inset-0 bg-[#071018]">

@@ -1,10 +1,14 @@
 import * as THREE from "three";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import type { Facing, HudState, Place, Solid, V2Public } from "./core/types";
 import { productionLanes, sampleLane, type Lane } from "./roads/lanes";
 import { buildSlice, carBody, type SliceWorld } from "./world/slice";
 import { presentVehicles } from "./world/kits/vehicles";
 import { characters, frameSize } from "./assets/characters";
-import { footMarker, plantFeet, solePlane } from "./world/feet";
+import { characterMaterial, footMarker, plantFeet, seatOnGround, solePlane, solidCutout } from "./world/feet";
 import {
   activityCharge,
   activityPrompt,
@@ -16,7 +20,7 @@ import {
   locked,
   pullEarly,
   tickCity,
-  useSpot,
+  triggerSpot,
   type City,
   type PlayEvent,
   type Spot,
@@ -37,14 +41,20 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 1.08;
 
-  const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 260);
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 220);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(world.scene, camera));
+  const bloom = new UnrealBloomPass(new THREE.Vector2(canvas.clientWidth || 1280, canvas.clientHeight || 720), 0.18, 0.42, 0.92);
+  composer.addPass(bloom);
+  composer.addPass(new OutputPass());
   const player = new THREE.Group();
   const shadow = new THREE.Mesh(
     new THREE.CircleGeometry(0.42, 16),
     new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.45, depthWrite: false }),
   );
+  shadow.name = "contact-shadow";
   shadow.rotation.x = -Math.PI / 2;
   shadow.position.y = 0.012;
   shadow.scale.set(1, 0.72, 1);
@@ -58,11 +68,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   soft.position.y = 0.02;
   player.add(soft);
   const benji = frameSize(characters.benji, "front");
-  const avatarMat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.2, side: THREE.DoubleSide, depthWrite: true });
-  avatarMat.polygonOffset = true;
-  avatarMat.polygonOffsetFactor = -2;
-  avatarMat.polygonOffsetUnits = -2;
-  const avatar = new THREE.Mesh(solePlane(benji.w, benji.h, benji.footPad, benji.pxH), avatarMat);
+  const avatarMat = characterMaterial();
+  const avatar = new THREE.Mesh(solePlane(benji.w, benji.h, benji.footPad, benji.pxH, benji.centerPx, benji.pxW), avatarMat);
   avatar.position.y = 0;
   avatar.renderOrder = 3;
   avatar.castShadow = true;
@@ -99,7 +106,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   bobber.position.set(-16, 0.18, -81);
   world.scene.add(bobber);
   const bowlBall = new THREE.Mesh(
-    new THREE.SphereGeometry(0.16, 16, 12),
+    new THREE.SphereGeometry(0.34, 18, 14),
     new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.35, metalness: 0.4 }),
   );
   bowlBall.visible = false;
@@ -123,25 +130,50 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   });
 
   const textures: Partial<Record<Facing, THREE.Texture>> = {};
+  let walkTex: THREE.Texture | undefined;
   const loader = new THREE.TextureLoader();
   for (const face of ["front", "back", "left", "right"] as const) {
     loader.load(characters.benji.views[face].src, (tex) => {
-      tex.colorSpace = THREE.SRGBColorSpace;
+      solidCutout(tex);
       textures[face] = tex;
       if (face === facing) applyBenji(face);
     });
   }
-  let moving = false;
-  let walkTime = 0;
+  const benjiWalk = characters.benji.views.walk;
+  if (benjiWalk) {
+    loader.load(benjiWalk.src, (tex) => {
+      solidCutout(tex);
+      walkTex = tex;
+    });
+  }
+  let glideX = 0;
+  let glideZ = 0;
+  let walkDist = 0;
+  let strideEnergy = 0;
+  let benjiStride = false;
 
   const lanes = productionLanes();
   const cars = spawnTraffic(world, lanes);
+  const parked: THREE.Object3D[] = [];
+  world.exterior.traverse((obj) => {
+    if (obj.userData.kind && obj.userData.radius && !cars.some((car) => car.mesh === obj)) parked.push(obj);
+  });
   const keys = new Set<string>();
   const pulses = new Map<string, number>();
   let interactQueued = false;
   let touchX = 0;
   let touchY = 0;
   let night = false;
+  let golden = false;
+  const cycleLight = () => {
+    if (!night && !golden) golden = true;
+    else if (golden) {
+      golden = false;
+      night = true;
+    } else {
+      night = false;
+    }
+  };
   let place: Place = "street";
   let dollars = 240;
   let respect = 12;
@@ -155,6 +187,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   let hauntCleared = false;
   let dialogue = "";
   let facing: Facing = "back";
+  /** Latest dominant axis so a tie on a diagonal does not flicker. */
+  let faceAxis: "side" | "depth" = "depth";
   let camYaw = Math.PI / 2;
   let camDist: number | null = null;
   let camHeight: number | null = null;
@@ -168,6 +202,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   const city: City = freshCity();
   const ballVel = new THREE.Vector3();
   player.position.set(-30.2, 0, 5.55);
+  player.userData.heading = Math.PI / 2;
 
   try {
     const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "null") as {
@@ -193,7 +228,6 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (saved?.carrying) carrying = true;
     if (saved?.delivered) delivered = true;
     if (saved?.mission) mission = saved.mission;
-    if (saved?.dialogue) dialogue = saved.dialogue;
     if (saved && Number.isFinite(saved.bait)) city.bait = saved.bait!;
     if (saved?.fit) city.fit = saved.fit;
     if (saved?.fed) city.fed = true;
@@ -209,16 +243,20 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   }
 
   const onKey = (e: KeyboardEvent, down: boolean) => {
-    if (["KeyW", "KeyA", "KeyS", "KeyD", "Space", "KeyN", "KeyE", "KeyM", "ShiftLeft"].includes(e.code)) e.preventDefault();
-    if (down) keys.add(e.code);
-    else keys.delete(e.code);
-    if (down && e.code === "KeyN") night = !night;
-    if (down && e.code === "KeyM") logOpen = !logOpen;
+    const code = e.code || e.key;
+    if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyN", "KeyE", "KeyM", "ShiftLeft", "ShiftRight"].includes(code) || ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
+    const names = [code, e.key].filter(Boolean);
+    if (down) names.forEach((name) => keys.add(name));
+    else names.forEach((name) => keys.delete(name));
+    if (down && (code === "KeyN" || e.key === "n" || e.key === "N")) cycleLight();
+    if (down && (code === "KeyM" || e.key === "m" || e.key === "M")) logOpen = !logOpen;
   };
   const kd = (e: KeyboardEvent) => onKey(e, true);
   const ku = (e: KeyboardEvent) => onKey(e, false);
+  const clearKeys = () => keys.clear();
   window.addEventListener("keydown", kd);
   window.addEventListener("keyup", ku);
+  window.addEventListener("blur", clearKeys);
 
   const api: V2Public = { x: player.position.x, y: player.position.y, z: player.position.z, facing, place, cars: [], dollars, respect, mission, carrying, dialogue };
   (window as unknown as { __SACK_V2__?: V2Public }).__SACK_V2__ = api;
@@ -231,6 +269,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const w = canvas.clientWidth || window.innerWidth;
     const h = canvas.clientHeight || window.innerHeight;
     renderer.setSize(w, h, false);
+    composer.setSize(w, h);
+    bloom.setSize(w, h);
     camera.aspect = w / Math.max(1, h);
     camera.updateProjectionMatrix();
   };
@@ -262,7 +302,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       hudAcc = 0;
       push(hud());
       localStorage.setItem(SAVE_KEY, JSON.stringify({
-        dollars, respect, carrying, delivered, mission, dialogue,
+        dollars, respect, carrying, delivered, mission,
         bait: city.bait, fit: city.fit, fed: city.fed, fished: city.fished, bowled: city.bowled, raced: city.raced,
         bestBowl: city.bestBowl, bestRace: city.bestRace, hauntTicket, hauntCleared,
       }));
@@ -280,6 +320,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       prompt: promptFor(),
       charge: place === "court" ? charge : activityCharge(city),
       night,
+      golden,
       made,
       taken,
       dialogue,
@@ -327,43 +368,102 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     return Math.hypot(player.position.x - (p.x + ox), player.position.z - (p.z + oz)) < r;
   }
 
+  function pushCircle(mesh: THREE.Object3D, reach: number) {
+    const dx = player.position.x - mesh.position.x;
+    const dz = player.position.z - mesh.position.z;
+    const d = Math.hypot(dx, dz);
+    if (d >= reach || d < 0.001) return;
+    player.position.x += (dx / d) * (reach - d);
+    player.position.z += (dz / d) * (reach - d);
+  }
+
+  function separateBodies() {
+    if (place !== "street" && place !== "court") return;
+    for (const car of cars) pushCircle(car.mesh, ((car.mesh.userData.radius as number) || 2.2) * 0.72);
+    for (const mesh of parked) pushCircle(mesh, ((mesh.userData.radius as number) || 2.2) * 0.55);
+    for (const ped of world.billboards) {
+      const dx = player.position.x - ped.position.x;
+      const dz = player.position.z - ped.position.z;
+      const d = Math.hypot(dx, dz);
+      const min = 0.58;
+      if (d >= min || d < 0.001) continue;
+      const push = Math.min(0.12, (min - d) * 0.65);
+      player.position.x += (dx / d) * push;
+      player.position.z += (dz / d) * push;
+      ped.position.x -= (dx / d) * push * 0.45;
+      ped.position.z -= (dz / d) * push * 0.45;
+    }
+  }
+
   function step(dt: number, hold: boolean, interact: boolean) {
     applyNight();
     const busy = locked(city);
-    const steer = (keys.has("KeyD") ? 1 : 0) - (keys.has("KeyA") ? 1 : 0) + touchX;
-    const basis = cameraBasis();
-    const sx = (keys.has("KeyD") ? 1 : 0) - (keys.has("KeyA") ? 1 : 0) + touchX;
-    const sy = (keys.has("KeyW") ? 1 : 0) - (keys.has("KeyS") ? 1 : 0) + touchY;
+    const steer = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) + touchX;
+    const sx = steer;
+    const sy = (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0) + touchY;
     const len = Math.hypot(sx, sy);
-    moving = !busy && len > 0.15;
-    if (moving) walkTime += dt;
-    if (moving) {
-      facing = Math.abs(sx) > Math.abs(sy) ? (sx > 0 ? "right" : "left") : sy > 0 ? "back" : "front";
+    const wantsMove = !busy && len > 0.15;
+    if (wantsMove) {
       camDist = null;
       camHeight = null;
       camLookY = null;
-      let speed = (keys.has("ShiftLeft") ? 6.4 : 4.1) * Math.min(1, len);
+      const ax = Math.abs(sx);
+      const ay = Math.abs(sy);
+      if (ax > ay * 1.15) faceAxis = "side";
+      else if (ay > ax * 1.15) faceAxis = "depth";
+      facing = faceAxis === "side" ? (sx > 0 ? "right" : "left") : sy > 0 ? "back" : "front";
+    }
+    const walkSpeed = 6.4;
+    const sprintSpeed = 10.2;
+    let speed = 0;
+    if (wantsMove) {
+      speed = (keys.has("ShiftLeft") || keys.has("ShiftRight") ? sprintSpeed : walkSpeed) * Math.min(1, len);
       if (city.race) speed = city.fit === "night" ? 11.4 : 9.4;
       else if (city.fit === "night") speed *= 1.12;
       if (city.boost > 0) speed *= 1.22;
-      const mx = (basis.right.x * sx + basis.fwd.x * sy) / len * speed;
-      const mz = (basis.right.z * sx + basis.fwd.z * sy) / len * speed;
-      player.position.x += mx * dt;
-      player.position.z += mz * dt;
-      const yaw = Math.atan2(mx, mz);
-      camYaw = dampAngle(camYaw, yaw, 1 - Math.exp(-2.2 * dt));
     }
+    const basis = screenBasis();
+    const wishX = wantsMove ? ((basis.rightX * sx + basis.fwdX * sy) / len) * speed : 0;
+    const wishZ = wantsMove ? ((basis.rightZ * sx + basis.fwdZ * sy) / len) * speed : 0;
+    if (wantsMove && glideX * wishX + glideZ * wishZ < 0) {
+      glideX = 0;
+      glideZ = 0;
+    }
+    const follow = 1 - Math.exp(-(wantsMove ? 14 : 12) * dt);
+    glideX += (wishX - glideX) * follow;
+    glideZ += (wishZ - glideZ) * follow;
+    if (!wantsMove && Math.hypot(glideX, glideZ) < 0.06) {
+      glideX = 0;
+      glideZ = 0;
+    }
+    player.position.x += glideX * dt;
+    player.position.z += glideZ * dt;
+    const glide = Math.hypot(glideX, glideZ);
+    const movingNow = !busy && glide > 0.22;
+    strideEnergy += ((movingNow ? 1 : 0) - strideEnergy) * (1 - Math.exp(-3.4 * dt));
+    if (glide > 0.12) {
+      const stepLen = Math.max(0.72, glide * 0.4);
+      walkDist += (glide * dt) / stepLen;
+    }
+    if (strideEnergy > 0.62) benjiStride = true;
+    else if (strideEnergy < 0.25) benjiStride = false;
+    player.userData.gait = strideEnergy;
+    player.userData.phase = walkDist;
+    player.userData.life = ((player.userData.life as number) ?? 0) + dt;
+    if (place === "court" && ballHeld && hold) facing = faceAlong(world.hoop.x - player.position.x, world.hoop.z - player.position.z);
     const zone = collisionZone();
     resolve(player.position, 0.34, zone.solids, zone.ox, zone.oz);
-    for (const car of cars) {
-      const dx = player.position.x - car.mesh.position.x;
-      const dz = player.position.z - car.mesh.position.z;
-      const reach = (car.mesh.userData.radius as number) || 2.2;
-      const d = Math.hypot(dx, dz);
-      if (place === "street" && d < reach && d > 0.001) {
-        player.position.x += (dx / d) * (reach - d);
-        player.position.z += (dz / d) * (reach - d);
-      }
+    if (city.bowl) {
+      player.position.x = 92;
+      player.position.z = -17.6;
+    }
+    separateBodies();
+    if (place === "street" || place === "court") {
+      if (player.position.x < -104) { player.position.x = -104; glideX = 0; }
+      if (player.position.x > 118) { player.position.x = 118; glideX = 0; }
+      if (player.position.z < -92) { player.position.z = -92; glideZ = 0; }
+      if (player.position.z > 40) { player.position.z = 40; glideZ = 0; }
+      resolve(player.position, 0.34, zone.solids, zone.ox, zone.oz);
     }
     carried.visible = carrying;
     world.counterPack.visible = !carrying && !delivered;
@@ -371,6 +471,14 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (interact) tryEnter();
     const play = tickCity(city, dt, hold, steer);
     if (play) grant(play);
+    if (!city.bowl && /901 Bowl|on the lane/.test(dialogue)) {
+      dialogue = "";
+      talkLeft = 0;
+    }
+    if (talkLeft > 0) {
+      talkLeft -= dt;
+      if (talkLeft <= 0) dialogue = "";
+    }
     if (city.race && player.position.x > -19.5 && player.position.z < -33 && player.position.z > -40.2) {
       const finish = crossFinish(city);
       if (finish) grant(finish);
@@ -378,13 +486,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     rod.visible = Boolean(city.fish);
     bobber.visible = Boolean(city.fish);
     if (city.fish) bobber.position.y = 0.16 + Math.sin(performance.now() / 180) * 0.04;
-    presentBowl();
+    presentBowl(dt);
     if (place === "haunt" && !hauntCleared) {
       const room = world.haunt.finalRoom;
       if (player.position.x > room.minX && player.position.x < room.maxX && player.position.z > room.minZ && player.position.z < room.maxZ) {
         hauntCleared = true;
         respect += 8;
-        dialogue = "Final court — You walked the house. The last rim is lit.";
+        say("Final court — You walked the house. The last rim is lit.", 4.2);
         mission = delivered ? mission : "The haunted house let you through.";
       }
     }
@@ -394,7 +502,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     updatePeds(dt);
     faceAvatar();
     placeCamera(dt);
-    renderer.render(world.scene, camera);
+    composer.render();
 
     api.x = player.position.x;
     api.y = player.position.y;
@@ -414,17 +522,18 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     api.dialogue = dialogue;
   }
 
-  function cameraBasis() {
-    camera.updateMatrixWorld();
-    const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
-    const fwd = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 2).multiplyScalar(-1);
-    right.y = 0;
-    fwd.y = 0;
-    if (right.lengthSq() < 1e-4) right.set(0, 0, 1);
-    if (fwd.lengthSq() < 1e-4) fwd.set(1, 0, 0);
-    right.normalize();
-    fwd.normalize();
-    return { right, fwd };
+  function screenBasis() {
+    const fwdX = Math.sin(camYaw);
+    const fwdZ = Math.cos(camYaw);
+    return { fwdX, fwdZ, rightX: -fwdZ, rightZ: fwdX };
+  }
+
+  function faceAlong(dx: number, dz: number): Facing {
+    const basis = screenBasis();
+    const side = dx * basis.rightX + dz * basis.rightZ;
+    const depth = dx * basis.fwdX + dz * basis.fwdZ;
+    if (Math.abs(side) > Math.abs(depth)) return side > 0 ? "right" : "left";
+    return depth > 0 ? "back" : "front";
   }
 
   function collisionZone(): { solids: Solid[]; ox: number; oz: number } {
@@ -450,23 +559,23 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return;
     }
     if (place === "street" && near(world.haunt.ticket, 1.8)) {
-      if (hauntTicket) dialogue = "Tickets — You're already on the list. Gate's open.";
-      else if (dollars < 10) dialogue = "Tickets — Ten SackDollars. You're short.";
+      if (hauntTicket) say("Tickets — You're already on the list. Gate's open.");
+      else if (dollars < 10) say("Tickets — Ten SackDollars. You're short.");
       else {
         dollars -= 10;
         hauntTicket = true;
-        dialogue = "Tickets — Wristband's on. Don't touch the portraits.";
+        say("Tickets — Wristband's on. Don't touch the portraits.");
       }
       return;
     }
     if (place === "street" && near(world.haunt.gate, 1.8)) {
       if (!hauntTicket) {
-        dialogue = "Gate — Ticket first. Booth is on the left.";
+        say("Gate — Ticket first. Booth is on the left.");
         return;
       }
       place = "haunt";
       player.position.set(world.haunt.inside.x, 0, world.haunt.inside.z);
-      dialogue = "Foyer — Eleven rooms. The last one still has a rim.";
+      say("Foyer — Eleven rooms. The last one still has a rim.");
       return;
     }
     if (place === "street" && near(world.homeDoor, 1.4)) {
@@ -488,16 +597,16 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (place === "hq" && nearLocal(world.kAnchor, 2.2, 80, 200)) {
       metK = true;
       if (delivered) {
-        dialogue = "K Blanco — Court OG got the drop. The block is yours until the next one.";
+        say("K Blanco — Court OG got the drop. The block is yours until the next one.");
       } else {
         carrying = true;
-        dialogue = "K Blanco — Take this drop to Court OG. He is outside the 901 court. SackDollars and Respect when it lands.";
+        say("K Blanco — Take this drop to Court OG. He is outside the 901 court. SackDollars and Respect when it lands.", 5.5);
         mission = "Deliver the package to Court OG";
       }
       return;
     }
     if (place === "home" && nearLocal(world.wardrobe, 1.35, 0, 200)) {
-      grant(useSpot(city, "wardrobe", dollars));
+      grant(triggerSpot(city, "wardrobe", dollars));
       return;
     }
     if (place === "hq" && nearLocal(world.hqIn, 1.4, 80, 200)) {
@@ -506,7 +615,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return;
     }
     if (place === "street" && near(world.districts.bowlDoor, 2.4)) {
-      const play = useSpot(city, "bowl", dollars);
+      const play = triggerSpot(city, "bowl", dollars);
       if (play.teleport) {
         player.position.set(play.teleport.x, 0, play.teleport.z);
         resetPins();
@@ -515,21 +624,21 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return;
     }
     if (place === "street" && near(world.districts.pier, 2.2)) {
-      grant(useSpot(city, "pier", dollars));
+      grant(triggerSpot(city, "pier", dollars));
       return;
     }
     if (place === "street" && near(world.districts.bait, 2.2)) {
-      grant(useSpot(city, "bait", dollars));
+      grant(triggerSpot(city, "bait", dollars));
       return;
     }
     if (place === "street" && near(world.districts.meetStart, 2.6)) {
-      const play = useSpot(city, "meet", dollars);
+      const play = triggerSpot(city, "meet", dollars);
       if (play.teleport) player.position.set(play.teleport.x, 0, play.teleport.z);
       grant(play);
       return;
     }
     if (place === "street" && near(world.districts.truckOrder, 2.4)) {
-      grant(useSpot(city, "truck", dollars));
+      grant(triggerSpot(city, "truck", dollars));
       return;
     }
     if (near(world.courtOg, 1.8)) {
@@ -539,24 +648,34 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         dollars += 80;
         respect += 10;
         dialogue = "Court OG — Drop's in. Eighty SackDollars, and that's Respect.";
+        talkLeft = 4.8;
         mission = "Delivery complete. The 901 court is open.";
         const next = cityMission(city, true);
         if (next) mission = next;
       } else if (delivered) {
         dialogue = "Court OG — We good. The 901 is open.";
+        talkLeft = 4.2;
       } else {
         dialogue = "Court OG — K said a drop was coming. You holding it?";
+        talkLeft = 4.2;
       }
       return;
     }
     const who = namedPed(1.7);
-    if (who && place === "street") grant(useSpot(city, who, dollars));
+    if (who && place === "street") grant(triggerSpot(city, who, dollars));
+  }
+
+  let talkLeft = 0;
+
+  function say(line: string, seconds = 4.2) {
+    dialogue = line;
+    talkLeft = line ? seconds : 0;
   }
 
   function grant(play: PlayEvent) {
     if (play.dollars) dollars = Math.max(0, dollars + play.dollars);
     if (play.respect) respect += play.respect;
-    if (play.dialogue) dialogue = play.dialogue;
+    if (play.dialogue != null) say(play.dialogue, play.dialogue.includes(" — ") ? 4.2 : 2.6);
     if (play.mission && delivered) mission = play.mission;
     if (play.pins != null) knockPins(play.pins);
   }
@@ -597,15 +716,25 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     });
   }
 
-  function presentBowl() {
+  function presentBowl(dt: number) {
     const bowl = city.bowl;
-    if (!bowl || bowl.phase !== "roll") {
-      if (!bowl) bowlBall.visible = false;
+    if (!bowl) {
+      bowlBall.visible = false;
       return;
     }
-    const t = 1 - Math.max(0, bowl.left) / 1.05;
+    const laneX = 92;
+    const startZ = -18.15;
+    const pinZ = -29.3;
     bowlBall.visible = true;
-    bowlBall.position.set(92 + bowl.aim * 1.5 * t, 0.24, -18 + -12 * t);
+    if (bowl.phase === "aim") {
+      bowlBall.position.set(laneX + bowl.aim * 0.42, 0.2, startZ);
+      bowlBall.rotation.set(0, 0, 0);
+      return;
+    }
+    const duration = bowl.phase === "roll" ? 1.65 : 0;
+    const t = bowl.phase === "roll" ? 1 - Math.max(0, bowl.left) / duration : 1;
+    bowlBall.position.set(laneX + bowl.aim * (0.42 + t * 0.85), 0.2, startZ + (pinZ - startZ) * t);
+    bowlBall.rotation.x -= dt * 16;
   }
 
   function updatePlace() {
@@ -617,7 +746,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     for (const light of world.homeLights) light.visible = place === "home";
     for (const light of world.hqLights) light.visible = place === "hq";
     if (place === "home" || place === "hq" || place === "haunt") return;
-    const onCourt = player.position.x > 41.2 && player.position.x < 62.8 && player.position.z < -15.1 && player.position.z > -28.9;
+    const onCourt = player.position.x > 55.2 && player.position.x < 76.8 && player.position.z < -15.1 && player.position.z > -28.9;
     place = onCourt ? "court" : "street";
   }
 
@@ -711,65 +840,123 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   function updatePeds(dt: number) {
     for (const ped of world.pedestrians) {
       const route = ped.userData.route as
-        | { pts: { x: number; z: number }[]; i: number; dir: number; speed: number; phase: number }
+        | { pts: { x: number; z: number }[]; i: number; dir: number; speed: number; phase: number; wait?: number; gait?: number }
         | undefined;
-      if (!route || ped.userData.idle) continue;
-      const target = route.pts[route.i];
-      if (!target) continue;
-      const dx = target.x - ped.position.x;
-      const dz = target.z - ped.position.z;
-      const dist = Math.hypot(dx, dz);
-      const step = route.speed * dt;
-      if (dist <= step || dist < 0.05) {
-        ped.position.x = target.x;
-        ped.position.z = target.z;
-        route.i += route.dir;
-        if (route.i < 0 || route.i >= route.pts.length) {
-          route.dir *= -1;
-          route.i += route.dir * 2;
-          route.i = Math.max(0, Math.min(route.pts.length - 1, route.i));
+      if (route && !ped.userData.idle) {
+        const target = route.pts[route.i];
+        if ((route.wait ?? 0) > 0) {
+          route.wait = (route.wait ?? 0) - dt;
+          route.gait = (route.gait ?? 0) * Math.exp(-7 * dt);
+        } else if (target) {
+          const dx = target.x - ped.position.x;
+          const dz = target.z - ped.position.z;
+          const dist = Math.hypot(dx, dz);
+          const brake = 1.4;
+          const want = dist < brake ? route.speed * Math.max(0.18, dist / brake) : route.speed;
+          const gait = route.gait ?? 0;
+          const next = gait + (want - gait) * (1 - Math.exp(-3.2 * dt));
+          route.gait = next;
+          if (dist <= 0.2 && next < route.speed * 0.45) {
+            ped.position.x = target.x;
+            ped.position.z = target.z;
+            route.gait = 0;
+            route.i += route.dir;
+            if (route.i < 0 || route.i >= route.pts.length) {
+              route.dir *= -1;
+              route.i += route.dir * 2;
+              route.i = Math.max(0, Math.min(route.pts.length - 1, route.i));
+            }
+            route.wait = 1.15 + ((ped.id % 5) + 1) * 0.22;
+          } else if (dist > 0.02 && next > 0.02) {
+            const step = Math.min(dist, next * dt);
+            ped.position.x += (dx / dist) * step;
+            ped.position.z += (dz / dist) * step;
+            aimHeading(ped, Math.atan2(dx, dz), dt, 4.2);
+            route.phase += step / 0.74;
+          }
         }
-      } else {
-        ped.position.x += (dx / dist) * step;
-        ped.position.z += (dz / dist) * step;
-        ped.userData.heading = Math.atan2(dx, dz);
       }
-      route.phase += dt * route.speed * 8;
+      ped.userData.life = ((ped.userData.life as number) ?? ped.id) + dt;
+      ped.userData.gait = route && !ped.userData.idle ? (route.gait ?? 0) : 0;
+      if (route) ped.userData.phase = route.phase;
+      faceCompany(ped, dt);
     }
+    for (const board of world.billboards) {
+      if (!world.pedestrians.includes(board as THREE.Group)) faceCompany(board, dt);
+    }
+  }
+
+  function aimHeading(ped: THREE.Object3D, aim: number, dt: number, sharp: number) {
+    const cur = (ped.userData.heading as number) ?? aim;
+    ped.userData.heading = dampAngle(cur, aim, 1 - Math.exp(-sharp * dt));
+  }
+
+  function faceCompany(ped: THREE.Object3D, dt: number) {
+    const route = ped.userData.route as { wait?: number } | undefined;
+    const movingAlong = Boolean(route) && !ped.userData.idle && (route?.wait ?? 0) <= 0 && ((ped.userData.gait as number) ?? 0) > 0.2;
+    if (movingAlong) return;
+    const life = (ped.userData.life as number) ?? 0;
+    const partner = ped.userData.partner as THREE.Object3D | undefined;
+    if (partner) {
+      const aim = Math.atan2(partner.position.x - ped.position.x, partner.position.z - ped.position.z) + Math.sin(life * 1.5) * 0.1;
+      aimHeading(ped, aim, dt, 3);
+      return;
+    }
+    const look = ped.userData.look as { x: number; z: number } | undefined;
+    if (look) {
+      aimHeading(ped, Math.atan2(look.x - ped.position.x, look.z - ped.position.z), dt, 2.4);
+      return;
+    }
+    if (!route) return;
+    let best: THREE.Object3D | null = null;
+    let bestD = 3.6;
+    for (const other of world.billboards) {
+      if (other === ped) continue;
+      const d = Math.hypot(other.position.x - ped.position.x, other.position.z - ped.position.z);
+      if (d < bestD) {
+        bestD = d;
+        best = other;
+      }
+    }
+    if (best) aimHeading(ped, Math.atan2(best.position.x - ped.position.x, best.position.z - ped.position.z), dt, 3);
   }
 
   function applyBenji(face: Facing) {
-    const tex = textures[face];
-    if (!tex) return;
     const mat = avatar.material as THREE.MeshBasicMaterial;
+    const frac = ((walkDist % 1) + 1) % 1;
+    const planted = frac < 0.16 || frac > 0.84;
+    // PARTIAL walk art: front has a stride frame. Back, left, and right are standing only.
+    const stride = face === "front" && benjiStride && Boolean(walkTex) && !planted;
+    const pose = stride ? "walk" : face;
+    if (avatar.userData.pose === pose && mat.map) return;
+    const tex = stride ? walkTex : textures[face];
+    if (!tex) return;
     const size = frameSize(characters.benji, face);
-    if (mat.map !== tex) {
-      mat.map = tex;
-      mat.needsUpdate = true;
-      avatar.geometry.dispose();
-      avatar.geometry = solePlane(size.w, size.h, size.footPad, size.pxH);
-      avatar.position.y = 0;
-    }
+    mat.map = tex;
+    mat.needsUpdate = true;
+    avatar.geometry.dispose();
+    avatar.geometry = solePlane(size.w, size.h, size.footPad, size.pxH, size.centerPx, size.pxW);
+    avatar.position.set(0, 0, 0);
+    avatar.userData.pose = pose;
+    avatar.userData.face = face;
   }
 
-  const scalePos = new THREE.Vector3();
-  function presentScale(host: THREE.Object3D) {
-    host.getWorldPosition(scalePos);
-    const dist = camera.position.distanceTo(scalePos);
-    return THREE.MathUtils.clamp(dist / 6.6, 0.82, 1.16);
+  function rock(mesh: THREE.Object3D, host: THREE.Object3D) {
+    const gait = (host.userData.gait as number) ?? 0;
+    const phase = (host.userData.phase as number) ?? 0;
+    const life = (host.userData.life as number) ?? 0;
+    const energy = Math.min(1, gait);
+    mesh.rotation.z = energy > 0.08 ? Math.sin(phase * Math.PI * 2) * 0.06 * energy : Math.sin(life * 0.8) * 0.02;
+  }
+
+  function presentScale(_host: THREE.Object3D) {
+    return 1;
   }
 
   function applyCard(sprite: THREE.Object3D, host: THREE.Object3D) {
     const mesh = sprite as THREE.Mesh;
     const mat = mesh.material as THREE.MeshBasicMaterial;
-    const asset = host.userData.asset as
-      | {
-          height: number;
-          views: { front: { src: string; pxW: number; pxH: number; footPad: number } } & Partial<
-            Record<Facing, { pxW: number; pxH: number; footPad: number }>
-          >;
-        }
-      | undefined;
+    const asset = host.userData.asset as Parameters<typeof frameSize>[0] | undefined;
     const tex = host.userData.tex as Partial<Record<Facing, THREE.Texture>> | undefined;
     const heading = (host.userData.heading as number) ?? Math.PI;
     const toCam = yawTo(host, camera.position);
@@ -782,20 +969,47 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       face = abs < 0.75 ? "front" : abs > 2.35 ? "back" : rel > 0 ? "left" : "right";
       if (!tex[face]) face = "front";
     }
-    if (tex?.[face] && mesh.userData.face !== face) {
-      const view = asset!.views[face] ?? asset!.views.front;
-      const h = asset!.height;
-      const w = h * (view.pxW / view.pxH);
-      mesh.geometry.dispose();
-      mesh.geometry = solePlane(w, h, view.footPad, view.pxH);
-      mesh.position.y = 0;
-      mesh.userData.face = face;
-      mat.map = tex[face]!;
-      mat.needsUpdate = true;
+    const gait = (host.userData.gait as number) ?? 0;
+    let striding = Boolean(host.userData.striding);
+    if (gait > 0.55) striding = true;
+    else if (gait < 0.22) striding = false;
+    host.userData.striding = striding;
+    const walkMap = host.userData.walkTex as THREE.Texture | undefined;
+    const phase = (host.userData.phase as number) ?? 0;
+    const frac = ((phase % 1) + 1) % 1;
+    const planted = frac < 0.16 || frac > 0.84;
+    const showWalk = striding && Boolean(walkMap) && face === "front" && !planted;
+    const pose = showWalk ? "walk" : face;
+    if (asset && mesh.userData.pose !== pose) {
+      const map = showWalk ? walkMap : tex?.[face];
+      if (map) {
+        const size = frameSize(asset, showWalk ? "walk" : face);
+        mesh.geometry.dispose();
+        mesh.geometry = solePlane(size.w, size.h, size.footPad, size.pxH, size.centerPx, size.pxW);
+        mesh.userData.pose = pose;
+        mesh.userData.face = face;
+        mat.map = map;
+        mat.needsUpdate = true;
+      }
     }
+    seatOnGround(mesh);
     const s = presentScale(host);
     mesh.scale.set(s, s, 1);
-    mesh.rotation.y = toCam - host.rotation.y;
+    const turnaround = Boolean(tex?.back && tex?.left && tex?.right);
+    let cardYaw = toCam;
+    if (!turnaround) {
+      let rel = heading - toCam;
+      while (rel > Math.PI) rel -= Math.PI * 2;
+      while (rel < -Math.PI) rel += Math.PI * 2;
+      const limit = 1.25;
+      if (rel > limit) rel = limit;
+      else if (rel < -limit) rel = -limit;
+      cardYaw = toCam + rel;
+    }
+    mesh.rotation.order = "YZX";
+    mesh.rotation.x = 0;
+    mesh.rotation.y = cardYaw - host.rotation.y;
+    rock(mesh, host);
   }
 
   function faceAvatar() {
@@ -804,10 +1018,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const playerMark = player.getObjectByName("foot-debug");
     if (playerMark) playerMark.visible = debug;
     applyBenji(facing);
+    avatar.rotation.order = "YZX";
     avatar.rotation.x = 0;
-    avatar.rotation.z = 0;
     avatar.rotation.y = yawTo(avatar, camera.position);
-    avatar.position.y = moving ? Math.abs(Math.sin(walkTime * 9)) * 0.05 : 0;
+    avatar.rotation.z = 0;
+    seatOnGround(avatar);
     avatar.scale.set(presentScale(player), presentScale(player), 1);
     for (const board of world.billboards) {
       plantFeet(board);
@@ -816,67 +1031,77 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       const sprite = board.getObjectByName("sprite");
       if (!sprite) continue;
       sprite.rotation.x = 0;
-      sprite.rotation.z = 0;
       applyCard(sprite, board);
-      const phase = board.userData.route as { phase?: number } | undefined;
-      sprite.position.y = phase && !board.userData.idle ? Math.abs(Math.sin(phase.phase ?? 0)) * 0.055 : 0;
     }
     const kHost = kSprite.parent ?? kSprite;
     plantFeet(kHost);
     const kMark = kHost.getObjectByName("foot-debug");
     if (kMark) kMark.visible = debug;
     kSprite.rotation.x = 0;
-    kSprite.rotation.z = 0;
     applyCard(kSprite, kHost);
     presentVehicles(camera.position);
   }
 
   function placeCamera(dt: number) {
+    if (city.bowl) {
+      const aim = city.bowl.aim;
+      avatar.visible = false;
+      player.position.set(92, 0, -17.6);
+      camera.position.set(92, 1.05, -17.15);
+      camera.lookAt(92 + aim * 0.7, 0.16, -23.5);
+      return;
+    }
+    avatar.visible = true;
     const lookX = Math.sin(camYaw);
     const lookZ = Math.cos(camYaw);
     const talking = place === "hq" && dialogue.startsWith("K Blanco");
     const inside = place === "home" || place === "hq" || place === "haunt";
-    const dist = camDist ?? (talking ? 4.6 : place === "haunt" ? 2.7 : inside ? 4.1 : 5.15);
-    const height = camHeight ?? (talking ? 1.7 : inside ? 1.95 : 2.05);
-    const side = talking ? 1.8 : 0;
+    const dist = camDist ?? (talking ? 2.9 : place === "haunt" ? 2.45 : inside ? 3.05 : 3.05);
+    const height = camHeight ?? (talking ? 1.42 : inside ? 1.5 : 1.42);
+    const side = talking ? 1.35 : 0;
     let destX = player.position.x - lookX * dist + lookZ * side;
     let destZ = player.position.z - lookZ * dist - lookX * side;
-    if (place === "haunt") {
-      const zone = collisionZone();
-      const pulled = pullCamera(player.position.x, player.position.z, destX, destZ, zone.solids, zone.ox, zone.oz);
-      destX = pulled.x;
-      destZ = pulled.z;
-    }
+    const zone = collisionZone();
+    const pulled = pullCamera(player.position.x, player.position.z, destX, destZ, zone.solids, zone.ox, zone.oz);
+    destX = pulled.x;
+    destZ = pulled.z;
     const destY = player.position.y + height;
-    camera.position.x += (destX - camera.position.x) * (1 - Math.exp(-4 * dt));
-    camera.position.y += (destY - camera.position.y) * (1 - Math.exp(-4 * dt));
-    camera.position.z += (destZ - camera.position.z) * (1 - Math.exp(-4 * dt));
-    const ahead = talking ? 0.4 : 2.05;
-    const lookY = player.position.y + (camLookY ?? (talking ? 1.15 : 1.05));
+    const follow = 1 - Math.exp(-6.5 * dt);
+    camera.position.x += (destX - camera.position.x) * follow;
+    camera.position.y += (destY - camera.position.y) * follow;
+    camera.position.z += (destZ - camera.position.z) * follow;
+    const ahead = talking ? 0.28 : 0.72;
+    const lookY = player.position.y + (camLookY ?? (talking ? 1.12 : 1.18));
     camera.lookAt(player.position.x + lookX * ahead, lookY, player.position.z + lookZ * ahead);
   }
 
   function applyNight() {
     const outside = place === "street" || place === "court";
-    world.sun.intensity = night ? 0.12 : outside ? 4.6 : 0.85;
-    world.sun.color.set(night ? 0x1c2838 : 0xfff0cf);
-    world.hemi.intensity = night ? 0.28 : outside ? 0.95 : 0.7;
-    world.hemi.color.set(night ? 0x243044 : 0xcfe6ff);
-    world.hemi.groundColor.set(night ? 0x14110e : 0x5d7a48);
-    renderer.toneMappingExposure = night ? 0.86 : 1.12;
-    world.scene.background = night ? world.skyNight : world.skyDay;
+    world.sun.intensity = night ? 0.16 : golden ? 2.05 : outside ? 2.7 : 0.85;
+    world.sun.color.set(night ? 0x1c2838 : golden ? 0xff8a3c : 0xfff1d6);
+    world.sun.position.set(golden ? -46 : -22, golden ? 8.5 : 32, golden ? 18 : 14);
+    world.hemi.intensity = night ? 0.34 : golden ? 0.48 : outside ? 0.72 : 0.7;
+    world.hemi.color.set(night ? 0x243044 : golden ? 0xffc48a : 0xcfe6ff);
+    world.hemi.groundColor.set(night ? 0x14110e : golden ? 0x6a4528 : 0x5d7a48);
+    renderer.toneMappingExposure = night ? 0.92 : golden ? 1.16 : 1.08;
+    bloom.strength = night ? 0.42 : golden ? 0.24 : 0.16;
+    world.scene.background = night ? world.skyNight : golden ? world.skyGolden : world.skyDay;
     const fog = world.scene.fog as THREE.Fog;
-    fog.color.setHex(night ? 0x141820 : 0xd5e4ee);
-    fog.near = night ? 28 : 48;
-    fog.far = night ? 120 : 190;
-    for (const lamp of world.lamps) lamp.intensity = night ? 28 : 0;
-    for (const lamp of world.courtLights) lamp.intensity = night ? 36 : 0;
+    fog.color.setHex(night ? 0x12161e : golden ? 0xe7c4a0 : 0xc5d4e2);
+    fog.near = night ? 18 : golden ? 14 : 26;
+    fog.far = night ? 78 : golden ? 68 : 92;
+    const hqDay = world.exterior.getObjectByName("hq-plate-day");
+    const hqNight = world.exterior.getObjectByName("hq-plate-night");
+    if (hqDay) hqDay.visible = !night || !hqNight;
+    if (hqNight) hqNight.visible = night;
+    for (const lamp of world.lamps) lamp.intensity = night ? 28 : golden ? 10 : 0;
+    for (const lamp of world.courtLights) lamp.intensity = night ? 36 : golden ? 8 : 0;
     for (const light of world.homeLights) light.intensity = place === "home" ? 18 : 0;
     for (const light of world.hqLights) light.intensity = place === "hq" ? 26 : 0;
     for (const light of world.haunt.lights) light.intensity = place === "haunt" ? 18 : 0;
-    for (const mat of world.headlightMats) mat.emissiveIntensity = night ? 3.1 : 0.35;
-    for (const mat of world.glowMats) mat.emissiveIntensity = night ? 2.2 : 0.28;
-    const tint = night ? 0xb7c7d8 : place === "hq" ? 0xffd2a8 : place === "home" ? 0xffe4c4 : 0xfff3e4;
+    for (const mat of world.headlightMats) mat.emissiveIntensity = night ? 3.1 : golden ? 1.4 : 0.35;
+    for (const mat of world.glowMats) mat.emissiveIntensity = night ? 2.2 : golden ? 0.9 : 0.28;
+    const tint = night ? 0xb7c7d8 : golden ? 0xffc898 : place === "hq" ? 0xffd2a8 : place === "home" ? 0xffe4c4 : 0xfff3e4;
     for (const mat of world.figureMats) mat.color.set(tint);
     (avatar.material as THREE.MeshBasicMaterial).color.set(tint);
   }
@@ -885,8 +1110,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     ped.userData.base = ped.position.x;
     ped.userData.t = i * 1.7;
   });
-  camera.position.set(player.position.x - 8, 3.6, player.position.z);
-  camera.lookAt(player.position.x + 4, 1.2, player.position.z);
+  camera.position.set(player.position.x - 3.05, 1.42, player.position.z);
+  camera.lookAt(player.position.x + 1.15, 1.22, player.position.z);
 
   const touchApi = {
     setStick(x: number, y: number) {
@@ -897,23 +1122,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       charging = next;
     },
     press(code: string) {
+      if (code === "KeyE") {
+        interactQueued = true;
+        return;
+      }
       keys.add(code);
       pulses.set(code, 12);
-      if (code === "KeyE") {
-        tryEnter();
-        api.dollars = dollars;
-        api.respect = respect;
-        api.mission = mission;
-        api.dialogue = dialogue;
-        api.carrying = carrying;
-        api.x = player.position.x;
-        api.z = player.position.z;
-        api.place = place;
-        push(hud());
-      }
     },
     toggleNight() {
-      night = !night;
+      cycleLight();
     },
     setPos(x: number, z: number, yaw?: number) {
       this.setShot({ x, z, yaw });
@@ -924,6 +1141,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       yaw?: number;
       facing?: Facing;
       night?: boolean;
+      golden?: boolean;
       place?: Place;
       carrying?: boolean;
       delivered?: boolean;
@@ -943,7 +1161,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       if (opts.dialogue != null) dialogue = opts.dialogue;
       if (opts.carrying != null) carrying = opts.carrying;
       if (opts.delivered != null) delivered = opts.delivered;
-      if (opts.night != null) night = opts.night;
+      if (opts.golden) {
+        golden = true;
+        night = false;
+      } else if (opts.night != null) {
+        night = opts.night;
+        golden = false;
+      }
       if (opts.facing) facing = opts.facing;
       city.fish = null;
       city.bowl = null;
@@ -982,17 +1206,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         const lookX = Math.sin(camYaw);
         const lookZ = Math.cos(camYaw);
         const inside = place === "home" || place === "hq" || place === "haunt";
-        const dist = camDist ?? (inside ? 4.1 : 5.15);
-        const height = camHeight ?? (inside ? 1.95 : 2.05);
+        const dist = camDist ?? (inside ? 3.05 : 3.05);
+        const height = camHeight ?? (inside ? 1.5 : 1.42);
         plantFeet(player);
         let camX = player.position.x - lookX * dist;
         let camZ = player.position.z - lookZ * dist;
-        if (place === "haunt") {
-          const zone = collisionZone();
-          const pulled = pullCamera(player.position.x, player.position.z, camX, camZ, zone.solids, zone.ox, zone.oz);
-          camX = pulled.x;
-          camZ = pulled.z;
-        }
+        const zone = collisionZone();
+        const pulled = pullCamera(player.position.x, player.position.z, camX, camZ, zone.solids, zone.ox, zone.oz);
+        camX = pulled.x;
+        camZ = pulled.z;
         camera.position.set(camX, player.position.y + height, camZ);
       }
       carried.visible = carrying;
@@ -1026,6 +1248,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     cancelAnimationFrame(frame);
     window.removeEventListener("keydown", kd);
     window.removeEventListener("keyup", ku);
+    window.removeEventListener("blur", clearKeys);
     window.removeEventListener("resize", resize);
     renderer.dispose();
   };

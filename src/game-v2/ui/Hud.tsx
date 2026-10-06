@@ -8,7 +8,7 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
       <div className="absolute left-3 top-3 flex max-w-[11.5rem] flex-wrap gap-2 sm:max-w-none">
         <Chip label="SACK" value={`$${state.dollars}`} />
         <Chip label="RESPECT" value={String(state.respect)} />
-        <Chip label={placeName(state.place)} value={state.night ? "NIGHT" : "DAY"} />
+        <Chip label={placeName(state.place)} value={state.night ? "NIGHT" : state.golden ? "GOLDEN" : "DAY"} />
         {state.carrying && <Chip label="DROP" value="ON" />}
         {state.boost && <Chip label="FED" value="GO" />}
         {state.fit !== "default" && <Chip label="FIT" value={state.fit.toUpperCase()} />}
@@ -52,7 +52,7 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
         <Round label="SHOT" onPointerDown={() => action("SpaceDown")} onPointerUp={() => action("SpaceUp")} />
       </div>
       <div className="absolute bottom-3 right-4 hidden text-[11px] tracking-wide text-[#f4efe4aa] sm:block">
-        WASD move · E interact · Space shoot · N night · M card
+        Arrows or WASD · A left · D right · W away · S toward · E interact · Space shoot · Shift run
       </div>
     </div>
   );
