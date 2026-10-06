@@ -1,0 +1,1479 @@
+Paste this into Astra exactly as-is. It is written to make Astra **audit first, preserve what already works, use the reference packs as the visual authority, then begin the actual production rebuild without merging anything prematurely**.
+
+```text
+You are taking over active production development of a game called:
+
+$ACKRELIGIOUS: MEMPHIS
+
+This is not a prototype-art exercise. Treat this as a serious production pass toward a polished commercial-quality game that should eventually feel credible on desktop, mobile, and console-style controls.
+
+==================================================
+REPOSITORIES
+==================================================
+
+PRIMARY GAME REPOSITORY:
+https://github.com/Tre2k3/blue-delta-palm-craft
+
+PRIVATE PRODUCTION REFERENCE REPOSITORY:
+https://github.com/Tre2k3/SackReligious-Game
+
+The private reference repository contains production ZIPs under:
+
+reference-packs/
+
+Expected reference packs include:
+
+1. SackReligious_Character_Bible_AI_Reference_Pack.zip
+2. SackReligious_Console_Quality_Game_Concepts.zip
+3. SackReligious_World_Buildings_Reference_Pack_v1.zip
+4. SackReligious_HQ_Production_Reference_Pack_v1.zip
+5. SackReligious_Vehicle_Street_Systems_Production_Pack_v1.zip
+6. SackReligious_Gameplay_Props_Items_Production_Pack_v1.zip
+7. SackReligious_UI_HUD_Production_Pack_v1.zip
+8. SackReligious_Activity_Locations_Production_Pack_v1.zip
+
+Use those packs as the primary visual and implementation reference.
+
+Do not casually redesign the game from scratch.
+
+Do not discard systems that already work simply because you can rewrite them.
+
+Do not merge directly into main.
+
+Create a new production branch from the latest appropriate game state.
+
+Suggested branch:
+
+feat/astra-production-rebuild
+
+If another branch clearly contains newer functional work that should be preserved, inspect it first and explain why you are branching from it.
+
+==================================================
+PRIMARY GOAL
+==================================================
+
+Transform the current game into a cohesive, polished, playable Memphis lifestyle/open-world experience with:
+
+- third-person character exploration
+- real streets
+- traffic
+- enterable buildings
+- shops
+- missions
+- wardrobe
+- money
+- respect/progression
+- basketball
+- fishing
+- bowling
+- racing
+- food-truck interactions
+- NPCs
+- seasonal content
+- desktop controls
+- controller-style controls
+- mobile touch controls
+- responsive UI
+- believable collisions
+- proper world scale
+- smooth transitions
+- polished presentation
+
+The desired structure is closer to a dense AA open-world city/activity game than a massive GTA-style map.
+
+Think structurally in the direction of:
+
+- Like a Dragon / Yakuza for dense city activities and interiors
+- NBA 2K City for basketball, clothing, reputation, lifestyle and shopping
+- a lighter GTA-style driving/world framework
+- strong stylized urban presentation rather than chasing photorealistic AAA scope
+
+Do not copy copyrighted game assets, characters, environments, UI, logos, maps or code from those games.
+
+They are structural quality references only.
+
+==================================================
+CRITICAL RULE: AUDIT BEFORE REBUILDING
+==================================================
+
+DO NOT immediately start rewriting the codebase.
+
+First:
+
+1. Inspect the entire relevant repository.
+2. Run the current game.
+3. Document what already works.
+4. Document what is broken.
+5. Document what is placeholder.
+6. Document what already has good architecture.
+7. Inspect all major reference packs.
+8. Map the current implementation to the production references.
+9. Identify the minimum safe architecture changes needed.
+10. Only then begin implementation.
+
+Before making major changes, create:
+
+docs/ASTRA_PRODUCTION_AUDIT.md
+
+That document must include:
+
+- current architecture
+- current rendering stack
+- player system
+- world system
+- collision system
+- traffic system
+- NPC system
+- basketball system
+- fishing system
+- wardrobe/outfit system
+- save/load
+- input system
+- mobile controls
+- UI
+- building/interior transitions
+- asset-loading strategy
+- current performance problems
+- dead code
+- placeholders
+- broken assets
+- broken movement
+- broken camera behavior
+- current production risks
+
+Also create:
+
+docs/ASTRA_PRODUCTION_PLAN.md
+
+Do not begin a giant rewrite until those two files exist.
+
+==================================================
+VISUAL AUTHORITY
+==================================================
+
+The production-reference repository is the visual authority.
+
+Do not treat reference boards as flat backgrounds.
+
+They are:
+
+- architectural references
+- design references
+- layout references
+- lighting references
+- gameplay references
+- prop references
+- UI references
+
+Major locations should become actual playable environments.
+
+Use layered or modeled environments with:
+
+- background architecture
+- gameplay layer
+- collision
+- walkable space
+- foreground occluders
+- interaction anchors
+- lighting
+- VFX
+- NPC spawn areas
+- door transitions
+- activity boundaries
+
+Do not simply place a large concept image behind Benji and call the environment complete.
+
+==================================================
+CANONICAL BENJI RULES
+==================================================
+
+Benji is an established character.
+
+Do not redesign him.
+
+Preserve his canonical identity from the Character Bible.
+
+Core identity includes:
+
+- Black male
+- established facial structure
+- existing tattoos
+- forehead cross
+- established hair/twists/braids
+- white/green SackReligious cap when appropriate
+- jewelry/chains
+- established proportions
+- established footwear identity
+- wardrobe changes should not alter his identity
+
+Use the supplied Benji character maps, directional sprites and wardrobe references.
+
+Directional movement contract:
+
+A = move left and visually face LEFT
+D = move right and visually face RIGHT
+W = move upward/away from camera and show BACK view
+S = move downward/toward camera and show FRONT view
+
+Do not reverse these.
+
+This has been a known visual problem before.
+
+Player feet should use a bottom-center ground reference.
+
+Character feet should visually stay planted on the floor/ground plane.
+
+No floating.
+
+No detached feet.
+
+No clipped body.
+
+No black background rectangles.
+
+No raw sprite-sheet rendering.
+
+Only one active Benji visual should be visible at a time.
+
+Preserve native sprite/image aspect ratio.
+
+==================================================
+CANONICAL K BLANCO RULES
+==================================================
+
+K Blanco is an established character.
+
+Use the canonical female K Blanco reference from the Character Bible.
+
+She is:
+
+- a Black woman
+- short platinum/white vintage curls
+- black sleeveless fashion-forward outfit
+- heels
+- gold hoop earrings
+- layered jewelry
+- K pendant
+- boutique owner / mentor / style figure
+
+Do not use or recreate the previously incorrect male K Blanco concept.
+
+The canonical K Blanco reference in the Character Bible overrides any conflicting generated image.
+
+==================================================
+SPORTS EQUIPMENT RULES
+==================================================
+
+Never bake gameplay equipment into Benji's character sprite/model.
+
+The basketball must remain its own object.
+
+The fishing rod, bobber, line, lure/hook and fish must remain separate gameplay objects.
+
+The bowling ball and bowling pins must remain separate gameplay objects.
+
+Character animations may pose Benji as though he is holding/using equipment, but gameplay equipment state must remain controlled by the activity system.
+
+==================================================
+BASKETBALL
+==================================================
+
+Preserve the existing basketball gameplay architecture where practical.
+
+The ball must remain separate from Benji.
+
+Required basketball states should include at minimum:
+
+- idle
+- possessed/held
+- dribbling
+- charging shot
+- released
+- airborne
+- rim/backboard contact
+- ground bounce
+- reboundable
+- reset
+
+Preserve or improve hold/release shooting.
+
+A missing key-up event must not leave the ball permanently stuck.
+
+Maximum charge should safely auto-release if necessary.
+
+Entering basketball activity should reset the ball into a playable state.
+
+The visible scoring volume must align with the actual rim.
+
+The basketball court should have:
+
+- real playable bounds
+- proper hoop placement
+- visible backboard/rim/net
+- fences
+- bleachers
+- scoreboard
+- court entrance
+- spectator-safe zones
+- practice mode
+- mission/tournament hooks
+
+If existing diagnostics exist, preserve and improve them.
+
+==================================================
+WORLD SCALE
+==================================================
+
+Establish a world-scale contract early.
+
+Create something such as:
+
+src/game/worldScale.ts
+
+or equivalent.
+
+Use one consistent human/world reference.
+
+Benji is the master scale reference.
+
+Doors, cars, sidewalks, counters, furniture, hoops, benches, curbs and buildings should all be believable relative to Benji.
+
+Do not independently scale assets until they "look okay."
+
+Create centralized scale constants.
+
+==================================================
+WORLD AND STREETS
+==================================================
+
+The city must look and behave like an actual street network.
+
+Required street features:
+
+- real road surfaces
+- lane markings
+- double-yellow lines where appropriate
+- turn lanes
+- stop lines
+- intersections
+- crosswalks
+- sidewalks
+- curbs
+- driveways
+- parking spaces
+- alleys
+- parking lots
+- street lights
+- traffic lights
+- utility poles
+- fences
+- signs
+- hydrants
+- benches
+- trash cans
+- planters
+- mailboxes
+- environmental props
+
+Do not allow roads to be decorative floor textures with cars sliding randomly over them.
+
+==================================================
+TRAFFIC SYSTEM
+==================================================
+
+This is a major priority.
+
+Previous quality problems included:
+
+- cars driving sideways
+- cars driving through buildings
+- cars missing lanes
+- traffic moving over decorative areas instead of roads
+- vehicles clipping geometry
+
+Fix this structurally.
+
+Traffic should use a lane graph, road splines or another explicit roadway-following system.
+
+Vehicle heading must follow:
+
+- current lane tangent
+- actual movement direction
+- route direction
+
+Never rotate the vehicle art/model sideways merely to fake motion.
+
+Traffic must understand:
+
+- lane center
+- travel direction
+- next waypoint
+- intersection
+- stop/continue state
+- collision
+- speed
+- parking state
+- spawn/despawn boundaries
+
+Vehicles must not pass through:
+
+- buildings
+- walls
+- fences
+- large solid props
+- other blocked geometry
+
+Implement practical vehicle collision.
+
+Traffic does not need AAA physics initially.
+
+Correct lane adherence and believable behavior are more important than complex suspension physics.
+
+Create a traffic debug system.
+
+Recommended:
+
+window.__SACK_TRAFFIC_DEBUG__
+
+or equivalent.
+
+It should be able to show:
+
+- lane centerlines
+- routes
+- vehicle target lane
+- next waypoint
+- heading
+- velocity direction
+- collision bounds
+- road segment IDs
+- intersection state
+- parking anchors
+
+==================================================
+PLAYER COLLISION
+==================================================
+
+Benji must not ghost through:
+
+- buildings
+- walls
+- fences
+- counters
+- large props
+- locked doors
+
+Use intentional collision shapes rather than relying only on image dimensions.
+
+Provide debug visualization.
+
+==================================================
+CAMERA
+==================================================
+
+The camera should feel like a polished third-person / 2.5D city game.
+
+Required:
+
+- smooth follow
+- no violent snapping
+- preserve player visibility
+- preserve road readability
+- preserve interaction visibility
+- avoid clipping through major geometry
+- allow interior-specific camera zones
+- allow activity camera overrides
+- support mobile portrait/landscape constraints if currently relevant
+- scale appropriately with player perspective
+
+Do not build a camera system that only works for one scene.
+
+==================================================
+BUILDINGS AND INTERIORS
+==================================================
+
+Major buildings should feel physically connected to the world.
+
+Priority buildings:
+
+1. SackReligious HQ
+2. K Blanco boutique
+3. Benji's home
+4. bowling alley
+5. haunted house
+6. activity interiors
+7. supporting shops/interiors
+
+Do not teleport the player into a building from arbitrary coordinates.
+
+Use explicit:
+
+- doors
+- gates
+- entrances
+- stairways
+- passages
+- interaction zones
+
+Entering through a doorway should associate the player with that doorway.
+
+Leaving should return the player to the same physical entrance/exit anchor.
+
+Major buildings need:
+
+- exterior
+- collision footprint
+- entrance
+- interior walkable bounds
+- camera zones
+- NPC anchors
+- mission anchors
+- exit
+- lighting
+- save state
+- seasonal hooks
+
+==================================================
+SACKRELIGIOUS HQ
+==================================================
+
+Treat the HQ Production Reference Pack as the primary design authority for the HQ.
+
+The HQ is a major home-base / retail / mission hub.
+
+Expected spaces:
+
+- exterior storefront
+- front entrance
+- main showroom
+- clothing displays
+- shoe/jersey display zone
+- register/cashwrap
+- fitting area
+- lounge/VIP area
+- office/management area
+- stockroom/backroom
+- restroom
+- rear loading/service entrance
+- possible content studio / creative room
+- possible conference space
+
+Support:
+
+- shopping
+- outfit ownership
+- deliveries
+- missions
+- NPC interactions
+- rear loading missions
+- day/night lighting
+- 901 Day
+- Halloween overrides
+
+Do not redesign the whole structure for seasonal variants.
+
+Use the same geometry and change:
+
+- lighting
+- materials
+- decorations
+- signage
+- weather
+- props
+- VFX
+
+==================================================
+K BLANCO BOUTIQUE
+==================================================
+
+Use the relevant production references.
+
+Required:
+
+- exterior/entrance
+- retail floor
+- display walls
+- jersey wall
+- shoes/accessories
+- checkout
+- fitting area
+- backroom/storage
+- office/lounge if applicable
+- K Blanco interaction anchor
+- shop UI hook
+
+Do not bake K Blanco into the environment image.
+
+She remains a separate NPC.
+
+==================================================
+BENJI HOME
+==================================================
+
+Create a coherent playable home using current/reference material.
+
+Expected:
+
+- front exterior
+- driveway/parking
+- entrance
+- living space
+- bedroom
+- kitchen
+- wardrobe/closet hook
+- garage if appropriate
+- save/home functions
+
+Use it as a stable spawn/home location.
+
+==================================================
+ACTIVITY LOCATIONS
+==================================================
+
+Use the Activity Locations Production Pack.
+
+Required major activity areas:
+
+901 Basketball Court
+Bowling Alley
+Riverfront / Fishing
+Racing / Car Meet
+Food Truck Zone
+K Blanco Boutique / HQ
+Downtown / Culture District
+Neighborhood / Residential area
+Haunted House seasonal area
+
+Each activity area needs:
+
+- location ID
+- entrance/entry anchor
+- walkable bounds
+- collision bounds
+- interaction anchors
+- camera zone
+- player spawn/return anchor
+- activity state
+- save state
+- day/night state
+- seasonal state where applicable
+
+Recommended debug:
+
+window.__SACK_LOCATION_DEBUG__
+
+==================================================
+FISHING
+==================================================
+
+Use explicit fishing interaction points.
+
+The player should not fish from every random point on the shoreline.
+
+Fishing spots should have:
+
+- casting anchor
+- water target area
+- fish pool/table
+- bite state
+- tension/reel state if supported
+- catch result
+- reward
+- visual/audio feedback
+
+Fishing rod, bobber, line, lure and fish remain separate objects.
+
+==================================================
+BOWLING
+==================================================
+
+Required:
+
+- bowling exterior
+- lobby
+- shoe area
+- lane selection
+- lanes
+- ball return
+- pins
+- seating
+- scoreboard
+- arcade/lounge if supported
+
+Bowling ball and pins require real gameplay state.
+
+Lane geometry should match physics.
+
+==================================================
+RACING
+==================================================
+
+Required:
+
+- car-meet/start area
+- start line
+- route
+- checkpoint system
+- finish state
+- garage/mod area if appropriate
+- spectator area
+- parked-car anchors
+- night lighting
+
+Do not create a race using random open-world coordinates.
+
+Use an explicit route graph/spline and checkpoint system.
+
+==================================================
+FOOD TRUCK ZONE
+==================================================
+
+Required:
+
+- truck bays
+- vendor anchors
+- menu/ordering points
+- seating
+- tables
+- food props
+- NPC queue zones
+- nighttime/event lighting
+
+NPC queues must not block the player path.
+
+==================================================
+NPC SYSTEM
+==================================================
+
+The world should not feel empty.
+
+Previous issue:
+"don't see no one"
+
+Fix population structurally.
+
+NPCs should use:
+
+- spawn zones
+- route/wander zones
+- idle points
+- shop customer anchors
+- seating anchors
+- court spectator anchors
+- racing crowd anchors
+- food-truck customer anchors
+- despawn logic
+- distance-based updates
+
+Avoid blank white cards/mannequins.
+
+Use actual character visuals.
+
+Do not spawn hundreds of expensive full-detail NPCs.
+
+Use sensible density and LOD/update frequency.
+
+Named NPCs such as:
+
+- K Blanco
+- Court OG
+- Mama Dee
+- Unc J
+- Nitro
+- Strike
+
+should be separate from ambient pedestrians.
+
+==================================================
+WARDROBE / OUTFITS
+==================================================
+
+Preserve the outfit system if viable.
+
+Existing outfits and wardrobe identity should not be discarded.
+
+Outfit examples include:
+
+- starter_green
+- black_gold
+- cream_green
+- deep_gold
+- 901 jerseys
+- basketball jerseys
+- seasonal Halloween outfits
+
+Do not double-composite pre-dressed action sprites.
+
+If an action sprite already contains the outfit, bypass general outfit compositing for that frame.
+
+Save/load should remember the actual equipped outfit.
+
+If an outfit-specific action asset is missing, safely fall back without breaking gameplay.
+
+==================================================
+ECONOMY / PROGRESSION
+==================================================
+
+The game should support:
+
+- SackDollars
+- Respect
+- outfit ownership
+- purchases
+- mission rewards
+- activity rewards
+- unlocks
+- location discovery
+- save/load
+
+Do not hardcode economy state directly into UI components.
+
+Use centralized game state.
+
+==================================================
+MISSION SYSTEM
+==================================================
+
+Preserve and strengthen the Drop Day structure.
+
+Core flow can include:
+
+- dialogue
+- deliveries
+- shopping
+- outfit ownership
+- SackDollars
+- Respect
+- basketball
+- local activities
+- location discovery
+
+Mission system needs:
+
+- stable mission IDs
+- objective IDs
+- active/completed state
+- rewards
+- save persistence
+- location anchors
+- interaction requirements
+
+Do not complete missions solely from entering arbitrary coordinates.
+
+Use actual interactions.
+
+==================================================
+UI / HUD
+==================================================
+
+Use:
+
+SackReligious_UI_HUD_Production_Pack_v1.zip
+
+as the presentation reference.
+
+Core visual language:
+
+- near-black / charcoal
+- gold
+- controlled green
+- activity-specific accent colors
+- readable typography
+- polished console/mobile layout
+- SackReligious crown/branding used intentionally
+
+Do not cover the center of gameplay with UI.
+
+Required UI systems:
+
+- core gameplay HUD
+- minimap
+- full map / fast travel
+- phone
+- mission tracker
+- dialogue
+- inventory
+- wardrobe
+- shop
+- vehicle UI
+- basketball HUD
+- fishing HUD
+- bowling HUD
+- racing HUD
+- pause menu
+- notifications
+- prompts
+- location introduction
+- money/respect display
+
+==================================================
+INPUT SYSTEM
+==================================================
+
+Create or preserve a centralized action abstraction.
+
+Do not write separate gameplay logic for:
+
+- keyboard
+- controller
+- mobile touch
+
+Use logical actions such as:
+
+move_up
+move_down
+move_left
+move_right
+interact
+primary_action
+secondary_action
+sprint
+phone
+map
+inventory
+pause
+confirm
+cancel
+next_tab
+previous_tab
+
+UI should display prompts for the current input mode.
+
+==================================================
+MOBILE
+==================================================
+
+Mobile is a first-class target.
+
+Requirements:
+
+- responsive canvas
+- safe-area awareness
+- large touch targets
+- left-thumb movement
+- right-thumb contextual actions/camera
+- context-sensitive buttons
+- readable text
+- fewer simultaneous HUD widgets than desktop
+- performance-aware rendering
+- no tiny desktop UI merely shrunk onto a phone
+
+Test at minimum:
+
+390x844
+
+and at least one wider mobile viewport.
+
+==================================================
+SEASONAL SYSTEM
+==================================================
+
+Halloween and 901 Day should act as reversible content/theme layers.
+
+Do not permanently fork the entire game world.
+
+Seasonal overrides can change:
+
+- lighting
+- props
+- signs
+- decorations
+- weather
+- NPC clothing
+- court treatment
+- mission content
+- music/audio hooks
+- VFX
+
+Base geometry and collision should remain stable where possible.
+
+==================================================
+HAUNTED HOUSE
+==================================================
+
+Preserve the good haunted-house structure if already implemented.
+
+It should remain a physical 2.5D adventure, not a slideshow.
+
+Use:
+
+- doorway transitions
+- room state
+- puzzles
+- backtracking
+- persistent completion state
+- foreground occlusion
+- room lighting
+- parallax
+- physical exits
+
+Do not reintroduce floating EXIT buttons or arbitrary teleports.
+
+If the existing implementation already works well, integrate it with the production architecture instead of rewriting it unnecessarily.
+
+==================================================
+ASSET LOADING
+==================================================
+
+Create a clear asset registry/catalog.
+
+Avoid random string paths scattered throughout the game.
+
+Centralize major asset IDs.
+
+Recommended categories:
+
+character.*
+outfit.*
+vehicle.*
+building.*
+location.*
+prop.*
+pickup.*
+ui.*
+fx.*
+seasonal.*
+
+Missing assets must fail gracefully.
+
+No broken scenes because one optional image failed.
+
+==================================================
+SIGNAGE
+==================================================
+
+AI-generated concept art may contain imperfect/gibberish text.
+
+Do not ship gibberish text.
+
+Where readable branding matters:
+
+- use actual clean logo assets
+- use authored text in HTML/CSS/canvas
+- use clean texture overlays
+- create controlled sign surfaces
+
+==================================================
+PERFORMANCE
+==================================================
+
+Do not chase visual fidelity at the cost of making the game unusable.
+
+Target a practical production approach.
+
+Use:
+
+- asset preloading
+- texture optimization
+- instancing where useful
+- distance culling
+- NPC update throttling
+- traffic update throttling
+- LOD where useful
+- compressed assets where appropriate
+- fewer dynamic lights
+- reusable geometry/materials
+
+Avoid importing massive source images directly if smaller runtime derivatives are appropriate.
+
+Reference images are design references, not necessarily runtime textures.
+
+==================================================
+SAVE / LOAD
+==================================================
+
+Save at minimum:
+
+- player location
+- current safe spawn
+- money
+- Respect
+- inventory
+- owned outfits
+- equipped outfit
+- mission progress
+- completed missions
+- discovered locations
+- activity progress where appropriate
+- seasonal state where appropriate
+- relevant building/room puzzle state
+
+Never save a player into an invalid collision position.
+
+==================================================
+DEBUG TOOLS
+==================================================
+
+Create a unified debug approach.
+
+Recommended globals:
+
+window.__SACK_DEBUG__
+window.__SACK_TRAFFIC_DEBUG__
+window.__SACK_LOCATION_DEBUG__
+window.__SACK_PROP_DEBUG__
+window.__SACK_UI_DEBUG__
+
+Debug mode should optionally display:
+
+- FPS
+- player position
+- player bounds
+- collision geometry
+- NPC count
+- vehicle count
+- lane routes
+- location IDs
+- interaction anchors
+- spawn anchors
+- current outfit
+- active mission
+- input mode
+- current activity
+- loaded assets
+- missing assets
+
+Debug tools must be disabled/hidden for normal players.
+
+==================================================
+DEVELOPMENT PROCESS
+==================================================
+
+Work incrementally.
+
+Do not create one giant unreviewable commit.
+
+Use logical commits such as:
+
+1. production audit and architecture
+2. asset registry / scale contract
+3. collision foundation
+4. street / lane graph
+5. traffic rewrite
+6. player/camera polish
+7. location framework
+8. HQ implementation
+9. activity location integration
+10. NPC population
+11. UI/HUD integration
+12. mobile controls
+13. performance pass
+14. QA fixes
+
+Do not merge the production branch.
+
+Leave it reviewable.
+
+==================================================
+PHASE ORDER
+==================================================
+
+PHASE 0 — AUDIT
+
+Run the game.
+
+Document everything.
+
+Do not guess.
+
+PHASE 1 — FOUNDATION
+
+Implement/fix:
+
+- world scale
+- asset registry
+- input abstraction
+- collision framework
+- camera framework
+- save-state safety
+- debug overlay
+
+PHASE 2 — ROADS + TRAFFIC
+
+This is one of the highest priorities.
+
+Implement believable streets and lane-following traffic.
+
+PHASE 3 — PLAYER + NPC WORLD LIFE
+
+Fix:
+
+- directional visuals
+- grounding
+- movement
+- NPC visibility
+- pedestrian spawning
+- interaction anchors
+
+PHASE 4 — LOCATIONS
+
+Build or productionize:
+
+- HQ
+- boutique
+- home
+- court
+- riverfront
+- bowling
+- racing
+- food trucks
+- neighborhood
+- downtown
+
+PHASE 5 — ACTIVITIES
+
+Integrate:
+
+- basketball
+- fishing
+- bowling
+- racing
+
+Preserve good existing gameplay systems.
+
+PHASE 6 — MISSIONS / ECONOMY / WARDROBE
+
+Strengthen:
+
+- Drop Day
+- money
+- respect
+- ownership
+- purchases
+- progression
+- saving
+
+PHASE 7 — UI / MOBILE
+
+Build production HUD and responsive mobile UI.
+
+PHASE 8 — SEASONAL / POLISH
+
+Integrate:
+
+- Halloween
+- 901 Day
+- VFX
+- lighting
+- environment polish
+- transitions
+
+PHASE 9 — PERFORMANCE + QA
+
+Profile and repair.
+
+==================================================
+MANDATORY QA
+==================================================
+
+Before reporting a phase complete, manually test it.
+
+Player movement:
+
+- W
+- A
+- S
+- D
+- diagonals if supported
+- sprint
+- stop/start
+- camera follow
+- collision
+
+Confirm:
+
+A = left-facing
+D = right-facing
+W = back-facing
+S = front-facing
+
+Test approaching:
+
+- regular pedestrian
+- K Blanco
+- Court OG
+
+Test:
+
+- NPC visibility
+- interaction prompt
+- dialogue
+- player/NPC overlap prevention where appropriate
+
+Basketball:
+
+- enter court
+- ball resets properly
+- tap shot
+- hold shot
+- release shot
+- max charge
+- rebound/reset
+- leave/re-enter court
+
+Traffic:
+
+- follow multiple cars
+- intersections
+- parked cars
+- curves
+- stop states
+- buildings
+- curbs
+- spawn/despawn
+- verify no sideways driving
+- verify no building penetration
+
+Buildings:
+
+- enter
+- walk inside
+- collide with walls
+- interact
+- exit
+- verify return position
+- save/reload inside or near location
+
+Mobile:
+
+- 390x844
+- touch movement
+- interaction
+- UI safe area
+- wardrobe/shop/map
+- activity controls
+
+Save/reload:
+
+- outfit
+- mission
+- money
+- respect
+- location
+- activity progress
+- discovered location
+
+==================================================
+AUTOMATED VALIDATION
+==================================================
+
+Run the project's available quality checks.
+
+At minimum where supported:
+
+npm install / npm ci
+npm run build
+npm run lint
+npx tsc --noEmit
+
+Do not report success if build or type-checking fails.
+
+Fix relevant regressions.
+
+==================================================
+SCREENSHOT QA
+==================================================
+
+Capture screenshots or visual evidence for:
+
+- downtown traversal
+- HQ exterior
+- HQ interior
+- K Blanco interaction
+- neighborhood
+- basketball court
+- riverfront/fishing
+- bowling
+- racing
+- daytime
+- nighttime
+- mobile HUD
+- traffic debug
+
+Compare them against the production-reference packs.
+
+==================================================
+DO NOT DO THESE THINGS
+==================================================
+
+Do not:
+
+- merge to main
+- delete working systems without analysis
+- redesign Benji
+- redesign K Blanco
+- make K Blanco male
+- bake the basketball into Benji
+- bake fishing equipment into Benji
+- render raw sprite sheets
+- use black rectangle sprite backgrounds
+- flatten transparency incorrectly
+- let cars drive sideways
+- let cars drive through buildings
+- use random teleports as world transitions
+- make interiors non-walkable static images
+- turn the haunted house into a slideshow
+- use giant permanent UI overlays
+- ship gibberish signage
+- create separate contradictory mobile gameplay logic
+- declare QA complete without actually running the game
+
+==================================================
+FIRST DELIVERABLE
+==================================================
+
+Your first response/work checkpoint should NOT be:
+
+"I rebuilt the whole game."
+
+Your first checkpoint should contain:
+
+1. repository/branch used
+2. current commit SHA
+3. audit summary
+4. systems that are already good and should be preserved
+5. systems that need repair
+6. reference packs successfully inspected
+7. production architecture plan
+8. exact first implementation milestone
+9. files you intend to modify first
+10. risks/blockers
+11. build/type-check/lint baseline
+12. preview/run instructions
+
+Then begin implementation.
+
+==================================================
+SUCCESS STANDARD
+==================================================
+
+The target is not merely:
+
+"the game runs."
+
+The target is:
+
+- the world makes physical sense
+- Benji moves correctly
+- people are visible
+- cars follow roads
+- buildings block movement
+- interiors are playable
+- activity locations feel intentional
+- basketball works
+- fishing works
+- bowling works
+- racing works
+- shopping/wardrobe works
+- missions persist
+- mobile controls work
+- UI is polished
+- seasonal content layers cleanly
+- performance is reasonable
+- visual identity matches the production references
+- the project feels like one coherent game rather than multiple prototypes glued together
+
+Begin with the production audit now.
+```
+
+One additional instruction I would give Astra **after it finishes the audit** is: **do not try to rebuild every environment simultaneously.** Have it get one complete vertical slice working first—**Benji home → streets/traffic → SackReligious HQ → K Blanco → delivery mission → 901 Court**. Once that sequence looks and plays correctly, Astra can apply the same architecture to fishing, bowling, racing, food trucks, downtown, and seasonal content.

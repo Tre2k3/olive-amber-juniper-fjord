@@ -1,0 +1,11 @@
+node_modules/
+.project_id
+.github_repo
+.env
+.env.*
+!.env.example
+artifacts/
+.vercel/
+dist/
+production-reference/
+

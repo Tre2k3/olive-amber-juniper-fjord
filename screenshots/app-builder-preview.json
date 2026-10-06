@@ -1,0 +1,39 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "SackReligious · Memphis 901",
+      "hasCanvas": true,
+      "bodyTextLen": 297,
+      "bodyTextHash": "58c53cf9d4fe4e5cd5335b47ba63a3dde771cd10a227cf6fc5bf4293dfd3c7ad",
+      "bodyTextPrefix": "$ackReligious KLOTHING HALLOWEEN AFTER DARK MEMPHIS 901 Memphis ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "SackReligious · Memphis 901",
+      "hasCanvas": true,
+      "bodyTextLen": 237,
+      "bodyTextHash": "b2e8a58ebbfeb2205b5e5c9eb71d41dfc663903ed99ebd300a54e99df860134c",
+      "bodyTextPrefix": "$ackReligious KLOTHING HALLOWEEN AFTER DARK MEMPHIS 901 Memphis ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [
+    "BRAND WARNING: this looks like a game/canvas app but /workspace/public/og.jpg is missing. Games and visually rich apps must ship a custom 1200x630 share card built from the app's own art — the default og.grok.me placeholder card is not acceptable for them. You are not done: open /workspace/.grok/skills/og/SKILL.md and finish the brand-asset pass.",
+    "BRAND WARNING: this looks like a game/canvas app but src/lib/og/site.json is missing \"type\": \"x:game\". X uses og:type=x:game to present the unfurl as a game card — set it in /workspace/src/lib/og/site.json per /workspace/.grok/skills/og/SKILL.md. Do not invent x:type or overload twitter:card as the game signal."
+  ],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}

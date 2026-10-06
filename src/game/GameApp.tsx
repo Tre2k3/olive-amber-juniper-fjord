@@ -1,0 +1,2438 @@
+import { useEffect, useRef, useState, useCallback, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  Map as MapIcon,
+  Target,
+  Shirt,
+  Trophy,
+  Settings,
+  Play,
+  Volume2,
+  SwitchCamera,
+  Megaphone,
+  Bug,
+} from "lucide-react";
+import { GameEngine } from "./engine";
+import { APPAREL, ART_REV, BRAND, POIS, TROPHIES, TIPS } from "./data";
+import { COURT_VENUES, COURT_CHALLENGES, DIFFICULTY } from "./courtPlay";
+import type { CourtChallenge, CourtDifficulty } from "./courtPlay";
+import { lookFor } from "./outfitLook";
+import { formatRunClock } from "./dropRun";
+import type { ApparelId, HudSnapshot, PauseTab } from "./types";
+import { commerce, installCommerceTestHook, type CommerceSnapshot, type StoreProduct } from "./commerce";
+import { claimGameInstance } from "./singleInstance";
+import { installAnalyticsTestHook } from "./analytics";
+import { GAME_BUILD_VERSION, GAME_TITLE, PUBLIC_STORE_PAGE } from "./config";
+import type { SponsorHud } from "./sponsors";
+import { RCM, RCM_DROPS, RCM_VEHICLES } from "./rcmWorx";
+import { ErrorBoundary } from "./ui/ErrorBoundary";
+import { RotatePrompt } from "./ui/RotatePrompt";
+import { PlaytestKit, PlaytestTicker } from "./ui/PlaytestKit";
+import { loadTickerOn, saveTickerOn } from "./playtest";
+import { arrowGlyph, formatGap, formatMph, formatRaceClock, RACE_CHECKPOINTS } from "./race";
+import { halloweenOn, SEASONAL_EVENT } from "./season";
+import { HauntedHouse } from "./ui/HauntedHouse";
+
+const KIT_PASSWORD = "admin4744";
+const KIT_SESSION = "sack-kit-admin";
+
+function unlockKitFromUrl() {
+  if (typeof window === "undefined") return false;
+  try {
+    if (sessionStorage.getItem(KIT_SESSION) === "1") return true;
+    const q = new URLSearchParams(window.location.search);
+    const pass = q.get("access") || q.get("kit");
+    if (pass !== KIT_PASSWORD) return false;
+    sessionStorage.setItem(KIT_SESSION, "1");
+    q.delete("access");
+    q.delete("kit");
+    const next = `${window.location.pathname}${q.toString() ? `?${q}` : ""}${window.location.hash}`;
+    window.history.replaceState(null, "", next);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const emptyHud: HudSnapshot = {
+  mode: "menu",
+  sackdollars: 0,
+  respect: 0,
+  missionTitle: "",
+  missionStep: "",
+  missionProgress: "0/0",
+  missionChapter: "CHAPTER 01",
+  interactHint: null,
+  hintWalk: false,
+  locationName: "Memphis",
+  district: "901",
+  dialogue: null,
+  shopOpen: false,
+  toast: null,
+  equipped: null,
+  owned: [],
+  basketball: null,
+  courtMenu: null,
+  paused: false,
+  started: false,
+  missionComplete: false,
+  cinematic: null,
+  letterbox: 0,
+  worldHour: 12,
+  inputDevice: "keyboard",
+  promptButton: "E",
+  trophies: [],
+  trophyPopup: null,
+  pauseTab: "resume",
+  settings: { master: 0.85, music: 0.42, sfx: 0.7, shake: true, rumble: true, cameraView: "third", sensitivity: 1, quality: "high", reduceMotion: false },
+  sideMissions: [],
+  highScore: 0,
+  hasSave: false,
+  cameraView: "third",
+  steps: [],
+  dropRun: {
+    run: 1,
+    time: 0,
+    combo: 0,
+    bestCombo: 0,
+    points: 0,
+    courtTarget: 8,
+    grade: null,
+    recap: false,
+    deliveries: 0,
+    ballMakes: 0,
+    ballPerfects: 0,
+    ballScore: 0,
+    payout: 0,
+    respectEarned: 0,
+    par: 240,
+    active: false,
+  },
+  uiPulse: 0,
+  bestGrade: null,
+  bestRunScore: 0,
+  buildVersion: GAME_BUILD_VERSION,
+  dropLive: false,
+  driving: false,
+  jooking: false,
+  race: null,
+  raceMenu: false,
+  fishing: null,
+  bowling: null,
+  food: null,
+  coolerCount: 0,
+  fed: false,
+  sponsor: null,
+  sponsorOpen: false,
+  rcm: null,
+  playtest: null,
+  playtestOpen: false,
+};
+
+function formatHour(h: number) {
+  const hr = Math.floor(h);
+  const m = Math.floor((h - hr) * 60);
+  const ap = hr >= 12 ? "PM" : "AM";
+  const h12 = hr % 12 === 0 ? 12 : hr % 12;
+  return `${h12}:${m.toString().padStart(2, "0")} ${ap}`;
+}
+
+const TABS: { id: PauseTab; label: string; icon: typeof Play }[] = [
+  { id: "resume", label: "Resume", icon: Play },
+  { id: "map", label: "Map", icon: MapIcon },
+  { id: "missions", label: "Missions", icon: Target },
+  { id: "wardrobe", label: "Wardrobe", icon: Shirt },
+  { id: "trophies", label: "Trophies", icon: Trophy },
+  { id: "kollab", label: "Kollab", icon: Megaphone },
+  { id: "settings", label: "Settings", icon: Settings },
+];
+
+export function GameApp() {
+  const [bootId, setBootId] = useState(0);
+  const retry = useCallback(() => setBootId((n) => n + 1), []);
+  return (
+    <ErrorBoundary onRetry={retry}>
+      <RotatePrompt />
+      <GameShell key={bootId} onRetry={retry} />
+    </ErrorBoundary>
+  );
+}
+
+function loadCopy(pct: number) {
+  if (pct < 0.22) return "Loading Memphis...";
+  if (pct < 0.48) return "Loading Benji...";
+  if (pct < 0.78) return "Loading SackReligious HQ...";
+  return "Loading The Drop...";
+}
+
+function holdPointer(down: () => void, up: () => void) {
+  return {
+    onPointerDown: (e: ReactPointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+      down();
+    },
+    onPointerUp: (e: ReactPointerEvent) => {
+      e.preventDefault();
+      up();
+    },
+    onPointerCancel: (e: ReactPointerEvent) => {
+      e.preventDefault();
+      up();
+    },
+    onLostPointerCapture: () => up(),
+  };
+}
+
+function GameShell({ onRetry }: { onRetry: () => void }) {
+  // SSR and the first client render agree; the URL override applies on mount.
+  const [halloween, setHalloween] = useState(SEASONAL_EVENT === "halloween_2026");
+  useEffect(() => { setHalloween(halloweenOn()); }, []);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const engineRef = useRef<GameEngine | null>(null);
+  const [hud, setHud] = useState<HudSnapshot>(emptyHud);
+  const [ready, setReady] = useState(false);
+  const [loadPct, setLoadPct] = useState(0);
+  const [bootError, setBootError] = useState<string | null>(null);
+  const [titlePhase, setTitlePhase] = useState<"press" | "choose">("press");
+  const [titleSettings, setTitleSettings] = useState(false);
+  const [tip, setTip] = useState(TIPS[0]!);
+  const stickRef = useRef<{ id: number | null; ox: number; oy: number }>({
+    id: null,
+    ox: 0,
+    oy: 0,
+  });
+  const [store, setStore] = useState<CommerceSnapshot>(() => commerce.snapshot());
+  const [inspect, setInspect] = useState<{ product: StoreProduct; size: string } | null>(null);
+  const [touchUI, setTouchUI] = useState(false);
+  const [landscape, setLandscape] = useState(false);
+  const [fitsOpen, setFitsOpen] = useState(false);
+  const [eventOpen, setEventOpen] = useState(false);
+  const [ticker, setTicker] = useState(loadTickerOn);
+  const [hideHud, setHideHud] = useState(false);
+  const [kitAdmin, setKitAdmin] = useState(false);
+  const [yielded, setYielded] = useState(false);
+
+  useEffect(() => {
+    setKitAdmin(unlockKitFromUrl());
+  }, []);
+
+  useEffect(() => {
+    const read = () => {
+      const ua = navigator.userAgent || "";
+      const mobileUa = /Mobi|Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+      const coarse = window.matchMedia("(pointer: coarse)").matches;
+      const fine = window.matchMedia("(pointer: fine)").matches;
+      const short = Math.min(window.innerWidth, window.innerHeight) <= 820;
+      setTouchUI(mobileUa || (coarse && !fine) || (coarse && short));
+      setLandscape(window.matchMedia("(orientation: landscape)").matches && window.innerHeight <= 560);
+    };
+    read();
+    window.addEventListener("resize", read);
+    window.addEventListener("orientationchange", read);
+    return () => {
+      window.removeEventListener("resize", read);
+      window.removeEventListener("orientationchange", read);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!kitAdmin) return;
+      if (e.code !== "F3" && e.code !== "Backquote") return;
+      e.preventDefault();
+      const eng = engineRef.current;
+      if (!eng?.started) return;
+      eng.setPlaytestOpen(!eng.playtestOpen);
+      if (!ticker) {
+        setTicker(true);
+        saveTickerOn(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [ticker, kitAdmin]);
+
+  useEffect(() => {
+    installAnalyticsTestHook();
+    installCommerceTestHook();
+    commerce.bind({
+      pause: (source) => engineRef.current?.setPauseReason(source, true),
+      resume: (source) => engineRef.current?.setPauseReason(source, false),
+      returnedFromStore: () => {
+        const eng = engineRef.current;
+        if (!eng) return;
+        eng.placeOutsideHq();
+        eng.setPauseReason("parent", false);
+        eng.setPauseReason("hidden", false);
+      },
+      beforeStoreLeave: () => engineRef.current?.save(),
+      toast: (text) => engineRef.current?.showToast(text),
+      grant: (reward) => engineRef.current?.applyVerifiedReward(reward),
+      catalog: (products) => engineRef.current?.world3d?.setHqCatalog(products),
+    });
+    void commerce.init();
+    (window as Window & { __SACK_BUILD__?: unknown }).__SACK_BUILD__ = {
+      version: GAME_BUILD_VERSION,
+      title: GAME_TITLE,
+    };
+    const onShow = (event: PageTransitionEvent) => {
+      if (!event.persisted || !commerce.consumeStoreReturn()) return;
+      const eng = engineRef.current;
+      if (!eng) return;
+      eng.placeOutsideHq();
+      eng.setPauseReason("parent", false);
+      eng.setPauseReason("hidden", false);
+    };
+    window.addEventListener("pageshow", onShow);
+    const unsub = commerce.subscribe(setStore);
+    const onVis = () => {
+      const eng = engineRef.current;
+      if (!eng) return;
+      eng.setPauseReason("hidden", document.hidden);
+      if (!document.hidden) {
+        eng.releaseHqHandoff();
+        commerce.returnToSameGame();
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      unsub();
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pageshow", onShow);
+    };
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || yielded) return;
+    let eng: GameEngine;
+    let cancelled = false;
+    (async () => {
+      try {
+        const lead = await claimGameInstance(() => engineRef.current);
+        if (cancelled) return;
+        if (!lead) {
+          setYielded(true);
+          return;
+        }
+        eng = new GameEngine(canvas);
+        engineRef.current = eng;
+        eng.onHud = (h) => setHud({ ...h });
+        eng.onLoad = (p) => setLoadPct(p);
+        await eng.init();
+        if (cancelled) {
+          eng.destroy();
+          return;
+        }
+        eng.startLoop();
+        if (new URLSearchParams(window.location.search).get("hauntdebug") === "1") {
+          (window as unknown as { __sack?: GameEngine }).__sack = eng;
+        }
+        setReady(true);
+        setHud(eng.getHud());
+        setTip(TIPS[Math.floor(Math.random() * TIPS.length)]!);
+      } catch (e) {
+        setBootError(e instanceof Error ? e.message : "Failed to start");
+      }
+    })();
+    return () => {
+      cancelled = true;
+      engineRef.current?.destroy();
+      engineRef.current = null;
+    };
+  }, []);
+
+  const boot = useCallback((fresh: boolean) => {
+    engineRef.current?.start(fresh);
+    setHud((h) => ({ ...h, started: true }));
+    window.focus();
+  }, []);
+
+  useEffect(() => {
+    if (hud.started || !ready) return;
+    const go = (e: KeyboardEvent) => {
+      if (e.code === "Tab" || e.code.startsWith("F")) return;
+      if (titlePhase === "press") {
+        setTitlePhase("choose");
+        return;
+      }
+      if (e.code === "Enter" || e.code === "Space" || e.code === "KeyE") {
+        boot(false);
+      }
+    };
+    window.addEventListener("keydown", go);
+    return () => window.removeEventListener("keydown", go);
+  }, [hud.started, ready, titlePhase, boot]);
+
+  const onBuy = useCallback((id: ApparelId) => {
+    engineRef.current?.buyItem(id);
+  }, []);
+
+  const closeShop = useCallback(() => {
+    engineRef.current?.closeShop();
+  }, []);
+
+  const advanceDialogue = useCallback(() => {
+    engineRef.current?.advanceDialogue();
+  }, []);
+
+  const applyStick = (clientX: number, clientY: number) => {
+    const eng = engineRef.current;
+    if (!eng) return;
+    const dx = clientX - stickRef.current.ox;
+    const dy = clientY - stickRef.current.oy;
+    const max = 48;
+    const len = Math.hypot(dx, dy) || 1;
+    const s = Math.min(1, len / max);
+    eng.input.touch.mx = (dx / len) * s;
+    eng.input.touch.my = (dy / len) * s;
+    eng.input.device = "touch";
+  };
+  const onStickPointerDown = (e: ReactPointerEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    stickRef.current = {
+      id: e.pointerId,
+      ox: rect.left + rect.width / 2,
+      oy: rect.top + rect.height / 2,
+    };
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    applyStick(e.clientX, e.clientY);
+    e.preventDefault();
+  };
+  const onStickPointerMove = (e: ReactPointerEvent) => {
+    if (e.pointerId !== stickRef.current.id) return;
+    applyStick(e.clientX, e.clientY);
+    e.preventDefault();
+  };
+  const onStickPointerEnd = (e: ReactPointerEvent) => {
+    if (e.pointerId !== stickRef.current.id) return;
+    const eng = engineRef.current;
+    if (eng) {
+      eng.input.touch.mx = 0;
+      eng.input.touch.my = 0;
+    }
+    stickRef.current.id = null;
+  };
+
+  const lb = Math.max(0, Math.min(1, hud.letterbox));
+  const bar = Math.round(52 * lb);
+
+  return (
+    <div key={ART_REV} className={`relative h-full w-full overflow-hidden bg-bg text-fg select-none${halloween ? " sack-halloween" : ""}`}>
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 h-full w-full touch-none"
+        style={{ imageRendering: "auto" }}
+      />
+      {yielded && (
+        <div className="absolute inset-0 z-[80] flex items-center justify-center bg-bg px-6 text-center">
+          <div>
+            <p className="font-display text-4xl text-gold">GAME IS OPEN</p>
+            <p className="mt-3 max-w-sm text-sm text-muted">This was a second copy. The one you were already playing is outside headquarters.</p>
+          </div>
+        </div>
+      )}
+      {hud.halloween?.on && hud.started && !hud.halloween.haunt && (
+        <div className="absolute left-3 top-[7.4rem] z-30 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setEventOpen((v) => !v)}
+            className="pointer-events-auto rounded-full border border-orange-400/70 bg-black/75 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-orange-200"
+          >
+            After Dark · {hud.halloween.letters}/{hud.halloween.lettersMax}
+            {hud.halloween.master ? " · Master" : ""}
+          </button>
+          {hud.halloween.event && (
+            <span className="rounded-full border border-lime-400/50 bg-black/70 px-2 py-1 text-[10px] uppercase text-lime-200">{hud.halloween.event}</span>
+          )}
+        </div>
+      )}
+      {eventOpen && hud.halloween?.on && !hud.halloween.haunt && (
+        <div className="absolute left-3 top-[9.4rem] z-40 w-[min(20rem,calc(100%-1.5rem))] rounded-xl border border-orange-500/40 bg-black/85 p-3 text-white shadow-xl">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-orange-300">Halloween After Dark</p>
+          <ul className="mt-2 space-y-1 text-xs">
+            {hud.halloween.checklist.map((row) => (
+              <li key={row.id} className={row.done ? "text-lime-300" : "text-white/80"}>
+                {row.done ? "✓" : "○"} {row.label}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-[10px] uppercase tracking-[0.16em] text-orange-200">Tonight</p>
+          <ul className="mt-1 space-y-1 text-xs">
+            {hud.halloween.tonight.map((row) => (
+              <li key={row.id} className={row.done ? "text-lime-300" : "text-white/80"}>
+                {row.done ? "✓" : "○"} {row.label}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {hud.halloween?.haunt && (
+        <HauntedHouse
+          haunt={hud.halloween.haunt}
+          onUse={() => engineRef.current?.hauntUse()}
+          onLeave={() => engineRef.current?.leaveHaunt()}
+          onCandle={(n) => engineRef.current?.hauntCandle(n)}
+        />
+      )}
+
+      {/* Letterbox */}
+      {bar > 0 && (
+        <>
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-40 bg-black" style={{ height: bar }} />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 bg-black" style={{ height: bar }} />
+        </>
+      )}
+
+      {/* Title */}
+      {!hud.started && (
+        <div
+          className="absolute inset-0 z-40 flex flex-col"
+          onPointerDown={(e) => {
+            if ((e.target as HTMLElement).closest("button")) return;
+            if (titlePhase === "press" && ready) setTitlePhase("choose");
+          }}
+        >
+          <img
+            src="/game/opening-title.webp"
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ objectPosition: "68% 46%" }}
+            crossOrigin="anonymous"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/45 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/35" />
+          <div className="absolute top-0 inset-x-0 h-8 bg-black" />
+          <div className="absolute bottom-0 inset-x-0 h-8 bg-black" />
+
+          <div className="relative z-10 flex h-full flex-col justify-between overflow-y-auto px-6 py-10 sm:px-12">
+            <div>
+              <p className="font-display text-primary text-xl tracking-[0.22em]">{BRAND.name}</p>
+              <p className="mt-1 text-[11px] uppercase tracking-[0.42em] text-gold">{BRAND.line}</p>
+              <p className="mt-3 text-[11px] uppercase tracking-[0.28em] text-muted">{halloween ? "Halloween After Dark" : "A Memphis Open World"}</p>
+            </div>
+
+            <div className="max-w-lg">
+              <h1 className="sack-title-hero font-display text-6xl leading-[0.85] text-fg sm:text-8xl">{BRAND.city.toUpperCase()}</h1>
+              <p className="mt-2 font-display text-3xl text-primary sm:text-4xl">{BRAND.zip}</p>
+              <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted">
+                {halloween
+                  ? "Memphis after dark. Haunted house, 10 letters, After Dark fits, and the same streets."
+                  : "Play as Benji. Run Drop Day, hoop at Sacks Giving Weekend, and rock the Worldwide Tour tees. 2 sponsor slots and 2 artist slots every 30 days."}
+              </p>
+
+              {!ready && (
+                <div className="mt-8 max-w-xs">
+                  <p className="text-sm tracking-widest text-muted">{loadCopy(loadPct)}</p>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/15">
+                    <div className="h-full bg-primary transition-all" style={{ width: `${Math.round(loadPct * 100)}%` }} />
+                  </div>
+                  <p className="mt-1 text-[11px] text-subtle">{Math.round(loadPct * 100)}%</p>
+                </div>
+              )}
+              <div className="mt-8 flex flex-col gap-2 max-w-xs">
+                <button
+                  type="button"
+                  disabled={!ready}
+                  onClick={() => boot(false)}
+                  className="min-h-12 rounded-lg bg-primary px-6 font-display text-2xl text-primary-fg transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
+                >
+                  {ready ? "ENTER MEMPHIS" : "LOADING…"}
+                </button>
+                  {hud.hasSave && (
+                    <button
+                      type="button"
+                      disabled={!ready}
+                      onClick={() => boot(false)}
+                      className="min-h-11 rounded-lg border border-gold/50 bg-surface/70 px-6 font-display text-xl text-gold hover:bg-surface-2 disabled:opacity-50"
+                    >
+                      CONTINUE
+                    </button>
+                  )}
+                  {hud.hasSave && (
+                    <button
+                      type="button"
+                      disabled={!ready}
+                      onClick={() => boot(true)}
+                      className="min-h-12 rounded-lg border border-border bg-surface/80 px-6 font-display text-2xl text-fg hover:bg-surface-2 disabled:opacity-50"
+                    >
+                      NEW GAME
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setTitleSettings((v) => !v)}
+                    className="min-h-10 rounded-lg border border-border/70 px-6 text-sm uppercase tracking-wider text-muted hover:text-fg"
+                  >
+                    Settings
+                  </button>
+                </div>
+              {bootError && (
+                <div className="mt-3 max-w-xs">
+                  <p className="text-sm text-danger">We couldn't load Memphis.</p>
+                  <p className="mt-1 text-xs text-muted">{bootError}</p>
+                  <button
+                    type="button"
+                    className="mt-2 min-h-10 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-fg"
+                    onClick={onRetry}
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+              {titleSettings && ready && (
+                <div className="mt-4 max-w-xs rounded-xl border border-border bg-panel p-3">
+                  <PauseSettings
+                    settings={hud.settings}
+                    onChange={(s) => engineRef.current?.applySettings(s)}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <p className="max-w-sm text-[11px] leading-relaxed text-subtle">{tip}</p>
+              <div className="hidden text-[11px] text-subtle sm:block">
+                WASD move · {hud.promptButton} talk · Shift run · Esc pause · Pad supported
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {hud.started && (
+        <>
+          {kitAdmin && ticker && !hud.cinematic && <PlaytestTicker hud={hud} />}
+          {kitAdmin && (
+          <PlaytestKit
+            hud={hud}
+            engine={engineRef.current}
+            open={!!hud.playtestOpen}
+            ticker={ticker}
+            hideHud={hideHud}
+            onClose={() => {
+              engineRef.current?.setPlaytestOpen(false);
+              setHideHud(false);
+            }}
+            onTicker={setTicker}
+            onHideHud={setHideHud}
+          />
+          )}
+          {kitAdmin && hideHud && (
+            <button
+              type="button"
+              className="pointer-events-auto absolute right-3 top-3 z-[70] rounded-lg border border-gold/40 bg-black/70 px-2 py-1 text-[10px] uppercase tracking-wider text-gold"
+              onClick={() => {
+                setHideHud(false);
+                engineRef.current?.setPlaytestOpen(true);
+              }}
+            >
+              HUD
+            </button>
+          )}
+          {/* Top HUD */}
+          <div className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 p-3 sm:p-4 ${hideHud ? "opacity-0" : ""}`}>
+            <div className="sack-hud-chip flex flex-col gap-2">
+              <div
+                className="flex items-center gap-2 rounded-xl border border-border bg-panel px-3 py-2 backdrop-blur-sm"
+                style={{ transform: hud.uiPulse > 0.15 ? `scale(${1 + hud.uiPulse * 0.06})` : undefined }}
+              >
+                <img src="/game/sack-icon.png" alt="" className="h-7 w-7" />
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted">$ackdollars</p>
+                  <Tally value={hud.sackdollars} prefix="$" className="tabular font-display text-2xl leading-none text-gold" />
+                </div>
+              </div>
+              {hud.inHq && (
+                <div className="rounded-xl border border-gold/40 bg-panel px-3 py-2 backdrop-blur-sm">
+                  <p className="text-[10px] uppercase tracking-wider text-gold">{store.currency}</p>
+                  <p className="tabular font-display text-xl leading-none text-fg">{store.sackBucks ?? "—"}</p>
+                  {store.signInHint && <p className="text-[10px] text-muted">{store.signInHint}</p>}
+                </div>
+              )}
+              {hud.dropLive && (
+                <div className="rounded-xl border border-primary/50 bg-panel px-3 py-2 backdrop-blur-sm">
+                  <p className="font-display text-lg leading-none text-primary">DROP LIVE</p>
+                  {hud.nextUnlock && (
+                    <p className="mt-0.5 text-[10px] uppercase tracking-wider text-muted">
+                      Next · {hud.nextUnlock.label} at {hud.nextUnlock.at} Respect
+                    </p>
+                  )}
+                </div>
+              )}
+              <div className="flex items-center gap-3 rounded-xl border border-border bg-panel px-3 py-2 backdrop-blur-sm">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted">Respect</p>
+                  <Tally value={hud.respect} className="tabular font-display text-xl leading-none text-gold" />
+                </div>
+                <div className="h-8 w-px bg-border" />
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted">901</p>
+                  <p className="tabular text-xs font-medium text-fg">{formatHour(hud.worldHour)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-end gap-2">
+              {hud.started && !hud.paused && !hud.cinematic && (
+                <div className="pointer-events-auto flex gap-2">
+                  {kitAdmin && (
+                  <button
+                    type="button"
+                    className={`flex min-h-11 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-wider shadow-lg backdrop-blur-sm ${
+                      hud.playtestOpen ? "border-gold bg-gold text-black" : "border-border bg-panel text-fg"
+                    }`}
+                    onClick={() => {
+                      const eng = engineRef.current;
+                      if (!eng) return;
+                      const next = !eng.playtestOpen;
+                      eng.setPlaytestOpen(next);
+                      if (next && !ticker) {
+                        setTicker(true);
+                        saveTickerOn(true);
+                      }
+                    }}
+                  >
+                    <Bug className="h-4 w-4" />
+                    Kit
+                  </button>
+                  )}
+                  <button
+                    type="button"
+                    className="flex min-h-11 items-center gap-1.5 rounded-xl border border-border bg-panel px-3 py-2 text-xs font-semibold uppercase tracking-wider text-fg shadow-lg backdrop-blur-sm"
+                    onClick={() => setFitsOpen(true)}
+                  >
+                    <Shirt className="h-4 w-4 text-gold" />
+                    Fits
+                  </button>
+                  <button
+                    type="button"
+                    className="flex min-h-11 items-center gap-1.5 rounded-xl border border-border bg-panel px-3 py-2 text-xs font-semibold uppercase tracking-wider text-fg shadow-lg backdrop-blur-sm"
+                    onClick={() => engineRef.current?.openPause("settings")}
+                  >
+                    <Settings className="h-4 w-4 text-gold" />
+                    Options
+                  </button>
+                </div>
+              )}
+            {!hud.halloween?.haunt && (
+            <div className="max-w-[15rem] rounded-xl border border-border bg-panel px-3 py-2 text-right backdrop-blur-sm sm:max-w-xs">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-primary">{hud.missionChapter}</p>
+              <p className="font-display text-lg leading-none text-gold">{hud.missionTitle}</p>
+              <p className="mt-1 text-sm font-medium leading-snug text-fg">{hud.missionStep}</p>
+              <p className="mt-1 text-xs text-muted tabular">{hud.missionProgress}</p>
+              {hud.dropLive && (
+                <p className="mt-1 text-[11px] uppercase tracking-[0.16em] text-gold">Drop live · free roam</p>
+              )}
+              {(hud.dropRun.active || hud.dropRun.points > 0) && !hud.missionComplete && (
+                <p className="mt-1 text-[11px] tabular text-primary">
+                  RUN {hud.dropRun.run} · {formatRunClock(hud.dropRun.time)} / {formatRunClock(hud.dropRun.par)} · {hud.dropRun.points}
+                  {hud.dropRun.combo > 1 ? ` · x${hud.dropRun.combo}` : ""}
+                </p>
+              )}
+            </div>
+            )}
+            </div>
+          </div>
+
+          <div className={`pointer-events-none absolute left-3 top-[9.6rem] z-20 sm:top-[10.6rem] ${hud.halloween?.haunt ? "hidden" : ""}`}>
+            <div className="rounded-lg border border-border bg-panel px-3 py-1.5 text-xs text-muted backdrop-blur-sm">
+              <span className="text-fg">{hud.locationName}</span>
+              <span className="mx-1.5 text-subtle">/</span>
+              {hud.district}
+              {!!hud.coolerCount && (
+                <span className="ml-2 text-primary">{hud.coolerCount} in cooler</span>
+              )}
+              {hud.fed && <span className="ml-2 text-gold">FED</span>}
+            </div>
+          </div>
+
+          {hud.interactHint && hud.mode === "world" && !hud.cinematic && !hud.fishing?.active && !hud.bowling?.active && !hud.rcm?.open && !hud.halloween?.haunt && (
+            <div className="pointer-events-none absolute left-3 top-[12.6rem] z-20 sm:top-[13.6rem]">
+              <div
+                className="flex items-center gap-2 rounded-full border border-primary/35 bg-panel px-3 py-1.5 text-xs font-medium text-fg shadow-lg backdrop-blur-sm sm:text-sm"
+                style={{ transform: hud.uiPulse > 0.1 ? `scale(${1 + hud.uiPulse * 0.08})` : undefined }}
+              >
+                <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-primary px-1.5 font-display text-sm text-primary-fg">
+                  {hud.hintWalk ? "↓" : hud.promptButton}
+                </span>
+                {hud.interactHint}
+              </div>
+            </div>
+          )}
+
+          {hud.toast && !hud.cinematic && (
+            <div className={`pointer-events-none absolute left-1/2 z-30 -translate-x-1/2 ${hud.halloween?.haunt ? "top-[6.6rem] max-w-[15rem] text-center" : "top-24"}`}>
+              <div className="rounded-xl border border-primary/30 bg-surface-2 px-4 py-2 text-sm font-medium text-fg shadow-xl">
+                {hud.toast}
+              </div>
+            </div>
+          )}
+
+          {/* Trophy pop */}
+          {hud.trophyPopup && (
+            <div className={`pointer-events-none absolute z-40 ${hud.basketball ? "left-3 top-[13.5rem]" : "right-3 top-28 sm:top-32"}`}>
+              <div className="flex items-center gap-3 rounded-xl border border-border bg-panel px-3 py-2 shadow-2xl backdrop-blur-md">
+                <Trophy className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted">Trophy unlocked</p>
+                  <p className="text-sm font-medium text-fg">{hud.trophyPopup.name}</p>
+                  <p className="text-[10px] capitalize text-primary">{hud.trophyPopup.rank}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {hud.mode === "basketball" && hud.basketball && !hud.race?.active && (
+            <div className="pointer-events-none absolute right-3 top-28 z-20 rounded-xl border border-border bg-panel px-4 py-3 backdrop-blur-sm">
+              <p className="text-[10px] uppercase tracking-wider text-gold">
+                {hud.basketball.shootout ? "10 LETTERS SHOOTOUT" : (hud.basketball.venue ?? "901 Court")}
+              </p>
+              <p className="tabular text-4xl font-semibold leading-none text-fg">
+                {hud.basketball.shootout ? `${hud.basketball.score} / 10` : hud.basketball.score}
+              </p>
+              {hud.basketball.timeLeft > 0 && hud.basketball.timeLeft < 900 && (
+                <p className="mt-1 text-xs text-muted">{hud.basketball.timeLeft}s</p>
+              )}
+              <p className="mt-1 text-[10px] uppercase tracking-wider text-muted">
+                {hud.basketball.shootout ? "Make 10" : `${hud.basketball.difficulty} · ${hud.basketball.challenge}`}
+              </p>
+              {!hud.basketball.shootout && (
+              <button
+                type="button"
+                className="pointer-events-auto mt-2 w-full rounded-lg border border-gold/40 bg-gold/10 px-2 py-1.5 text-xs text-gold"
+                onClick={() => engineRef.current?.openCourtMenu()}
+              >
+                Change court
+              </button>
+              )}
+              <button
+                type="button"
+                className="pointer-events-auto mt-1.5 w-full rounded-lg border border-border bg-surface px-2 py-1.5 text-xs text-muted"
+                onClick={() => engineRef.current?.exitBasketball()}
+              >
+                {hud.basketball.shootout ? "Exit haunted house" : "Leave court"}
+              </button>
+            </div>
+          )}
+
+          {hud.rcm?.job && !hud.cinematic && !hud.rcm.open && (
+            <div className="pointer-events-none absolute right-3 top-28 z-20 w-[min(15.5rem,calc(100%-6.5rem))] rounded-xl border border-gold/45 bg-[#0a0a0c]/85 px-3 py-3 backdrop-blur-sm">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-gold">{RCM.name}</p>
+              <p className="font-display text-3xl leading-none text-fg">{hud.rcm.destName}</p>
+              <p className="mt-1 text-sm text-muted">{hud.rcm.prompt}</p>
+              <p className="mt-2 text-[11px] uppercase tracking-wider text-gold">{RCM.motto}</p>
+              <p className="tabular text-xs text-primary">${hud.rcm.fare} · run {hud.rcm.runs + 1}/3</p>
+            </div>
+          )}
+
+          {hud.bowling?.active && !hud.cinematic && (
+            <div className="pointer-events-none absolute right-3 top-28 z-20 w-[min(16.5rem,calc(100%-6.5rem))] rounded-xl border border-[#ff2bd6]/40 bg-panel px-3 py-3 backdrop-blur-sm">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#ff7ad9]">901 Lanes · Lane {hud.bowling.lane}</p>
+              <p className="tabular font-display text-5xl leading-none text-fg">{hud.bowling.total}</p>
+              <p className="mt-1 text-[11px] uppercase tracking-wider text-gold">
+                Frame {hud.bowling.frame} · {hud.bowling.lastMark ?? "10 frames"}
+                {hud.bowling.turkey >= 2 ? ` · x${hud.bowling.turkey}` : ""}
+              </p>
+              <div className="mt-2 grid grid-cols-5 gap-1">
+                {hud.bowling.frames.map((fr, i) => (
+                  <div key={i} className={`rounded-md border px-1 py-0.5 text-center ${i + 1 === hud.bowling?.frame ? "border-primary bg-primary/15" : "border-border bg-black/30"}`}>
+                    <p className="text-[9px] text-muted">{i + 1}</p>
+                    <p className="font-display text-sm leading-none text-fg">{fr.mark || "·"}</p>
+                    <p className="text-[9px] tabular text-gold">{fr.score ?? ""}</p>
+                  </div>
+                ))}
+              </div>
+              {(hud.bowling.phase === "charging" || hud.bowling.phase === "setup") && (
+                <div className="mt-2 space-y-1.5">
+                  <div className="h-2 overflow-hidden rounded-full bg-black/50">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${Math.round(hud.bowling.power * 100)}%`,
+                        background: hud.bowling.power > 0.55 && hud.bowling.power < 0.84 ? "#39ff14" : "#ff2bd6",
+                      }}
+                    />
+                  </div>
+                  <div className="relative h-2 overflow-hidden rounded-full bg-black/50">
+                    <div className="absolute inset-y-0 left-[58%] w-[18%] bg-primary/50" />
+                    <div
+                      className="absolute top-[-3px] h-[calc(100%+6px)] w-1.5 rounded-sm bg-[#f4e27c]"
+                      style={{ left: `${Math.round((hud.bowling.hook * 0.5 + 0.5) * 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted">Power · hook</p>
+                </div>
+              )}
+              <p className="mt-2 text-sm text-fg">{hud.bowling.prompt}</p>
+              {hud.bowling.over && (
+                <p className="mt-1 font-display text-xl text-gold">+${hud.bowling.payout}</p>
+              )}
+              <button
+                type="button"
+                className="pointer-events-auto mt-2 w-full rounded-lg border border-border bg-surface px-2 py-1.5 text-xs text-muted"
+                onClick={() => engineRef.current?.leaveBowl()}
+              >
+                Leave lanes
+              </button>
+            </div>
+          )}
+
+          {hud.fishing?.active && (
+            <div className="pointer-events-none absolute left-3 top-[12.6rem] z-20 w-[min(18rem,calc(100%-7.5rem))] rounded-xl border border-[#4f9ddf]/40 bg-panel px-3 py-2.5 backdrop-blur-sm sm:top-[13.6rem]">
+              <p className="font-display text-lg leading-none text-[#7ec8ef]">MISSISSIPPI</p>
+              <p className="mt-1 text-sm text-fg">{hud.fishing.prompt}</p>
+              {(hud.fishing.phase === "cast" || hud.fishing.phase === "reel") && (
+                <div className="mt-2 space-y-1.5">
+                  {hud.fishing.phase === "cast" ? (
+                    <div className="h-2 overflow-hidden rounded-full bg-black/50">
+                      <div className="h-full rounded-full bg-[#4f9ddf]" style={{ width: `${Math.round(hud.fishing.power * 100)}%` }} />
+                    </div>
+                  ) : (
+                    <>
+                      <div className="relative h-2.5 overflow-hidden rounded-full bg-black/50">
+                        <div className="absolute inset-y-0 left-[18%] w-[64%] bg-primary/55" />
+                        <div className="absolute inset-y-0 left-[82%] w-[18%] bg-red-500/40" />
+                        <div
+                          className="absolute top-[-3px] h-[calc(100%+6px)] w-1 rounded-sm bg-[#f4e27c]"
+                          style={{ left: `${Math.round(Math.min(1, hud.fishing.tension) * 100)}%` }}
+                        />
+                      </div>
+                      <div className="h-1 overflow-hidden rounded-full bg-black/40">
+                        <div className="h-full rounded-full bg-[#4f9ddf]" style={{ width: `${Math.round(hud.fishing.progress * 100)}%` }} />
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+              {hud.fishing.phase === "catch" && (
+                <p className="mt-1 font-display text-2xl text-gold">
+                  {hud.fishing.fishName}
+                  {hud.fishing.weight ? ` · ${hud.fishing.weight}` : ""}
+                  {hud.fishing.payout ? ` · +$${hud.fishing.payout}` : ""}
+                </p>
+              )}
+              {hud.fishing.phase === "fail" && <p className="mt-1 text-sm text-muted">{hud.fishing.fishName}</p>}
+              {hud.fishing.caught > 0 && hud.fishing.phase !== "catch" && (
+                <p className="mt-1 text-[10px] uppercase tracking-wider text-muted">{hud.fishing.caught} in the cooler</p>
+              )}
+            </div>
+          )}
+
+          {hud.race?.active && hud.race.phase !== "idle" && (
+            <>
+              <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center pt-[max(0.45rem,env(safe-area-inset-top))]">
+                <div className="flex items-end gap-5 rounded-b-2xl border border-white/10 bg-black/60 px-5 py-2 shadow-2xl backdrop-blur-md">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.28em] text-gold">901 Strip</p>
+                    <p className="font-display text-5xl leading-none text-white">{hud.race.place === 1 ? "1ST" : "2ND"}</p>
+                  </div>
+                  <div className="pb-1 text-right">
+                    <p className="font-display text-2xl tabular leading-none text-white">{formatRaceClock(hud.race.time)}</p>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-white/70">
+                      Lap {hud.race.lap}/{hud.race.laps} · {hud.race.nextName}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="pointer-events-none absolute inset-x-0 bottom-[6.5rem] z-20 flex flex-col items-center sm:bottom-28">
+                <p className={`font-display text-7xl tabular leading-none drop-shadow-[0_4px_18px_rgba(0,0,0,0.65)] ${hud.race.boosting ? "text-gold" : "text-white"}`}>
+                  {formatMph(hud.race.speed)}
+                </p>
+                <p className="text-[10px] uppercase tracking-[0.38em] text-white/75">
+                  mph{hud.race.boosting ? " · nitro" : hud.race.slowed ? " · slowed" : ""}
+                </p>
+                <div className="mt-1 h-1.5 w-44 overflow-hidden rounded-full bg-white/15">
+                  <div
+                    className={`h-full ${hud.race.boosting ? "bg-gold" : hud.race.slowed ? "bg-red-500" : "bg-primary"}`}
+                    style={{ width: `${Math.max(6, Math.min(100, formatMph(hud.race.speed)))}%` }}
+                  />
+                </div>
+                <p className={`mt-1 text-xs font-semibold ${hud.race.gap > 0.08 ? "text-gold" : "text-primary"}`}>
+                  {formatGap(hud.race.gap)} · {hud.race.rivalName} · lap {hud.race.rivalLap}
+                </p>
+                {hud.race.combo > 1 && <p className="font-display text-lg text-primary">COMBO x{hud.race.combo}</p>}
+              </div>
+              <div className="pointer-events-none absolute right-3 top-24 z-20 flex flex-col items-end gap-2">
+                <RaceRadar race={hud.race} />
+                {hud.race.phase !== "finish" && (
+                  <button
+                    type="button"
+                    className="pointer-events-auto rounded-lg border border-white/15 bg-black/55 px-2 py-1.5 text-xs text-white/80"
+                    onClick={() => engineRef.current?.leaveRace()}
+                  >
+                    Leave race
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
+          {hud.race?.phase === "countdown" && (
+            <div className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-5">
+              <div className="flex gap-3">
+                {[0, 1, 2].map((i) => {
+                  const on = hud.race && hud.race.countdown <= 3.05 - i;
+                  const go = hud.race && hud.race.countdown <= 0.2;
+                  return (
+                    <div
+                      key={i}
+                      className={`h-6 w-6 rounded-full border ${
+                        go ? "border-primary bg-primary shadow-[0_0_18px_#39ff14]" : on ? "border-red-500 bg-red-500 shadow-[0_0_16px_#ef4444]" : "border-border bg-surface-2"
+                      }`}
+                    />
+                  );
+                })}
+              </div>
+              <p className="font-display text-8xl text-primary drop-shadow-lg">
+                {hud.race.countdown > 0.2 ? Math.ceil(hud.race.countdown) : "GO"}
+              </p>
+              <p className="font-display text-xl text-gold">HIT THE ARROWS · BEAT CAM</p>
+            </div>
+          )}
+
+          {hud.race?.phase === "green" && hud.race.cue && (
+            <div className="pointer-events-none absolute inset-x-0 top-[28%] z-30 flex flex-col items-center gap-1">
+              <div
+                className={`font-display text-[8rem] leading-none drop-shadow-[0_0_24px_rgba(0,0,0,0.65)] sm:text-[10rem] ${
+                  hud.race.cue.status === "hit" ? "text-primary" : hud.race.cue.status === "miss" ? "text-red-500" : "text-gold"
+                }`}
+                style={{ transform: `scale(${1 + hud.race.cue.flash * 0.35})` }}
+              >
+                {arrowGlyph(hud.race.cue.dir)}
+              </div>
+              <p className="font-display text-2xl text-fg">
+                {hud.race.cue.status === "live" ? "HIT IT · BOOST" : hud.race.cue.status === "hit" ? "NITRO" : "MISS · SLOW"}
+              </p>
+            </div>
+          )}
+
+          {hud.started && !hud.paused && !hud.halloween?.haunt && (
+            <button
+              type="button"
+              className={`absolute left-3 z-20 flex items-center gap-2 rounded-xl border border-border bg-panel px-3 py-2 text-xs text-fg backdrop-blur-sm ${touchUI ? "bottom-40" : "bottom-6"}`}
+              onClick={() => engineRef.current?.toggleView()}
+            >
+              <SwitchCamera className="h-4 w-4 text-gold" />
+              {hud.cameraView === "first" ? "First person" : "Third person"}
+            </button>
+          )}
+
+          {/* Cinematic card */}
+          {hud.cinematic && (
+            <div className="pointer-events-none absolute inset-0 z-30 flex items-start justify-start p-8 sm:p-12">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.28em] text-primary">{hud.cinematic.subtitle}</p>
+                <h2 className="font-display mt-1 text-5xl text-fg sm:text-6xl">{hud.cinematic.title}</h2>
+                {hud.cinematic.kind === "briefing" && (
+                  <p className="mt-3 text-sm text-muted">{touchUI ? "Drag MOVE. Walk south out the door." : "WASD to walk. Head south out the door."}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Dialogue */}
+          {hud.dialogue && (
+            <div
+              className="absolute inset-x-0 bottom-0 z-30 flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+              role="dialog"
+            >
+              <button
+                type="button"
+                onClick={advanceDialogue}
+                className="w-full max-w-2xl rounded-2xl border border-border bg-panel p-4 text-left shadow-2xl backdrop-blur-md"
+              >
+                <div className="flex items-start gap-3">
+                  {hud.dialogue.speaker === "K Blanco" && (
+                    <img
+                      src="/game/k-blanco-portrait.webp"
+                      alt=""
+                      className="h-16 w-16 shrink-0 rounded-xl object-cover object-top"
+                      crossOrigin="anonymous"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+                      {hud.dialogue.speaker}
+                    </p>
+                    <p className="mt-1 text-base leading-relaxed text-fg">{hud.dialogue.text}</p>
+                    <p className="mt-3 text-xs text-muted">{hud.promptButton} continue</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+          )}
+
+          {/* Shop */}
+          {hud.shopOpen && (
+            <div className="absolute inset-0 z-40 flex items-end justify-center bg-bg/70 p-3 backdrop-blur-sm sm:items-center">
+              <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl">
+                <div className="relative h-28 shrink-0 overflow-hidden sm:h-36">
+                  <img
+                    src="/game/featured-products.webp"
+                    alt=""
+                    className="h-full w-full object-cover object-center"
+                    crossOrigin="anonymous"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/40 to-transparent" />
+                  <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between">
+                    <div>
+                      <p className="font-display text-2xl text-primary">HQ SHOP</p>
+                      <p className="text-xs text-muted">
+                        {hud.dropLive ? "Drop live · virtual fit + BUY IRL" : "Virtual equip · BUY IRL on the real site"}
+                      </p>
+                    </div>
+                    <p className="tabular font-display text-2xl text-gold">${hud.sackdollars}</p>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto p-3">
+                  {store.catalogLive && commerce.catalog.products.length > 0 && (
+                    <div className="mb-3 grid gap-2">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-gold">On the floor</p>
+                      {commerce.catalog.products.map((product) => (
+                        <button
+                          key={product.id}
+                          type="button"
+                          onClick={() => setInspect({ product, size: product.sizes?.[0] ?? "M" })}
+                          className="flex items-center gap-3 rounded-xl border border-gold/30 bg-surface-2 p-2 text-left"
+                        >
+                          {product.imageUrl && (
+                            <img src={product.imageUrl} alt="" className="h-14 w-11 rounded-md object-cover bg-black" />
+                          )}
+                          {product.backImage && (
+                            <img src={product.backImage} alt="" className="h-14 w-11 rounded-md object-cover bg-black" />
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-medium text-fg">{product.name}</span>
+                            <span className="text-xs text-gold">${product.price ?? "—"} · Buy IRL</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="grid gap-2">
+                    {APPAREL.filter((item) => halloween || !item.id.startsWith("hw_") || hud.owned.includes(item.id)).map((item) => {
+                      const owned = hud.owned.includes(item.id);
+                      const eq = hud.equipped === item.id;
+                      const locked = Boolean(
+                        (item.respectRequired && hud.respect < item.respectRequired && !owned)
+                        || (item.irlOnly && !owned)
+                        || (item.dropLiveRequired && !hud.dropLive && !owned),
+                      );
+                      const real = commerce.productForOutfit(item.id);
+                      const thumb = lookFor(item.id).thumb.src;
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex flex-col gap-2 rounded-xl border border-border bg-surface-2 p-3"
+                        >
+                          <div className="flex items-center gap-3">
+                          {real?.imageUrl || thumb ? (
+                            <img
+                              src={real?.imageUrl ?? thumb}
+                              alt=""
+                              data-testid={`view-${real?.id ?? item.id}`}
+                              className="h-14 w-14 shrink-0 rounded-lg object-cover bg-black"
+                            />
+                          ) : (
+                          <div
+                            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg"
+                            style={{ backgroundColor: item.color }}
+                          >
+                            <span className="font-display text-lg text-white/90">
+                              {item.category === "hat" ? "CAP" : item.category === "chain" ? "$" : "SR"}
+                            </span>
+                          </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium text-fg">{item.name}</p>
+                            <p className="truncate text-xs text-muted">
+                              {locked ? `Respect ${item.respectRequired} to unlock` : item.description}
+                            </p>
+                            {real?.sizes && (
+                              <p className="mt-0.5 text-[10px] uppercase tracking-wider text-subtle">
+                                IRL {real.sizes.join(" · ")}
+                                {real.price != null ? ` · $${real.price}` : ""}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            data-testid={`buy-${item.id}`}
+                            disabled={locked}
+                            onClick={() => onBuy(item.id)}
+                            className={`min-h-10 shrink-0 rounded-lg px-3 py-2 text-sm font-semibold ${
+                              eq
+                                ? "bg-primary/20 text-primary"
+                                : locked
+                                  ? "border border-border bg-surface text-muted"
+                                  : owned
+                                    ? "border border-border bg-surface text-fg"
+                                    : "bg-primary text-primary-fg"
+                            }`}
+                          >
+                            {eq ? "On" : locked ? (item.irlOnly ? "IRL" : "Locked") : owned ? "Equip" : `$${item.price}`}
+                          </button>
+                          </div>
+                          {real && (
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                data-testid={`tryon-${item.id}`}
+                                onClick={() => engineRef.current?.wearProduct(item.id)}
+                                className="min-h-9 flex-1 rounded-lg border border-primary/40 bg-primary/10 text-xs font-semibold uppercase tracking-wider text-primary"
+                              >
+                                Try on
+                              </button>
+                              <button
+                                type="button"
+                                data-testid={`buy-irl-${real.id}`}
+                                onClick={() => setInspect({ product: real, size: real.sizes?.[0] ?? "M" })}
+                                className="min-h-9 flex-1 rounded-lg border border-gold/50 bg-gold/15 text-xs font-semibold uppercase tracking-wider text-gold"
+                              >
+                                Buy IRL
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="border-t border-border p-3">
+                  <button
+                    type="button"
+                    data-testid="hq-real-store"
+                    onClick={() => commerce.enterHeadquarters()}
+                    className="mb-2 min-h-11 w-full rounded-xl border border-gold/40 bg-gold/10 font-medium text-gold"
+                  >
+                    Open real store
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="hq-shop-close"
+                    onClick={closeShop}
+                    className="min-h-11 w-full rounded-xl border border-border bg-surface-2 font-medium text-fg"
+                  >
+                    Back to HQ
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {inspect && (
+            <div className="absolute inset-0 z-50 flex items-end justify-center bg-bg/80 p-3 backdrop-blur-sm sm:items-center">
+              <div className="w-full max-w-md overflow-hidden rounded-2xl border border-gold/40 bg-surface shadow-2xl">
+                {inspect.product.imageUrl && (
+                  <div className="flex h-44">
+                    <img src={inspect.product.imageUrl} alt="" className="h-full w-1/2 object-cover" />
+                    <img src={inspect.product.backImage || inspect.product.imageUrl} alt="" className="h-full w-1/2 object-cover" />
+                  </div>
+                )}
+                <div className="p-4">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-gold">{inspect.product.zone ?? "HQ DROP"}</p>
+                  <h3 className="font-display text-3xl text-fg">{inspect.product.name}</h3>
+                  <p className="font-display text-2xl text-gold">${inspect.product.price}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(inspect.product.sizes ?? ["M"]).map((sz) => (
+                      <button
+                        key={sz}
+                        type="button"
+                        onClick={() => setInspect({ ...inspect, size: sz })}
+                        className={`min-h-10 min-w-10 rounded-lg border px-3 text-sm font-semibold ${inspect.size === sz ? "border-gold bg-gold text-bg" : "border-border bg-surface-2 text-fg"}`}
+                      >
+                        {sz}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-4 grid gap-2">
+                    {inspect.product.virtualOutfitId && (
+                      <button
+                        type="button"
+                        className="min-h-11 rounded-xl bg-primary font-display text-xl uppercase text-primary-fg"
+                        onClick={() => engineRef.current?.wearProduct(inspect.product.virtualOutfitId as ApparelId)}
+                      >
+                        Put on Benji
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="min-h-11 rounded-xl border border-gold/50 bg-gold/15 font-display text-xl uppercase text-gold"
+                      onClick={() => {
+                        commerce.addToCart(inspect.product, inspect.size);
+                        setInspect(null);
+                      }}
+                    >
+                      Buy IRL · {inspect.size}
+                    </button>
+                    <button type="button" className="min-h-10 text-xs uppercase tracking-wider text-muted" onClick={() => setInspect(null)}>
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {hud.food && (
+            <div className="absolute inset-x-0 bottom-0 z-40 flex justify-center p-3 sm:p-4">
+              <div className="flex max-h-[48vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-border bg-surface/95 shadow-2xl backdrop-blur-md">
+                <div className="relative h-20 shrink-0 overflow-hidden">
+                  <img src={hud.food.logo} alt="" className="h-full w-full object-cover object-center" crossOrigin="anonymous" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/50 to-transparent" />
+                  <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between gap-3">
+                    <div>
+                      <p className="font-display text-2xl" style={{ color: hud.food.accent }}>{hud.food.tag}</p>
+                      <p className="text-xs text-muted">{hud.food.blurb}</p>
+                    </div>
+                    <p className="tabular font-display text-2xl text-gold">${hud.sackdollars}</p>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto p-3">
+                  {hud.food.truckId === "foodtruck" && (
+                    <p className="mb-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-fg">
+                      {hud.food.catchName
+                        ? `Cooler · ${hud.food.catchName} ${hud.food.catchWeight} · ${hud.food.cooler} fish`
+                        : "Cooler empty · fish the Mississippi, then grill it here"}
+                    </p>
+                  )}
+                  {hud.food.social && (
+                    <p className="mb-2 text-[11px] uppercase tracking-wider text-gold">{hud.food.social}{hud.food.contact ? ` · ${hud.food.contact}` : ""}</p>
+                  )}
+                  <div className="grid gap-2">
+                    {hud.food.items.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        disabled={!!item.locked}
+                        className="flex min-h-16 items-center justify-between gap-3 rounded-xl border border-border bg-surface-2 px-3 py-3 text-left disabled:opacity-45"
+                        onClick={() => engineRef.current?.orderFood(item.id)}
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-fg">{item.name}</p>
+                          <p className="text-xs text-muted">{item.locked ?? item.blurb}</p>
+                        </div>
+                        <span className="shrink-0 font-display text-xl text-gold">${item.price}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    className="mt-3 min-h-11 w-full rounded-xl border border-border bg-panel text-sm text-muted"
+                    onClick={() => engineRef.current?.closeFood()}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {hud.sponsorOpen && hud.sponsor && (
+            <div className="absolute inset-0 z-40 flex items-end justify-center bg-bg/55 p-3 backdrop-blur-sm sm:items-center">
+              <div className="max-h-[86vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-gold/40 bg-surface/95 p-4 shadow-2xl">
+                <KollabSheet data={hud.sponsor} />
+                <button
+                  type="button"
+                  className="mt-3 min-h-11 w-full rounded-xl border border-border bg-panel text-sm text-muted"
+                  onClick={() => engineRef.current?.closeSponsor()}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+
+          {hud.rcm?.open && (
+            <div
+              className="absolute inset-0 z-40 flex items-end justify-center bg-bg/70 p-3 backdrop-blur-sm sm:items-center"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <div className="flex max-h-[min(92dvh,44rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-gold/50 bg-[#0a0a0c]/95 shadow-2xl">
+                <div className="shrink-0 border-b border-gold/25 px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-gold">{RCM.line}</p>
+                  <p className="font-display text-3xl leading-none text-fg">{RCM.name}</p>
+                  <p className="mt-1 text-sm text-gold">{RCM.motto}</p>
+                  {hud.rcm.partner && (
+                    <p className="mt-1 text-[11px] uppercase tracking-wider text-primary">{RCM.partner} · first ride half fare</p>
+                  )}
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+                  <img src={`${RCM.flyer}?v=${ART_REV}`} alt="RCM WORX" className="mb-3 max-h-36 w-full rounded-lg border border-gold/20 object-cover object-top" />
+                  <p className="text-[10px] uppercase tracking-wider text-gold">The fleet</p>
+                  <div className="mt-2 grid gap-2">
+                    {RCM_VEHICLES.map((v) => {
+                      const on = hud.rcm?.vehicle === v.id;
+                      const fare = hud.rcm?.partner ? Math.round(v.fare * 0.5) : v.fare;
+                      return (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => engineRef.current?.pickRcmVehicle(v.id)}
+                          className={`rounded-xl border px-3 py-2.5 text-left ${on ? "border-gold bg-gold/10" : "border-border bg-panel"}`}
+                        >
+                          <div className="flex items-baseline justify-between gap-2">
+                            <p className="font-display text-xl leading-none text-fg">{v.name}</p>
+                            <p className="tabular text-sm text-gold">${fare}</p>
+                          </div>
+                          <p className="mt-1 text-[11px] uppercase tracking-wider text-muted">{v.tag}</p>
+                          <p className="mt-0.5 text-xs text-muted">{v.line}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-3 text-[10px] uppercase tracking-wider text-gold">Drop</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {RCM_DROPS.map((d) => {
+                      const on = hud.rcm?.destId === d.id;
+                      return (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => engineRef.current?.pickRcmDrop(d.id)}
+                          className={`rounded-xl border px-2.5 py-2 text-left ${on ? "border-gold bg-gold/10" : "border-border bg-panel"}`}
+                        >
+                          <p className="text-sm font-medium text-fg">{d.name}</p>
+                          <p className="text-[10px] uppercase tracking-wider text-muted">{d.tag}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-3 text-xs text-muted">{hud.rcm.prompt}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-wider text-subtle">{RCM.phone} · {RCM.web} · {RCM.city}</p>
+                </div>
+                <div className="shrink-0 grid grid-cols-2 gap-2 border-t border-gold/25 p-3">
+                  <button
+                    type="button"
+                    className="min-h-12 rounded-xl bg-gold px-3 font-display text-xl text-bg"
+                    onClick={() => {
+                      if (hud.rcm?.vehicle && hud.rcm.destId) engineRef.current?.bookRcm(hud.rcm.vehicle, hud.rcm.destId, false);
+                    }}
+                  >
+                    I'LL DRIVE
+                  </button>
+                  <button
+                    type="button"
+                    className="min-h-12 rounded-xl border border-gold/50 bg-panel px-3 font-display text-xl text-gold"
+                    onClick={() => {
+                      if (hud.rcm?.vehicle && hud.rcm.destId) engineRef.current?.bookRcm(hud.rcm.vehicle, hud.rcm.destId, true);
+                    }}
+                  >
+                    CHAUFFEUR
+                  </button>
+                  <button
+                    type="button"
+                    className="col-span-2 min-h-10 text-xs text-muted"
+                    onClick={() => engineRef.current?.closeRcm()}
+                  >
+                    Not now
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {hud.raceMenu && (
+            <div className="absolute inset-0 z-40 flex items-end justify-center bg-bg/50 p-4 backdrop-blur-sm sm:items-center">
+              <div className="w-full max-w-sm rounded-2xl border border-gold/40 bg-panel p-4">
+                <p className="font-display text-2xl text-gold">901 STRIP</p>
+                <p className="text-sm text-muted">The whip drives the 901 by itself. Hit ← → ↑ when they flash. Miss a turn and Cam walks it.</p>
+                <p className="mt-2 text-[11px] uppercase tracking-wider text-primary">Arrows / WASD · 3 laps · Beale · Highland · Poplar · 3rd · Union · Front</p>
+                <button
+                  type="button"
+                  className="mt-4 w-full rounded-xl bg-primary px-3 py-3 font-display text-2xl text-primary-fg"
+                  onClick={() => engineRef.current?.startRace()}
+                >
+                  RACE CAM
+                </button>
+                <button type="button" className="mt-3 w-full text-xs text-muted" onClick={() => engineRef.current?.closeRaceMenu()}>
+                  Not now
+                </button>
+              </div>
+            </div>
+          )}
+
+          {hud.courtMenu && (
+            <div
+              className="absolute inset-0 z-40 flex items-end justify-center bg-bg/55 p-3 backdrop-blur-sm sm:items-center"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <div className="flex max-h-[min(90dvh,42rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-gold/40 bg-surface/95 shadow-2xl">
+                <div className="shrink-0 border-b border-border px-4 py-3">
+                  <p className="font-display text-3xl text-fg">COURTS</p>
+                  <p className="text-sm text-muted">Pick a floor, then run it.</p>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    {COURT_VENUES.map((v) => {
+                      const on = hud.courtMenu?.venue === v.id;
+                      return (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => engineRef.current?.setCourtVenue(v.id)}
+                          className={`overflow-hidden rounded-xl border text-left ${
+                            on ? "border-primary bg-primary/10" : "border-border bg-panel"
+                          }`}
+                        >
+                          <img src={`${v.thumb}?v=${ART_REV}`} alt="" className="h-20 w-full object-cover" />
+                          <div className="px-2 py-1.5">
+                            <p className="font-display text-lg leading-none text-fg">{v.name}</p>
+                            <p className="mt-0.5 text-[10px] uppercase tracking-wider text-muted">{v.tag}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-3 text-[10px] uppercase tracking-wider text-gold">Mode</p>
+                  <div className="mt-1 grid grid-cols-4 gap-1.5">
+                    {COURT_CHALLENGES.map((c) => {
+                      const on = hud.courtMenu?.challenge === c.id;
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => engineRef.current?.setCourtChallenge(c.id as CourtChallenge)}
+                          className={`rounded-lg border px-1 py-2 text-center ${
+                            on ? "border-primary bg-primary text-primary-fg" : "border-border bg-panel text-fg"
+                          }`}
+                        >
+                          <p className="text-xs font-semibold">{c.name}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-3 text-[10px] uppercase tracking-wider text-gold">Heat</p>
+                  <div className="mt-1 grid grid-cols-3 gap-1.5">
+                    {(Object.keys(DIFFICULTY) as CourtDifficulty[]).map((id) => {
+                      const on = hud.courtMenu?.difficulty === DIFFICULTY[id].label;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => engineRef.current?.setCourtDifficulty(id)}
+                          className={`rounded-lg border px-2 py-2 text-sm font-medium ${
+                            on ? "border-gold bg-gold/15 text-gold" : "border-border bg-panel text-fg"
+                          }`}
+                        >
+                          {DIFFICULTY[id].label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="shrink-0 space-y-2 border-t border-border px-4 py-3">
+                  <button
+                    type="button"
+                    className="min-h-11 w-full rounded-xl bg-primary font-display text-2xl text-primary-fg"
+                    onClick={() => engineRef.current?.startCourt((hud.courtMenu?.challenge as CourtChallenge) || "timed")}
+                  >
+                    PLAY {COURT_VENUES.find((v) => v.id === hud.courtMenu?.venue)?.name ?? "COURT"}
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full text-xs text-muted"
+                    onClick={() => engineRef.current?.closeCourtMenu()}
+                  >
+                    {hud.mode === "basketball" ? "Keep hooping" : "Not now"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {hud.race?.recap && !hud.cinematic && (
+            <div className="absolute inset-0 z-40 flex items-end justify-center bg-bg/65 p-3 backdrop-blur-sm sm:items-center">
+              <div className="w-full max-w-md rounded-2xl border border-gold/40 bg-surface p-5 shadow-2xl">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-gold">901 Strip · vs Cam</p>
+                <p className="font-display mt-1 text-6xl leading-none text-fg">{hud.race.winner === "player" ? "1ST" : "2ND"}</p>
+                <p className="mt-1 text-sm text-muted">{formatRaceClock(hud.race.time)} · {hud.race.winner === "player" ? "You took the loop." : "Cam got there first."}</p>
+                <p className="mt-3 font-display text-2xl text-gold">+${hud.race.payout} · +{hud.race.respect} respect</p>
+                {hud.race.bestTime > 0 && (
+                  <p className="mt-1 text-xs text-muted">Best {formatRaceClock(hud.race.bestTime)}</p>
+                )}
+                <div className="mt-4 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    className="min-h-11 rounded-xl bg-primary font-display text-2xl text-primary-fg"
+                    onClick={() => engineRef.current?.startRace()}
+                  >
+                    RUN IT BACK
+                  </button>
+                  <button
+                    type="button"
+                    className="min-h-11 rounded-xl border border-border bg-surface-2 font-medium text-fg"
+                    onClick={() => engineRef.current?.dismissRaceRecap()}
+                  >
+                    Keep roaming
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {hud.dropRun.recap && !hud.cinematic && !hud.shopOpen && (
+            <div className="absolute inset-0 z-40 flex items-end justify-center bg-bg/65 p-3 backdrop-blur-sm sm:items-center">
+              <div className="w-full max-w-md rounded-2xl border border-gold/40 bg-surface p-5 shadow-2xl">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-primary">
+                  {hud.dropRun.failed ? "Drop Day · Late" : `Drop Day · Run ${hud.dropRun.run}`}
+                </p>
+                <p className={`font-display mt-1 text-6xl leading-none ${hud.dropRun.failed ? "text-danger" : "text-gold"}`}>
+                  {hud.dropRun.failed ? "LATE" : hud.dropRun.grade ?? "D"}
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  {hud.dropRun.failed ? "Par clock popped. Respect took the hit. Run it back." : "Play better, earn more, look fresher."}
+                </p>
+                <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                  <div className="rounded-lg border border-border bg-surface-2 px-3 py-2">
+                    <dt className="text-[10px] uppercase tracking-wider text-muted">Time</dt>
+                    <dd className="tabular font-medium text-fg">{formatRunClock(hud.dropRun.time)}</dd>
+                  </div>
+                  <div className="rounded-lg border border-border bg-surface-2 px-3 py-2">
+                    <dt className="text-[10px] uppercase tracking-wider text-muted">Score</dt>
+                    <dd className="tabular font-medium text-fg">{hud.dropRun.points}</dd>
+                  </div>
+                  <div className="rounded-lg border border-border bg-surface-2 px-3 py-2">
+                    <dt className="text-[10px] uppercase tracking-wider text-muted">Deliveries</dt>
+                    <dd className="tabular font-medium text-fg">{hud.dropRun.deliveries}</dd>
+                  </div>
+                  <div className="rounded-lg border border-border bg-surface-2 px-3 py-2">
+                    <dt className="text-[10px] uppercase tracking-wider text-muted">Best combo</dt>
+                    <dd className="tabular font-medium text-fg">{hud.dropRun.bestCombo}</dd>
+                  </div>
+                  <div className="rounded-lg border border-border bg-surface-2 px-3 py-2">
+                    <dt className="text-[10px] uppercase tracking-wider text-muted">Court</dt>
+                    <dd className="tabular font-medium text-fg">
+                      {hud.dropRun.ballScore} · {hud.dropRun.ballPerfects} perfect
+                    </dd>
+                  </div>
+                  <div className="rounded-lg border border-border bg-surface-2 px-3 py-2">
+                    <dt className="text-[10px] uppercase tracking-wider text-muted">Payout</dt>
+                    <dd className="tabular font-medium text-gold">
+                      +${hud.dropRun.payout} · +{hud.dropRun.respectEarned} respect
+                    </dd>
+                  </div>
+                </dl>
+                <div className="mt-4 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => engineRef.current?.replayDrop()}
+                    className="min-h-11 rounded-xl bg-primary font-display text-2xl text-primary-fg"
+                  >
+                    RUN IT BACK
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => engineRef.current?.dismissRecap()}
+                    className="min-h-11 rounded-xl border border-border bg-surface-2 font-medium text-fg"
+                  >
+                    Keep roaming
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {touchUI && hud.started && !hud.paused && !hud.shopOpen && !hud.food && !hud.dialogue && !fitsOpen && (
+          <div className={`sack-touch-bar absolute inset-x-0 bottom-0 z-30 flex items-end justify-between p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] ${landscape ? "origin-bottom scale-90 p-2" : ""}`}>
+            <div className="flex flex-col items-start gap-2">
+            <div
+              className={`relative touch-none rounded-full border border-border bg-panel/80 backdrop-blur-sm ${landscape ? "h-24 w-24" : "h-28 w-28"}`}
+              onPointerDown={onStickPointerDown}
+              onPointerMove={onStickPointerMove}
+              onPointerUp={onStickPointerEnd}
+              onPointerCancel={onStickPointerEnd}
+            >
+              <div className="absolute left-1/2 top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/40 bg-primary/20" />
+              <span className="absolute bottom-2 left-0 right-0 text-center text-[10px] text-muted">MOVE</span>
+            </div>
+            <button
+              type="button"
+              className="flex h-11 min-w-16 items-center justify-center rounded-full border border-border bg-panel px-3 font-display text-sm text-fg"
+              {...holdPointer(
+                () => {
+                  if (engineRef.current) engineRef.current.input.touch.run = true;
+                },
+                () => {
+                  if (engineRef.current) engineRef.current.input.touch.run = false;
+                },
+              )}
+            >
+              {hud.race?.active ? "BOOST" : "RUN"}
+            </button>
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              {hud.halloween?.haunt ? null : hud.race?.phase === "green" ? (
+                <div className="flex gap-2">
+                  {(["left", "up", "right"] as const).map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      className={`flex items-center justify-center rounded-full border border-gold/50 bg-panel font-display text-fg shadow-lg active:scale-95 ${
+                        d === "up" ? "h-16 w-16 text-3xl text-gold" : "h-14 w-14 text-2xl"
+                      }`}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        engineRef.current?.input.queueArrow(d);
+                      }}
+                    >
+                      {arrowGlyph(d)}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-panel font-display text-lg text-fg"
+                  {...holdPointer(
+                    () => {
+                      if (engineRef.current) engineRef.current.input.touch.lookX = -1;
+                    },
+                    () => {
+                      if (engineRef.current) engineRef.current.input.touch.lookX = 0;
+                    },
+                  )}
+                >
+                  ←
+                </button>
+                <button
+                  type="button"
+                  className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-panel font-display text-lg text-fg"
+                  {...holdPointer(
+                    () => {
+                      if (engineRef.current) engineRef.current.input.touch.lookX = 1;
+                    },
+                    () => {
+                      if (engineRef.current) engineRef.current.input.touch.lookX = 0;
+                    },
+                  )}
+                >
+                  →
+                </button>
+              </div>
+              )}
+              {hud.bowling?.active ? (
+                <button
+                  type="button"
+                  className="flex h-16 w-16 items-center justify-center rounded-full bg-[#ff2bd6] font-display text-sm text-bg shadow-lg active:scale-95"
+                  {...holdPointer(
+                    () => {
+                      const eng = engineRef.current;
+                      if (!eng) return;
+                      eng.input.touch.shoot = true;
+                      eng.beginBowlCharge();
+                    },
+                    () => {
+                      const eng = engineRef.current;
+                      if (!eng) return;
+                      eng.input.touch.shoot = false;
+                      eng.releaseBowl();
+                    },
+                  )}
+                >
+                  {hud.bowling.phase === "over" ? "AGAIN" : "BOWL"}
+                </button>
+              ) : hud.fishing?.active ? (
+                <button
+                  type="button"
+                  className="flex h-16 w-16 items-center justify-center rounded-full bg-[#4f9ddf] font-display text-sm text-bg shadow-lg active:scale-95"
+                  {...holdPointer(
+                    () => {
+                      const eng = engineRef.current;
+                      if (!eng) return;
+                      eng.input.touch.shoot = true;
+                    },
+                    () => {
+                      const eng = engineRef.current;
+                      if (!eng) return;
+                      eng.input.touch.shoot = false;
+                    },
+                  )}
+                >
+                  {hud.fishing.phase === "cast" ? "CAST" : hud.fishing.phase === "strike" || hud.fishing.phase === "nibble" ? "HOOK" : hud.fishing.phase === "reel" ? "REEL" : "OK"}
+                </button>
+              ) : hud.canShoot || hud.mode === "basketball" ? (
+                <div className="flex items-end gap-2">
+                <button
+                  type="button"
+                  className="flex h-14 w-14 items-center justify-center rounded-full border border-border bg-panel font-display text-sm text-fg shadow-lg active:scale-95"
+                  {...holdPointer(
+                    () => {
+                      engineRef.current?.input.queueJump();
+                    },
+                    () => {
+                      if (engineRef.current) engineRef.current.input.touch.jump = false;
+                    },
+                  )}
+                >
+                  JUMP
+                </button>
+                <button
+                  type="button"
+                  className="flex h-16 w-16 items-center justify-center rounded-full bg-primary font-display text-lg text-primary-fg shadow-lg active:scale-95"
+                  {...holdPointer(
+                    () => {
+                      const eng = engineRef.current;
+                      if (!eng) return;
+                      eng.input.touch.shoot = true;
+                      eng.beginCharge();
+                    },
+                    () => {
+                      const eng = engineRef.current;
+                      if (!eng) return;
+                      eng.input.touch.shoot = false;
+                      eng.releaseShot();
+                    },
+                  )}
+                >
+                  SHOOT
+                </button>
+                </div>
+              ) : hud.halloween?.haunt ? (
+                <button
+                  type="button"
+                  className="flex h-16 min-w-16 items-center justify-center rounded-full bg-primary px-3 font-display text-sm text-primary-fg shadow-lg active:scale-95"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    engineRef.current?.tryInteract();
+                  }}
+                >
+                  {hud.halloween.haunt.prompt ?? "USE"}
+                </button>
+              ) : (
+                <div className="flex items-end gap-2">
+                  <button
+                    type="button"
+                    className={`flex h-14 w-14 items-center justify-center rounded-full border font-display text-sm shadow-lg active:scale-95 ${hud.jooking ? "border-primary bg-primary text-primary-fg" : "border-border bg-panel text-fg"}`}
+                    {...holdPointer(
+                      () => {
+                        engineRef.current?.input.queueJook();
+                      },
+                      () => {
+                        if (engineRef.current) engineRef.current.input.touch.jook = false;
+                      },
+                    )}
+                  >
+                    JOOK
+                  </button>
+                  <button
+                    type="button"
+                    className="flex h-14 w-14 items-center justify-center rounded-full border border-border bg-panel font-display text-sm text-fg shadow-lg active:scale-95"
+                    {...holdPointer(
+                      () => {
+                        engineRef.current?.input.queueJump();
+                      },
+                      () => {
+                        if (engineRef.current) engineRef.current.input.touch.jump = false;
+                      },
+                    )}
+                  >
+                    JUMP
+                  </button>
+                  <button
+                    type="button"
+                    className="flex h-16 w-16 items-center justify-center rounded-full bg-primary font-display text-xl text-primary-fg shadow-lg active:scale-95"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      engineRef.current?.tryInteract();
+                    }}
+                  >
+                    {hud.halloween?.haunt?.prompt
+                      ? hud.halloween.haunt.prompt
+                      : hud.driving
+                        ? (hud.race?.active ? "RACE" : "PARK")
+                        : hud.hintWalk
+                          ? "↓"
+                          : hud.promptButton}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          )}
+
+          <div className={`pointer-events-none absolute bottom-3 right-3 z-10 rounded-lg border border-border bg-panel/70 px-2 py-1 text-[10px] text-muted ${touchUI ? "hidden" : "hidden sm:block"}`}>
+            {hud.race?.active ? "Arrows on turns · Esc DNF" : hud.bowling?.active ? "Hold Space to roll · look hooks · Esc leave" : hud.rcm?.job ? (hud.rcm.chauffeur ? "Rico driving · E on arrival · Esc cancel" : "WASD to the gold ring · E arrive · Esc cancel") : `WASD drive · Shift boost · Q/R look · V camera · ${hud.promptButton} · Space jump`}
+          </div>
+
+          {/* Pause */}
+          {fitsOpen && hud.started && !hud.paused && (
+            <div
+              className="pointer-events-auto absolute inset-0 z-40 flex items-end justify-center bg-bg/55 p-3 backdrop-blur-sm sm:items-center"
+              onPointerDown={(e) => e.stopPropagation()}
+              onTouchMove={(e) => e.stopPropagation()}
+              onWheel={(e) => e.stopPropagation()}
+            >
+              <div className="flex max-h-[min(88dvh,40rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl">
+                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
+                  <p className="font-display text-2xl text-fg">FITS</p>
+                  <button
+                    type="button"
+                    className="min-h-10 rounded-lg border border-border px-3 text-sm text-muted"
+                    onClick={() => setFitsOpen(false)}
+                  >
+                    Close
+                  </button>
+                </div>
+                <PauseWardrobe
+                  owned={hud.owned}
+                  equipped={hud.equipped}
+                  onEquip={(id) => {
+                    onBuy(id);
+                  }}
+                  onDone={() => setFitsOpen(false)}
+                />
+              </div>
+            </div>
+          )}
+          {store.storeDisclaimer && (
+            <div
+              className="pointer-events-auto absolute inset-0 z-[80] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <div className="w-full max-w-md rounded-2xl border border-gold/50 bg-surface p-5 shadow-2xl">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-gold">Before you go in</p>
+                <h2 className="mt-1 font-display text-3xl text-fg">Real $ackReligious store</h2>
+                <p className="mt-3 text-sm leading-relaxed text-subtle">
+                  Opens the real store in this same tab. Benji waits outside headquarters when you come back. Clothes there are real, and $ackdollars do not pay for them.
+                </p>
+                <div className="mt-5 grid gap-2">
+                  <a
+                    href={PUBLIC_STORE_PAGE}
+                    target="_top"
+                    className="flex min-h-11 items-center justify-center rounded-xl bg-gold font-display text-xl uppercase text-bg"
+                    onClick={() => commerce.confirmEnterStore()}
+                  >
+                    Enter the store
+                  </a>
+                  <button
+                    type="button"
+                    className="min-h-11 rounded-xl border border-border text-sm text-muted"
+                    onClick={() => commerce.dismissStoreDisclaimer()}
+                  >
+                    Stay in the game
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {hud.paused && (
+            <div className="absolute inset-0 z-50 flex items-stretch bg-bg/80 backdrop-blur-md">
+              <img
+                src="/game/memphis-dusk.webp"
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover opacity-25"
+                crossOrigin="anonymous"
+              />
+              <div className="relative flex w-full max-w-5xl mx-auto">
+                <nav className="flex w-44 shrink-0 flex-col gap-1 border-r border-gold/30 bg-surface/70 p-4 sm:w-56">
+                  <p className="mb-3 font-display text-2xl text-primary">PAUSED</p>
+                  {TABS.map((t) => {
+                    const Icon = t.icon;
+                    const on = hud.pauseTab === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => {
+                          if (t.id === "resume") engineRef.current?.resume();
+                          else engineRef.current?.setPauseTab(t.id);
+                        }}
+                        className={`flex min-h-11 items-center gap-2 rounded-lg px-3 text-left text-sm font-medium ${
+                          on ? "bg-primary text-primary-fg" : "text-fg hover:bg-surface-2"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {t.label}
+                      </button>
+                    );
+                  })}
+                </nav>
+                <div className="min-w-0 flex-1 overflow-y-auto bg-surface/60 p-5">
+                  {hud.pauseTab === "map" && <PauseMap district={hud.locationName} />}
+                  {hud.pauseTab === "missions" && (
+                    <PauseMissions
+                      chapter={hud.missionChapter}
+                      title={hud.missionTitle}
+                      steps={hud.steps}
+                      sides={hud.sideMissions}
+                      dropRun={hud.dropRun}
+                      bestGrade={hud.bestGrade}
+                      onReplay={() => engineRef.current?.replayDrop()}
+                    />
+                  )}
+                  {hud.pauseTab === "wardrobe" && (
+                    <PauseWardrobe owned={hud.owned} equipped={hud.equipped} onEquip={onBuy} />
+                  )}
+                  {hud.pauseTab === "trophies" && <PauseTrophies unlocked={hud.trophies} />}
+                  {hud.pauseTab === "kollab" && hud.sponsor && <KollabSheet data={hud.sponsor} />}
+                  {hud.pauseTab === "settings" && (
+                    <PauseSettings
+                      settings={hud.settings}
+                      onChange={(p) => engineRef.current?.applySettings(p)}
+                    />
+                  )}
+                  {hud.pauseTab === "resume" && (
+                    <div className="flex h-full flex-col justify-center">
+                      <p className="font-display text-5xl text-fg">MEMPHIS</p>
+                      <p className="mt-2 text-sm text-muted">
+                        {hud.locationName} · {formatHour(hud.worldHour)} · High score {hud.highScore}
+                      </p>
+                      <div className="mt-6 flex max-w-sm flex-col gap-2">
+                        <button
+                          type="button"
+                          className="min-h-11 rounded-xl bg-primary font-display text-2xl text-primary-fg"
+                          onClick={() => engineRef.current?.resume()}
+                        >
+                          Resume
+                        </button>
+                        <button
+                          type="button"
+                          className="min-h-11 rounded-xl border border-gold/40 bg-gold/10 font-display text-xl text-gold"
+                          onClick={() => {
+                            engineRef.current?.resume();
+                            engineRef.current?.startRace();
+                          }}
+                        >
+                          Race Cam
+                        </button>
+                        <button
+                          type="button"
+                          className="min-h-11 rounded-xl border border-border bg-surface-2 text-sm font-semibold text-fg"
+                          onClick={() => engineRef.current?.restartMission()}
+                        >
+                          Restart mission
+                        </button>
+                        <button
+                          type="button"
+                          className="min-h-11 rounded-xl border border-border text-sm font-semibold text-muted"
+                          onClick={() => engineRef.current?.returnToTitle()}
+                        >
+                          Main menu
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function Tally({
+  value,
+  prefix = "",
+  className,
+}: {
+  value: number;
+  prefix?: string;
+  className?: string;
+}) {
+  const [shown, setShown] = useState(value);
+  const shownRef = useRef(value);
+  useEffect(() => {
+    const start = shownRef.current;
+    if (start === value) return;
+    let raf = 0;
+    const t0 = performance.now();
+    const step = (t: number) => {
+      const u = Math.min(1, (t - t0) / 380);
+      const next = Math.round(start + (value - start) * (1 - (1 - u) * (1 - u)));
+      shownRef.current = next;
+      setShown(next);
+      if (u < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <p className={className}>{prefix}{shown}</p>;
+}
+
+function RaceRadar({ race }: { race: NonNullable<HudSnapshot["race"]> }) {
+  const minX = 14 * 48;
+  const maxX = 52 * 48;
+  const minY = 4 * 48;
+  const maxY = 36 * 48;
+  const nx = (x: number) => ((x - minX) / (maxX - minX)) * 100;
+  const ny = (y: number) => ((y - minY) / (maxY - minY)) * 100;
+  const loop = RACE_CHECKPOINTS.map((c) => `${nx(c.x)},${ny(c.y)}`).join(" ");
+  const first = RACE_CHECKPOINTS[0]!;
+  const loopClosed = `${loop} ${nx(first.x)},${ny(first.y)}`;
+  return (
+    <svg viewBox="0 0 100 100" className="h-28 w-28 rounded-xl border border-gold/30 bg-bg/70 p-1">
+      <polyline fill="none" stroke="#c9a84c" strokeWidth="1.6" points={loopClosed} opacity="0.7" />
+      {RACE_CHECKPOINTS.map((c) => (
+        <circle
+          key={c.name}
+          cx={nx(c.x)}
+          cy={ny(c.y)}
+          r={c.name === race.nextName ? 3.4 : 1.8}
+          fill={c.name === race.nextName ? "#39ff14" : "#c9a84c"}
+        />
+      ))}
+      <circle cx={nx(race.rivalX)} cy={ny(race.rivalY)} r="2.6" fill="#c9a84c" stroke="#0d0b0a" strokeWidth="0.6" />
+      <circle cx={nx(race.playerX)} cy={ny(race.playerY)} r="2.8" fill="#39ff14" stroke="#0d0b0a" strokeWidth="0.6" />
+    </svg>
+  );
+}
+
+function PauseMap({ district }: { district: string }) {
+  return (
+    <div>
+      <p className="text-[11px] uppercase tracking-wider text-muted">City map · {district}</p>
+      <p className="font-display text-3xl text-fg">MEMPHIS 901</p>
+      <div className="relative mt-4 aspect-[4/3] overflow-hidden rounded-xl border border-border bg-surface-2">
+        {POIS.map((p) => (
+          <div
+            key={p.id}
+            className="absolute -translate-x-1/2 -translate-y-1/2 text-center"
+            style={{ left: `${(p.x / (64 * 48)) * 100}%`, top: `${(p.y / (48 * 48)) * 100}%` }}
+          >
+            <div className="mx-auto h-2.5 w-2.5 rounded-full bg-primary" style={p.id === "strip" ? { background: "#c9a84c" } : undefined} />
+            <p className="mt-0.5 text-[9px] uppercase tracking-wide text-fg">{p.label}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PauseMissions({
+  chapter,
+  title,
+  steps,
+  sides,
+  dropRun,
+  bestGrade,
+  onReplay,
+}: {
+  chapter: string;
+  title: string;
+  steps: HudSnapshot["steps"];
+  sides: HudSnapshot["sideMissions"];
+  dropRun: HudSnapshot["dropRun"];
+  bestGrade: HudSnapshot["bestGrade"];
+  onReplay: () => void;
+}) {
+  return (
+    <div>
+      <p className="text-[11px] uppercase tracking-wider text-primary">{chapter}</p>
+      <p className="font-display text-3xl text-fg">{title}</p>
+      <p className="mt-1 text-xs text-muted">
+        Run {dropRun.run} · best grade {bestGrade ?? "—"} · {dropRun.points} pts
+      </p>
+      <ul className="mt-4 space-y-2">
+        {steps.map((s) => (
+          <li
+            key={s.id}
+            className={`rounded-lg border px-3 py-2 ${
+              s.done ? "border-border bg-surface-2 text-muted" : "border-gold/40 bg-surface-2 text-fg shadow-md"
+            }`}
+          >
+            <p className="text-sm font-medium">{s.label}</p>
+            <p className="text-xs text-muted">{s.description}</p>
+          </li>
+        ))}
+      </ul>
+      {steps.every((s) => s.done) && (
+        <button
+          type="button"
+          onClick={onReplay}
+          className="mt-4 min-h-11 w-full rounded-xl bg-primary font-display text-xl text-primary-fg"
+        >
+          RUN IT BACK
+        </button>
+      )}
+      <p className="mt-6 text-[11px] uppercase tracking-wider text-muted">Side jobs</p>
+      <ul className="mt-2 space-y-2">
+        {sides.map((s) => (
+          <li key={s.id} className="flex items-start justify-between gap-3 rounded-lg border border-gold/25 bg-surface-2 px-3 py-2 shadow-sm">
+            <div>
+              <p className={`text-sm font-medium ${s.done ? "text-muted" : "text-fg"}`}>{s.title}</p>
+              <p className="text-xs text-muted">{s.description}</p>
+            </div>
+            <p className="tabular text-xs text-primary">{s.done ? "DONE" : `$${s.reward}`}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function PauseWardrobe({
+  owned,
+  equipped,
+  onEquip,
+  onDone,
+}: {
+  owned: ApparelId[];
+  equipped: ApparelId | null;
+  onEquip: (id: ApparelId) => void;
+  onDone?: () => void;
+}) {
+  const wearing = APPAREL.find((a) => a.id === equipped);
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3" style={{ WebkitOverflowScrolling: "touch" }}>
+        <p className="text-[11px] uppercase tracking-wider text-muted">Locker</p>
+        <p className="font-display text-3xl text-fg">WARDROBE</p>
+        <div className="mt-4 grid gap-2 pb-2">
+          {APPAREL.filter((a) => owned.includes(a.id)).map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => onEquip(a.id)}
+              className={`flex min-h-12 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left ${
+                equipped === a.id ? "border-primary bg-primary/10" : "border-gold/25 bg-surface-2 shadow-sm"
+              }`}
+            >
+              <span className="flex min-w-0 items-center gap-3">
+                <img src={lookFor(a.id).thumb.src} alt="" className="h-10 w-10 shrink-0 rounded object-cover bg-black" />
+                <span className="truncate text-sm font-medium text-fg">{a.name}</span>
+              </span>
+              <span className="shrink-0 text-xs text-muted">{equipped === a.id ? "On" : "Equip"}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      {onDone && (
+        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border bg-surface px-4 py-3">
+          <p className="min-w-0 truncate text-xs text-muted">
+            {wearing ? `Wearing ${wearing.name}` : "Pick a fit"}
+          </p>
+          <button
+            type="button"
+            className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-fg"
+            onClick={() => onDone()}
+          >
+            Confirm
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PauseTrophies({ unlocked }: { unlocked: string[] }) {
+  return (
+    <div>
+      <p className="text-[11px] uppercase tracking-wider text-muted">
+        {unlocked.length}/{TROPHIES.length} unlocked
+      </p>
+      <p className="font-display text-3xl text-fg">TROPHIES</p>
+      <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+        {TROPHIES.map((t) => {
+          const on = unlocked.includes(t.id);
+          return (
+            <li
+              key={t.id}
+              className={`rounded-lg border px-3 py-2 ${on ? "border-primary/40 bg-surface" : "border-border bg-surface-2 opacity-60"}`}
+            >
+              <p className="text-sm font-medium text-fg">{t.name}</p>
+              <p className="text-xs text-muted">{t.description}</p>
+              <p className="mt-1 text-[10px] uppercase tracking-wider text-primary">{t.rank}</p>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function KollabSheet({ data }: { data: SponsorHud }) {
+  const copyPitch = async () => {
+    try {
+      await navigator.clipboard.writeText(data.pitch);
+    } catch {
+      /* private mode */
+    }
+  };
+  return (
+    <div>
+      <p className="text-[11px] uppercase tracking-[0.28em] text-gold">Welkome To $ackReligious World</p>
+      <p className="font-display text-4xl text-fg">KOLLAB PACKAGES</p>
+      <p className="mt-1 text-sm text-muted">
+        {data.cycle} · {data.days} days · {data.sponsorOpen}/{data.sponsorCap} sponsor open · {data.artistOpen}/{data.artistCap} artist open
+      </p>
+      <div className="mt-4 grid gap-2">
+        {data.packages.map((p) => (
+          <div key={`${p.kind}-${p.tier}`} className="rounded-xl border border-border bg-surface-2 px-3 py-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="font-display text-2xl" style={{ color: p.kind === "sponsor" ? "#1db954" : "#d4af37" }}>
+                {p.name}
+              </p>
+              <p className="font-display text-xl text-gold">${p.price}</p>
+            </div>
+            <p className="text-[11px] uppercase tracking-wider text-muted">{p.tag}</p>
+            <ul className="mt-2 space-y-1">
+              {p.perks.map((perk) => (
+                <li key={perk} className="text-xs leading-relaxed text-fg">· {perk}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-[11px] uppercase tracking-wider text-gold">This cycle</p>
+      <div className="mt-2 grid gap-2">
+        {data.slots.map((s) => (
+          <div key={s.id} className="flex items-start justify-between gap-3 rounded-lg border border-border bg-panel px-3 py-2">
+            <div>
+              <p className="text-sm font-medium text-fg">{s.name}</p>
+              <p className="text-xs text-muted">{s.where}</p>
+              <p className="text-[11px] text-subtle">{s.note}</p>
+            </div>
+            <span className={`shrink-0 text-[10px] uppercase tracking-wider ${s.status === "held" ? "text-primary" : "text-gold"}`}>
+              {s.status === "held" ? "Live" : "Open"}
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-[11px] leading-relaxed text-muted">
+        Songs must be klean. You design the kharakters, we drop them in. Jersey profit stays 100% with the Deluxe sponsor. Prices move with the cut.
+      </p>
+      <button
+        type="button"
+        className="mt-3 min-h-11 w-full rounded-xl bg-primary font-display text-xl text-primary-fg"
+        onClick={() => void copyPitch()}
+      >
+        Copy message to Mikey
+      </button>
+    </div>
+  );
+}
+
+function PauseSettings({
+  settings,
+  onChange,
+}: {
+  settings: HudSnapshot["settings"];
+  onChange: (p: Partial<HudSnapshot["settings"]>) => void;
+}) {
+  return (
+    <div>
+      <p className="text-[11px] uppercase tracking-wider text-muted">Audio and feel</p>
+      <p className="font-display text-3xl text-fg">SETTINGS</p>
+      <div className="mt-5 max-w-md space-y-5">
+        {(
+          [
+            ["master", "Master"],
+            ["music", "Music"],
+            ["sfx", "Effects"],
+          ] as const
+        ).map(([key, label]) => (
+          <label key={key} className="block">
+            <span className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted">
+              <Volume2 className="h-3.5 w-3.5" />
+              {label}
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={settings[key]}
+              onChange={(e) => onChange({ [key]: Number(e.target.value) })}
+              className="mt-2 w-full accent-primary"
+            />
+          </label>
+        ))}
+        <label className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm">
+          Camera shake
+          <input
+            type="checkbox"
+            checked={settings.shake}
+            onChange={(e) => onChange({ shake: e.target.checked })}
+            className="accent-primary"
+          />
+        </label>
+        <label className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm">
+          Controller rumble
+          <input
+            type="checkbox"
+            checked={settings.rumble}
+            onChange={(e) => onChange({ rumble: e.target.checked })}
+            className="accent-primary"
+          />
+        </label>
+        <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm">
+          Camera
+          <div className="flex gap-1">
+            <button
+              type="button"
+              className={`rounded-md px-2 py-1 text-xs ${settings.cameraView === "third" ? "bg-primary text-primary-fg" : "text-muted"}`}
+              onClick={() => onChange({ cameraView: "third" })}
+            >
+              Third
+            </button>
+            <button
+              type="button"
+              className={`rounded-md px-2 py-1 text-xs ${settings.cameraView === "first" ? "bg-primary text-primary-fg" : "text-muted"}`}
+              onClick={() => onChange({ cameraView: "first" })}
+            >
+              First
+            </button>
+          </div>
+        </div>
+        <label className="block">
+          <span className="text-xs uppercase tracking-wider text-muted">Camera sensitivity</span>
+          <input
+            type="range"
+            min={0.4}
+            max={1.8}
+            step={0.05}
+            value={settings.sensitivity}
+            onChange={(e) => onChange({ sensitivity: Number(e.target.value) })}
+            className="mt-2 w-full accent-primary"
+          />
+        </label>
+        <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm">
+          Graphics
+          <div className="flex gap-1">
+            {(["low", "medium", "high"] as const).map((q) => (
+              <button
+                key={q}
+                type="button"
+                className={`rounded-md px-2 py-1 text-xs capitalize ${settings.quality === q ? "bg-primary text-primary-fg" : "text-muted"}`}
+                onClick={() => onChange({ quality: q })}
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        </div>
+        <label className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm">
+          Reduce motion
+          <input
+            type="checkbox"
+            checked={settings.reduceMotion}
+            onChange={(e) => onChange({ reduceMotion: e.target.checked })}
+            className="accent-primary"
+          />
+        </label>
+        <button
+          type="button"
+          className="min-h-10 w-full rounded-lg border border-border bg-surface-2 text-sm text-fg"
+          onClick={() => {
+            const el = document.documentElement;
+            if (!document.fullscreenElement) void el.requestFullscreen?.();
+            else void document.exitFullscreen?.();
+          }}
+        >
+          Toggle fullscreen
+        </button>
+        <p className="pt-2 text-[10px] uppercase tracking-[0.16em] text-subtle">
+          {GAME_TITLE} {GAME_BUILD_VERSION}
+        </p>
+      </div>
+    </div>
+  );
+}

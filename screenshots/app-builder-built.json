@@ -1,0 +1,38 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "SackReligious · Memphis 901",
+      "hasCanvas": true,
+      "bodyTextLen": 299,
+      "bodyTextHash": "446bdcb7eeff31c7e42f6e8b1bc1b67dca19ec9997268b576a7fa696d12a5b48",
+      "bodyTextPrefix": "$ackReligious KLOTHING HALLOWEEN AFTER DARK MEMPHIS 901 Memphis ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "SackReligious · Memphis 901",
+      "hasCanvas": true,
+      "bodyTextLen": 240,
+      "bodyTextHash": "3f29d3d43f795c2ea728d00ea62eebdb93cce99a6c2e0a498ce4ba273b4dc248",
+      "bodyTextPrefix": "$ackReligious KLOTHING HALLOWEEN AFTER DARK MEMPHIS 901 Memphis ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": false,
+  "baselineReasons": []
+}

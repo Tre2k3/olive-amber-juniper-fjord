@@ -1,0 +1,22 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch({ args: ["--use-gl=angle", "--use-angle=swiftshader", "--no-sandbox"] });
+const page = await browser.newPage();
+page.on("console", (m) => { if (m.type() === "error") console.log("ERR", m.text()); });
+await page.goto("http://127.0.0.1:8080/", { waitUntil: "domcontentloaded" });
+await page.waitForFunction(() => window.__SACK_V2_INPUT__, { timeout: 20000 });
+await page.evaluate(() => {
+  localStorage.removeItem("sack-v2");
+  window.__SACK_V2_INPUT__.setShot({ place: "hq", x: 82.15, z: 203.55, yaw: Math.PI, dollars: 240, respect: 12, carrying: false, delivered: false, mission: "Talk to K Blanco", dialogue: "" });
+});
+await page.waitForTimeout(300);
+await page.evaluate(() => window.__SACK_V2_INPUT__.press("KeyE"));
+await page.waitForTimeout(400);
+await page.evaluate(() => window.__SACK_V2_INPUT__.setShot({ x: 52, z: -12.9, yaw: Math.PI }));
+await page.waitForTimeout(200);
+const prompt = await page.locator("body").innerText();
+await page.evaluate(() => window.__SACK_V2_INPUT__.press("KeyE"));
+await page.waitForTimeout(600);
+const after = await page.evaluate(() => window.__SACK_V2__);
+console.log("PROMPT_HAS", /Court OG|Deliver/.exec(prompt)?.[0]);
+console.log(JSON.stringify({ carrying: after.carrying, dollars: after.dollars, respect: after.respect, mission: after.mission, dialogue: after.dialogue, x: after.x, z: after.z, place: after.place }));
+await browser.close();

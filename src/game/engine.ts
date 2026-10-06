@@ -1,0 +1,5090 @@
+import {
+  APPAREL,
+  ART_REV,
+  DEFAULT_SETTINGS,
+  NPCS,
+  PAL,
+  POIS,
+  SAVE_KEY,
+  SAVE_KEY_LEGACY,
+  SAVE_KEY_LEGACY_V1,
+  SAVE_VERSION,
+  STREETS,
+  TILE,
+  TROPHIES,
+  WORLD_PX_H,
+  WORLD_PX_W,
+  DROP_LIVE_LINES,
+  AFTER_HOURS_LINES,
+  createDropDayMission,
+  createAfterHoursMission,
+  createSideMissions,
+} from "./data";
+import { audio } from "./audio";
+import { cleanSprite } from "./chroma";
+import { InputManager } from "./input";
+import type { World3D } from "./world3d";
+import { CharacterController } from "./characterController";
+import { loseWebGL, replaceCanvas } from "./webgl";
+import { JUICE, emitBurst, stepParticles, type ScreenParticle } from "./juice";
+import { DAY_START_HOUR, HOURS_PER_SECOND, nightAmount } from "./dayCycle";
+import { halloweenOn } from "./season";
+import {
+  HAUNT_ROOMS,
+  HW_LETTERS,
+  WORLD_EVENTS,
+  emptyHw,
+  enterHauntLive,
+  halloweenNpcLine,
+  hauntDoorOpen,
+  hauntOrderPress,
+  hauntPrompt,
+  masterChecklist,
+  masterReady,
+  readHw,
+  tickHaunt,
+  SEASON_FISH,
+  type HauntLive,
+  type HwSave,
+  type WorldEventKind,
+} from "./halloween";
+import { spawnCityPeds, tickCityPed, PED_JOB_CHAT, boostDropLive, type PedActor } from "./cityLife";
+import { dueMilestones, nextMilestone, type VerifiedReward } from "./progression";
+import { sponsorHud } from "./sponsors";
+import { RCM, RCM_ARRIVE, rcmDrop, rcmFare, rcmHud, rcmParked, rcmVehicle, type RcmVehicleId } from "./rcmWorx";
+import {
+  DIFFICULTY,
+  HORSE_CALLS,
+  COURT_VENUES,
+  cycleDifficulty,
+  horseDisplay,
+  loadBoard,
+  ogLine,
+  pushBoard,
+  venueFor,
+  type BoardRow,
+  type CourtChallenge,
+  type CourtDifficulty,
+  type CourtVenueId,
+} from "./courtPlay";
+import { dressBenji } from "./outfitCompositor";
+import { lookFor, stampFor, overlayKey } from "./outfitLook";
+import { outfitImageKey } from "./outfitSprites";
+import { bootAssetCatalog, type AssetLoadStatus } from "./assetRegistry";
+import {
+  applyRendererQuality,
+  isHandheld,
+  noteFrame,
+  pixelRatio,
+  setQuality,
+} from "./graphics";
+import {
+  aheadDistance,
+  approachingCross,
+  carBlocked,
+  circleHitsRect,
+  cityBlockBuildings,
+  clippedTrafficLanes,
+  destinationLane,
+  inCourtPx,
+  inDeepWater,
+  isRoadPoint,
+  laneVelocity,
+  nearestAsphalt,
+  onRiverfront,
+  oppositeLaneId,
+  poiColliders,
+  riverHole,
+  sidewalkRects,
+  signalState,
+  STOP_LINE,
+  type Lane,
+  type Rect,
+} from "./worldTopology";
+import { advanceLaneTurn, laneHeading } from "./trafficMotion";
+import {
+  beginFishing,
+  cancelFishing,
+  fishingHud,
+  idleFishing,
+  tickFishing,
+  type FishingState,
+} from "./fishing";
+import {
+  beginCharge as beginBowlChargeState,
+  bowlHud,
+  idleBowl,
+  laneApproachGame,
+  nearestLane,
+  payoutFor,
+  releaseRoll,
+  startBowl as startBowlState,
+  tickBowl,
+  type BowlingState,
+} from "./bowling";
+import {
+  foodHud,
+  foodTruckById,
+  isFoodTruck,
+  isSeasonFood,
+  mealName,
+  menuFor,
+  type CoolerFish,
+  type FoodTruckId,
+} from "./foodTrucks";
+import {
+  createRun,
+  expireRun,
+  finalizeRun,
+  goodWindow,
+  gradeRank,
+  noteMistake,
+  perfectWindow,
+  scoreDelivery,
+  scoreMake,
+  scoreMiss,
+  shotZone,
+  tierFor,
+  toHud,
+  type DropRunState,
+  type RunGrade,
+} from "./dropRun";
+import {
+  beginRace,
+  idleRace,
+  playerWrongWay,
+  progressOf,
+  settleRace,
+  snapToRacePath,
+  tickAutoDrive,
+  tickRaceCues,
+  tickRival,
+  armNextSegment,
+  toRaceHud,
+  RACE_CHECKPOINTS,
+  type ArrowDir,
+  type RaceState,
+} from "./race";
+import type {
+  ApparelId,
+  CinematicState,
+  Dir,
+  Floater,
+  GameMode,
+  GameSettings,
+  HudSnapshot,
+  LocationId,
+  Mission,
+  NpcDef,
+  PauseTab,
+  SideMission,
+  TrophyId,
+  WorldPoi,
+} from "./types";
+import { analytics } from "./analytics";
+import { commerce } from "./commerce";
+import { GAME_BUILD_VERSION } from "./config";
+import { attachProductionDebug } from "./productionDebug";
+import { HQ_ANCHORS, atHqShowroom, insideHQ } from "./hqLocation";
+
+type ImgMap = Record<string, HTMLImageElement>;
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+	return new Promise((resolve, reject) => {
+		const img = new Image();
+		const timer = window.setTimeout(() => reject(/* @__PURE__ */ new Error(`Timed out ${src}`)), 12000);
+		img.crossOrigin = "anonymous";
+		img.onload = () => {
+			window.clearTimeout(timer);
+			resolve(img);
+		};
+		img.onerror = () => {
+			window.clearTimeout(timer);
+			reject(/* @__PURE__ */ new Error(`Failed to load ${src}`));
+		};
+		img.src = `${src}?v=${ART_REV}`;
+	});
+}
+function clamp(v: number, a: number, b: number) {
+	return Math.max(a, Math.min(b, v));
+}
+function dist(ax: number, ay: number, bx: number, by: number) {
+	return Math.hypot(ax - bx, ay - by);
+}
+function insidePoi(x: number, y: number, p: WorldPoi, pad = 8) {
+	return x >= p.x - pad && x <= p.x + p.w + pad && y >= p.y - pad && y <= p.y + p.h + pad;
+}
+function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+	if (typeof ctx.roundRect === "function") {
+		ctx.roundRect(x, y, w, h, r);
+		return;
+	}
+	ctx.rect(x, y, w, h);
+}
+const PED_CHAT = [
+	"You Benji? SackReligious got the city on lock.",
+	"That hoodie hitting. Drop Day energy.",
+	"Court down the block if you wanna hoop.",
+	"In the $ack, we trust. Don't forget it.",
+	"K Blanco inside HQ. Don't keep her waiting.",
+	"901 all day. Keep it moving.",
+	"Drop van's around the corner if you rolling product.",
+	"Beale got the cypher tonight. Pull up.",
+	"901 Lanes downtown if you want to roll a turkey.",
+];
+const PED_NAMES = ["Uncle Tone", "Keisha", "Lil Sack", "Ms. Pat", "Dre", "Big Ralph", "Nia", "Cam"];
+function pedSpeaker(p: PedActor) {
+	if (p.job === "photo") return p.skin % 2 === 0 ? "Flash" : "Block Photog";
+	if (p.job === "fan") return p.skin % 2 === 0 ? "Drop Family" : "Gold Fit";
+	if (p.job === "shopper") return "HQ Shopper";
+	if (p.job === "spectator") return "Court Watcher";
+	if (p.job === "waiter") return "On the Corner";
+	if (p.job === "alight") return "Just Parked";
+	if (p.job === "pair") return p.skin % 2 === 0 ? "Block Pair" : "Beale Pair";
+	return PED_NAMES[p.skin % PED_NAMES.length] ?? "Local";
+}
+type PedLive = PedActor;
+export class GameEngine {
+	canvas: HTMLCanvasElement;
+	ctx: CanvasRenderingContext2D;
+	images: ImgMap = {};
+	input = new InputManager();
+	started = false;
+	paused = false;
+	userPaused = false;
+	parentPaused = false;
+	hiddenPaused = false;
+	courtStartedAt = 0;
+	mode: GameMode = "world";
+	toast: string | null = null;
+	toastT = 0;
+	pauseTab: PauseTab = "resume";
+	px = 288;
+	py = 528;
+	vx = 0;
+	vy = 0;
+	dir: Dir = "down";
+	facing: Dir = "down";
+	moving = false;
+	animT = 0;
+	bob = 0;
+	camX = 0;
+	camY = 0;
+	lookX = 0;
+	lookY = 0;
+	yaw = 0;
+	pitch = 0;
+	trauma = 0;
+	hitstop = 0;
+	sackdollars = 25;
+	respect = 0;
+	owned: ApparelId[] = ["starter_tee"];
+	equipped: ApparelId | null = "starter_tee";
+	mission: Mission = createDropDayMission();
+	afterHours: Mission = createAfterHoursMission();
+	missionComplete = false;
+	side: SideMission[] = createSideMissions();
+	trophies: TrophyId[] = [];
+	trophyPopup: { name: string; rank: string; t: number } | null = null;
+	talked = new Set<string>();
+	dialogue: HudSnapshot["dialogue"] = null;
+	dialogueNpcId: string | null = null;
+	dialogueLines: string[] = [];
+	dialogueIndex = 0;
+	ball = {
+		active: false,
+		score: 0,
+		timeLeft: 50,
+		shots: 0,
+		power: 0,
+		charging: false,
+		ballX: 0,
+		ballY: 0,
+		ballZ: 36,
+		ballVx: 0,
+		ballVy: 0,
+		ballVz: 0,
+		inFlight: false,
+		held: false,
+		made: false,
+		flash: 0,
+		targetScore: 8,
+		missionCredited: false,
+		combo: 0,
+		best: 0,
+		shotDist: 0,
+		grade: "" as "" | "PERFECT" | "GOOD" | "LATE",
+		heat: 0,
+		returnIn: 0,
+		spotLabel: "MID",
+		spotPts: 2,
+		hoopId: 0,
+		releaseT: 0,
+		followThroughT: 0,
+		pending: null as null | { vx: number; vy: number; vz: number },
+		scrambleT: 0,
+	};
+	courtHinted = false;
+	highScore = 0;
+	courtDifficulty: CourtDifficulty = "901";
+	courtChallenge: CourtChallenge = "timed";
+	courtMenu = false;
+	courtVenue: CourtVenueId = "901_day";
+	ogBark: string | null = null;
+	ogBarkT = 0;
+	crowdPulse = 0;
+	horseMisses = 0;
+	horseIndex = 0;
+	threesMade = 0;
+	courtBoard: BoardRow[] = [];
+	walls: { x: number; y: number; w: number; h: number }[] = [];
+	trees: { x: number; y: number }[] = [];
+	cars: {
+		x: number;
+		y: number;
+		vx: number;
+		vy: number;
+		w: number;
+		color: string;
+		laneId: string;
+		skin: number;
+		braking: boolean;
+		yaw: number;
+		turnT: number;
+		turnTo: string | null;
+		turnX: number;
+		turnY: number;
+		turn0x: number;
+		turn0y: number;
+	}[] = [];
+	peds: PedLive[] = [];
+	npcLive: { id: string; x: number; y: number; ox: number; oy: number; t: number }[] = [];
+	poiBoxes: Rect[] = [];
+	laneMap = new Map<string, Lane>();
+	walks: Rect[] = [];
+	shopOpen = false;
+	foodMenu: FoodTruckId | null = null;
+	foodApproach: FoodTruckId | null = null;
+	foodServe: { truckId: FoodTruckId; t: number; duration: number; item: string } | null = null;
+	sponsorOpen = false;
+	rcmMenu = false;
+	rcmPick: RcmVehicleId | null = null;
+	rcmDest: LocationId | null = null;
+	rcmJob = false;
+	rcmChauffeur = false;
+	rcmRuns = 0;
+	cooler: CoolerFish[] = [];
+	fedT = 0;
+	eaten = new Set<string>();
+	cinematic: CinematicState | null = null;
+	letterbox = 0;
+	worldHour = DAY_START_HOUR;
+	settings: GameSettings = { ...DEFAULT_SETTINGS };
+	interactHint: string | null = null;
+	hintWalk = false;
+	nearPoi: LocationId | null = null;
+	private hqInside = false;
+	private hqHandoff = false;
+	nearNpc: string | null = null;
+	nearPed = -1;
+	nearCar = -1;
+	vehicle: { kind: "van" | "car" | "sprinter" | "escalade"; carIndex: number } | null = null;
+	race: RaceState = idleRace();
+	raceMenu = false;
+	rivalCarIndex = -1;
+	playerRaceCarIndex = -1;
+	lastInteract = 0;
+	particles: ScreenParticle[] = [];
+	floaters: Floater[] = [];
+	running = false;
+	raf = 0;
+	loopBackup = 0;
+	lastT = 0;
+	onHud: ((h: HudSnapshot) => void) | null = null;
+	onLoad: ((p: number) => void) | null = null;
+	hudAcc = 0;
+	clock = 0;
+	mapCanvas: HTMLCanvasElement | null = null;
+	leftSpawn = false;
+	hasSave = false;
+	world3d: World3D | null = null;
+	overlay: HTMLCanvasElement | null = null;
+	mover = new CharacterController();
+	lastDt = 1 / 60;
+	runIndex = 1;
+	run: DropRunState = createRun(1);
+	bestRunScore = 0;
+	bestGrade: RunGrade | null = null;
+	dropLive = false;
+	dropLiveSeq = 0;
+	verifiedOrders: string[] = [];
+	unlocks = new Set<string>();
+	vanSkin: "chrome" | "gold" | null = null;
+	celebrate = 0;
+	uiPulse = 0;
+	punch = 0;
+	hoopPulse = 0;
+	plantSign = 0;
+	fish: FishingState = idleFishing();
+	bowl: BowlingState = idleBowl();
+	bowlingHighScore = 0;
+	hw: HwSave = emptyHw();
+	haunt: HauntLive | null = null;
+	halloweenShootout = false;
+	shootoutLeaving = false;
+	hwEvent: { kind: WorldEventKind; text: string; t: number; x: number; y: number } | null = null;
+	hwEventWait = 18;
+	hwDraftT = 0;
+	tonight = { baskets: 0, fish: 0, race: false, strike: false, haunt: false, paid: new Set<string>() };
+	lastDeliveryAt = 0;
+	jooking = false;
+	jookT = 0;
+	playtestOpen = false;
+	playtestNoclip = false;
+	fpsEma = 60;
+	readonly assetLoads = new Map<string, AssetLoadStatus>();
+	constructor(canvas: HTMLCanvasElement) {
+		this.canvas = canvas;
+		const overlay = document.createElement("canvas");
+		overlay.className = "pointer-events-none absolute inset-0 h-full w-full";
+		canvas.parentElement?.appendChild(overlay);
+		this.overlay = overlay;
+		this.ctx = overlay.getContext("2d")!;
+		this.buildWorld();
+	}
+	async init() {
+		await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+		const bootList = bootAssetCatalog();
+		this.assetLoads.clear();
+		let bootDone = 0;
+		await Promise.all(bootList.map(async (asset) => {
+			try {
+				this.images[asset.runtimeKey] = await loadImage(asset.path);
+				this.assetLoads.set(asset.id, "loaded");
+			} catch {
+				this.assetLoads.set(asset.id, "missing");
+			}
+			bootDone++;
+			this.onLoad?.(bootDone / (bootList.length + 6));
+		}));
+		this.loadSave();
+		this.placeOutsideHqIfReturning();
+		if (isHandheld() && this.settings.quality === "high") {
+			this.settings.quality = "low";
+		}
+		setQuality(this.settings.quality);
+		this.paintMap();
+		await this.bootWorld3D();
+		this.input.bind();
+		this.wireQa();
+		this.applyQuality();
+		this.grantTourTees();
+		this.grantSeasonFits();
+		this.emitHud();
+	}
+	private async bootWorld3D() {
+		const { World3D } = await import("./world3d");
+		const attach = async (canvas: HTMLCanvasElement) => {
+			const world = new World3D(canvas);
+			this.canvas = world.renderer.domElement;
+			world.overlay.remove();
+			world.overlay = this.overlay!;
+			this.ctx = world.overlay.getContext("2d")!;
+			await world.loadTextures((d, t) => this.onLoad?.(d / t));
+			world.buildCity(this.walls, this.trees);
+			this.world3d = world;
+		};
+		const within = <T>(p: Promise<T>, ms: number) =>
+			Promise.race([
+				p,
+				new Promise<T>((_, reject) => setTimeout(() => reject(new Error("WebGL boot timed out")), ms)),
+			]);
+		try {
+			await within(attach(this.canvas), 8000);
+			return;
+		} catch (err) {
+			console.warn("[sack] WebGL boot failed, retrying with a fresh canvas", err);
+		}
+		try {
+			this.world3d?.dispose();
+		} catch {
+			/* first attempt never stuck */
+		}
+		this.world3d = null;
+		loseWebGL(this.canvas);
+		const fresh = replaceCanvas(this.canvas);
+		this.canvas = fresh;
+		try {
+			await within(attach(fresh), 8000);
+		} catch (err) {
+			console.warn("[sack] WebGL unavailable, continuing without the 3D city", err);
+			this.world3d = null;
+		}
+	}
+	buildWorld() {
+		this.walls.push({
+			x: 0,
+			y: 0,
+			w: WORLD_PX_W,
+			h: 48 * .55
+		}, {
+			x: 0,
+			y: WORLD_PX_H - 48 * .55,
+			w: WORLD_PX_W,
+			h: 48 * .55
+		}, {
+			x: 0,
+			y: 0,
+			w: 48 * .55,
+			h: WORLD_PX_H
+		}, {
+			x: WORLD_PX_W - 48 * .55,
+			y: 0,
+			w: 48 * .55,
+			h: WORLD_PX_H
+		});
+		this.walls.push(...cityBlockBuildings());
+		const riverY = riverHole().y;
+		for (let i = 0; i < 48; i++) {
+			let x = (3 + i * 17 % 58) * 48;
+			let y = (3 + i * 29 % 38) * 48;
+			if (y > riverY - 80) y = riverY - 90 - (i % 5) * 18;
+			if (inCourtPx(x, y) || inDeepWater(x, y) || isRoadPoint(x, y)) {
+				x += 70;
+				y += 54;
+			}
+			if (POIS.some((p) => (p.id === "store" || p.id === "apartment" || p.id === "lanes") && insidePoi(x, y, p, 36))) continue;
+			if (y < riverY - 36 && x > 48 && x < WORLD_PX_W - 48) this.trees.push({ x, y });
+		}
+		this.poiBoxes = poiColliders();
+		this.walks = sidewalkRects();
+		const carColors = [
+			"#cfc8bf",
+			"#1e293b",
+			"#7f1d1d",
+			"#3f3f46",
+			"#f4f1ea",
+			"#1e3a5f",
+			"#b45309",
+			"#44403c",
+		];
+		const lanes = clippedTrafficLanes();
+		this.laneMap = new Map(lanes.map((l) => [l.id, l]));
+		let ci = 0;
+		for (const lane of lanes) {
+			const count = lane.axis === "x" ? 2 : 2;
+			for (let i = 0; i < count; i++) {
+				const t = (i + 0.22) / count;
+				const along = lane.min + (lane.max - lane.min) * t;
+				const x = lane.axis === "x" ? along : lane.fixed;
+				const y = lane.axis === "y" ? along : lane.fixed;
+				if (inCourtPx(x, y) || inDeepWater(x, y, 22) || carBlocked(x, y, 20)) continue;
+				let blocked = false;
+				for (const box of this.poiBoxes) {
+					if (circleHitsRect(x, y, 22, box)) {
+						blocked = true;
+						break;
+					}
+				}
+				if (!blocked) {
+					for (const w of this.walls) {
+						if (circleHitsRect(x, y, 20, w)) {
+							blocked = true;
+							break;
+						}
+					}
+				}
+				if (blocked) continue;
+				const vel = laneVelocity(lane);
+				this.cars.push({
+					x,
+					y,
+					vx: vel.vx,
+					vy: vel.vy,
+					w: 36 + ci % 3 * 6,
+					color: carColors[ci % carColors.length]!,
+					laneId: lane.id,
+					skin: ci % 8,
+					braking: false,
+					yaw: Math.atan2(-vel.vy, vel.vx),
+					turnT: 0,
+					turnTo: null,
+					turnX: 0,
+					turnY: 0,
+					turn0x: 0,
+					turn0y: 0,
+				});
+				ci++;
+			}
+		}
+		const strips = this.walks.filter((w) => w.w > 80 || w.h > 80);
+		this.peds = spawnCityPeds(strips.length ? strips : this.walks);
+		this.npcLive = NPCS.map((n) => ({
+			id: n.id,
+			x: n.id === "k_blanco" ? HQ_ANCHORS.kBlanco.x : n.x,
+			y: n.id === "k_blanco" ? HQ_ANCHORS.kBlanco.y : n.y,
+			ox: n.id === "k_blanco" ? HQ_ANCHORS.kBlanco.x : n.x,
+			oy: n.id === "k_blanco" ? HQ_ANCHORS.kBlanco.y : n.y,
+			t: Math.random() * 10
+		}));
+	}
+	paintMap() {
+		const c = document.createElement("canvas");
+		c.width = WORLD_PX_W;
+		c.height = WORLD_PX_H;
+		const g = c.getContext("2d")!;
+		g.fillStyle = "#2c332e";
+		g.fillRect(0, 0, c.width, c.height);
+		for (let y = 0; y < 48; y++) for (let x = 0; x < 64; x++) {
+			const px = x * 48;
+			const py = y * 48;
+			if (Math.abs(y - 20) <= 1 || Math.abs(y - 6) <= 0 || Math.abs(y - 34) <= 0 || Math.abs(x - 16) <= 1 || Math.abs(x - 34) <= 1 || Math.abs(x - 50) <= 0) {
+				g.fillStyle = "#353b38";
+				g.fillRect(px, py, 48, 48);
+				g.strokeStyle = "rgba(250,204,21,0.28)";
+				g.lineWidth = 2;
+				g.setLineDash([10, 12]);
+				g.beginPath();
+				if (Math.abs(y - 20) <= 1 || y === 6 || y === 34) {
+					g.moveTo(px, py + 48 / 2);
+					g.lineTo(px + 48, py + 48 / 2);
+				} else {
+					g.moveTo(px + 48 / 2, py);
+					g.lineTo(px + 48 / 2, py + 48);
+				}
+				g.stroke();
+				g.setLineDash([]);
+			} else {
+				g.fillStyle = (x + y) % 7 === 0 ? "#3a423c" : (x + y) % 2 === 0 ? "#4a524c" : "#454d47";
+				g.fillRect(px, py, 48, 48);
+			}
+		}
+		g.fillStyle = "#5a625c";
+		g.fillRect(0, 902, WORLD_PX_W, 8);
+		g.fillRect(0, 1058, WORLD_PX_W, 8);
+		g.fillStyle = "#2f4a36";
+		for (let i = 0; i < 36; i++) {
+			g.beginPath();
+			g.ellipse(i * 173 % WORLD_PX_W, i * 241 % WORLD_PX_H, 36 + i % 5 * 12, 24 + i % 4 * 10, 0, 0, Math.PI * 2);
+			g.fill();
+		}
+		for (const w of this.walls) {
+			if (w.w >= 3070 || w.h >= 2302) continue;
+			const grad = g.createLinearGradient(w.x, w.y, w.x, w.y + w.h);
+			const brick = (Math.floor(w.x / 48) + Math.floor(w.y / 48)) % 3;
+			grad.addColorStop(0, brick === 0 ? "#2a201c" : brick === 1 ? "#1c2420" : "#1a1f24");
+			grad.addColorStop(1, "#121614");
+			g.fillStyle = grad;
+			g.fillRect(w.x, w.y, w.w, w.h);
+			g.strokeStyle = "#0a0c0b";
+			g.lineWidth = 2;
+			g.strokeRect(w.x + 1, w.y + 1, w.w - 2, w.h - 2);
+			g.fillStyle = "rgba(253, 224, 71, 0.1)";
+			for (let wy = w.y + 14; wy < w.y + w.h - 14; wy += 20) for (let wx = w.x + 12; wx < w.x + w.w - 12; wx += 18) g.fillRect(wx, wy, 9, 11);
+		}
+		for (const p of POIS) if (p.id === "court") {
+			g.fillStyle = "#c2410c";
+			g.fillRect(p.x, p.y, p.w, p.h);
+			g.fillStyle = "#9a3412";
+			g.fillRect(p.x + 10, p.y + 10, p.w - 20, p.h - 20);
+			g.strokeStyle = "#fff";
+			g.lineWidth = 3;
+			g.strokeRect(p.x + 8, p.y + 8, p.w - 16, p.h - 16);
+			g.strokeRect(p.x + p.w / 2 - 42, p.y + 8, 84, 72);
+			g.beginPath();
+			g.arc(p.x + p.w / 2, p.y + 80, 42, 0, Math.PI);
+			g.stroke();
+			g.fillStyle = "#f97316";
+			g.fillRect(p.x + p.w / 2 - 24, p.y + 4, 48, 7);
+			g.strokeStyle = "#ef4444";
+			g.lineWidth = 3;
+			g.beginPath();
+			g.arc(p.x + p.w / 2, p.y + 22, 13, 0, Math.PI * 2);
+			g.stroke();
+			g.fillStyle = "rgba(255,255,255,0.3)";
+			g.font = "bold 13px sans-serif";
+			g.fillText("901 COURT", p.x + 22, p.y + p.h - 14);
+		} else if (p.id === "dropvan") {
+			g.fillStyle = "#1c1917";
+			g.fillRect(p.x, p.y + 10, p.w, p.h - 10);
+			g.fillStyle = "#292524";
+			g.fillRect(p.x + 8, p.y, p.w - 16, 18);
+			g.fillStyle = "#1db954";
+			g.font = "bold 12px sans-serif";
+			g.fillText("DROP VAN", p.x + 10, p.y + p.h / 2);
+		} else if (p.id === "rcmworx") {
+			g.fillStyle = "#0a0a0c";
+			g.fillRect(p.x, p.y, p.w, p.h);
+			g.strokeStyle = "#c9a84c";
+			g.lineWidth = 4;
+			g.strokeRect(p.x + 6, p.y + 6, p.w - 12, p.h - 12);
+			g.fillStyle = "#1a1a1c";
+			g.fillRect(p.x + 18, p.y + 28, 52, 28);
+			g.fillRect(p.x + p.w - 78, p.y + 32, 58, 22);
+			g.fillStyle = "#c9a84c";
+			g.font = "bold 14px sans-serif";
+			g.fillText("RCM WORX", p.x + 16, p.y + 22);
+			g.fillStyle = "#e8e0d0";
+			g.font = "11px sans-serif";
+			g.fillText("ON TIME", p.x + 16, p.y + p.h - 14);
+		} else if (p.id === "pyramid") {
+			g.fillStyle = "#1c1917";
+			g.beginPath();
+			g.moveTo(p.x + p.w / 2, p.y);
+			g.lineTo(p.x + p.w, p.y + p.h);
+			g.lineTo(p.x, p.y + p.h);
+			g.closePath();
+			g.fill();
+			g.fillStyle = "#292524";
+			g.beginPath();
+			g.moveTo(p.x + p.w / 2, p.y + 18);
+			g.lineTo(p.x + p.w - 16, p.y + p.h);
+			g.lineTo(p.x + 16, p.y + p.h);
+			g.closePath();
+			g.fill();
+			g.fillStyle = "#1db954";
+			g.font = "bold 12px sans-serif";
+			g.fillText("PYRAMID", p.x + 18, p.y + p.h - 10);
+		} else if (p.id === "river") {
+			const river = g.createLinearGradient(p.x, p.y, p.x, p.y + p.h);
+			river.addColorStop(0, "#245a7a");
+			river.addColorStop(0.35, "#163e58");
+			river.addColorStop(1, "#0b1c2b");
+			g.fillStyle = river;
+			g.fillRect(p.x, p.y, p.w, p.h);
+			g.fillStyle = "#6b5340";
+			g.fillRect(p.x, p.y - 18, p.w, 22);
+			g.fillStyle = "rgba(190,220,235,0.18)";
+			for (let i = 0; i < 28; i++) g.fillRect(p.x + 24 + i * 110, p.y + 28 + i % 4 * 18, 54, 3);
+		} else if (p.id === "beale") {
+			g.fillStyle = "#14532d";
+			g.fillRect(p.x, p.y, p.w, p.h);
+			g.fillStyle = "#1db954";
+			for (let i = 0; i < 5; i++) g.fillRect(p.x + 16 + i * 70, p.y + 8, 36, 8);
+			g.fillStyle = "#f2f5f3";
+			g.font = "bold 14px sans-serif";
+			g.fillText("BEALE STREET", p.x + 24, p.y + p.h / 2 + 4);
+		} else {
+			g.fillStyle = p.color;
+			g.fillRect(p.x, p.y, p.w, p.h);
+			g.fillStyle = "rgba(0,0,0,0.28)";
+			g.fillRect(p.x, p.y + p.h - 20, p.w, 20);
+			g.fillStyle = "#0a0c0b";
+			g.fillRect(p.x + p.w / 2 - 14, p.y + p.h - 36, 28, 36);
+			g.fillStyle = "#1db954";
+			g.font = "bold 13px sans-serif";
+			g.fillText(p.label, p.x + 10, p.y + 22);
+			if (p.id === "store") {
+				g.fillStyle = "#f2f5f3";
+				g.font = "bold 15px sans-serif";
+				g.fillText("$ACKRELIGIOUS", p.x + 16, p.y + 48);
+				g.fillStyle = "#1db954";
+				g.font = "11px sans-serif";
+				g.fillText("IN THE $ACK, WE TRUST", p.x + 16, p.y + 66);
+			}
+		}
+		const store = POIS.find((p) => p.id === "store");
+		if (store) {
+			g.globalAlpha = .16;
+			g.fillStyle = "#1db954";
+			g.beginPath();
+			g.arc(store.x + store.w / 2, store.y + store.h + 50, 40, 0, Math.PI * 2);
+			g.fill();
+			g.globalAlpha = 1;
+		}
+		for (const t of this.trees) {
+			g.fillStyle = "#1a2e1f";
+			g.beginPath();
+			g.arc(t.x, t.y, 16, 0, Math.PI * 2);
+			g.fill();
+			g.fillStyle = "#2d5a3a";
+			g.beginPath();
+			g.arc(t.x - 4, t.y - 4, 12, 0, Math.PI * 2);
+			g.fill();
+		}
+		const riverEdge = g.createLinearGradient(0, riverHole().y - 24, 0, WORLD_PX_H);
+		riverEdge.addColorStop(0, "rgba(30, 64, 100, 0)");
+		riverEdge.addColorStop(1, "rgba(20, 50, 90, 0.35)");
+		g.fillStyle = riverEdge;
+		g.fillRect(0, riverHole().y - 24, WORLD_PX_W, WORLD_PX_H - riverHole().y + 24);
+		g.fillStyle = "#0d1210";
+		for (let i = 0; i < 22; i++) g.fillRect(90 + i * 130, 28, 44 + i % 3 * 18, 36 + i * 37 % 72);
+		g.fillStyle = "rgba(242,245,243,0.22)";
+		g.font = "bold 11px sans-serif";
+		for (const s of STREETS) if (s.axis === "y") g.fillText(s.name, 80, s.tile * 48 - 8);
+		else g.fillText(s.name, s.tile * 48 + 8, 70);
+		this.mapCanvas = c;
+	}
+	wireQa() {
+		if (typeof window === "undefined") return;
+		attachProductionDebug(this);
+		window.__controlsTest = {
+			getYaw: () => this.yaw,
+			getSpeed: () => this.mover.speed,
+			getFacing: () => this.facing,
+			setKeys: (codes: string[]) => {
+				this.input.keys.clear();
+				for (const c of codes) this.input.keys.add(c);
+			},
+			tapArrow: (dir: "left" | "right" | "up") => {
+				this.input.queueArrow(dir);
+			},
+		};
+		window.__gameTest = {
+			teleport: (loc: string) => this.warpTo(loc),
+			enterHQ: () => {
+				if (this.mode === "basketball") this.exitBasketball();
+				if (this.mode === "shop") this.closeShop();
+				this.mode = "world";
+				this.dialogue = null;
+				this.exitVehicle();
+				this.cinematic = null;
+				const hq = POIS.find((p) => p.id === "store")!;
+				this.px = hq.x + hq.w / 2;
+				this.py = hq.y + hq.h * 0.62;
+				this.yaw = 0;
+				this.leftSpawn = true;
+				this.updateProximity();
+				this.emitHud();
+			},
+			getState: () => ({
+				sackdollars: this.sackdollars,
+				step: this.mission.steps[this.mission.activeStep]?.id ?? "done",
+				mode: this.mode,
+				score: this.ball.score,
+				missionComplete: this.missionComplete,
+				facing: this.facing,
+				px: this.px,
+				py: this.py,
+				vx: this.vx,
+				vy: this.vy,
+				air: this.mover.air,
+				loco: this.mover.state,
+				equipped: this.equipped,
+				respect: this.respect,
+				owned: [...this.owned],
+				saveVersion: SAVE_VERSION,
+				dropLive: this.dropLive,
+				driving: !!this.vehicle,
+				vehicleKind: this.vehicle?.kind ?? null,
+				raceActive: this.race.active,
+				racePhase: this.race.phase,
+				raceLap: this.race.player.lap,
+				racePlace: this.race.place,
+				raceTime: this.race.time,
+				rivalX: this.race.rival.x,
+				rivalY: this.race.rival.y,
+				interactHint: this.interactHint,
+				nearPoi: this.nearPoi,
+				raceCue: this.race.cue?.dir ?? null,
+				raceCueStatus: this.race.cue?.status ?? null,
+				raceCruise: this.race.cruise,
+				raceBoost: this.race.boostT > 0,
+				raceSlow: this.race.slowT > 0,
+			}),
+			setBallScore: (n: number) => {
+				this.ball.score = n;
+				this.tryCreditBasketball();
+				this.emitHud();
+			},
+			advanceDialogue: () => this.advanceDialogue(),
+			interact: () => {
+				this.lastInteract = 0;
+				this.tryInteract();
+			},
+			resetSave: () => this.resetProgress(),
+			buyItem: (id: string) => this.buyItem(id as ApparelId),
+			openShop: () => this.openShop(),
+			wearProduct: (id: string) => this.wearProduct(id as ApparelId),
+			enterCourt: () => {
+				const court = POIS.find((p) => p.id === "court");
+				if (court) {
+					this.px = court.x + court.w / 2;
+					this.py = court.y + court.h * 0.72;
+				}
+				this.enterBasketball();
+			},
+			beginCharge: () => this.beginCharge(),
+			releaseShot: () => this.releaseShot(),
+			startRace: (skip = true) => this.startRace(skip),
+			leaveRace: () => this.leaveRace(),
+			completeRace: (win = true) => this.debugCompleteRace(win),
+			startFishing: () => this.startFishing(),
+			openCourtMenu: () => this.openCourtMenu(),
+			setCourtVenue: (id: string) => this.setCourtVenue(id),
+			enterLanes: () => {
+				const lanes = POIS.find((p) => p.id === "lanes");
+				if (lanes) {
+					this.px = lanes.x + lanes.w / 2;
+					this.py = lanes.y + lanes.h * 0.72;
+				}
+				this.startBowl();
+			},
+			startBowl: () => this.startBowl(),
+			leaveBowl: () => this.leaveBowl(),
+			enterRcm: () => {
+				const lot = POIS.find((p) => p.id === "rcmworx");
+				if (lot) {
+					this.px = lot.x + lot.w / 2;
+					this.py = lot.y + lot.h + 18;
+				}
+				this.openRcm();
+			},
+			bookRcm: (vehicle, dest, chauffeur = false) => this.bookRcm(vehicle as RcmVehicleId, dest as LocationId, chauffeur),
+		};
+	}
+	destroy() {
+		this.running = false;
+		cancelAnimationFrame(this.raf);
+		window.clearTimeout(this.loopBackup);
+		this.input.unbind();
+		this.world3d?.dispose();
+		this.world3d = null;
+		loseWebGL(this.canvas);
+		this.overlay?.remove();
+		this.overlay = null;
+	}
+	setPauseReason(source: "user" | "parent" | "hidden", on: boolean) {
+		if (source === "user") this.userPaused = on;
+		else if (source === "parent") this.parentPaused = on;
+		else this.hiddenPaused = on;
+		const next = this.userPaused || this.parentPaused || this.hiddenPaused;
+		if (next === this.paused) return;
+		this.paused = next;
+		if (this.paused) this.pauseTab = "resume";
+		this.emitHud();
+	}
+	/** Iframe is back (← Bak to the Game). Don't fire GG_ENTER_HQ again until he leaves and re-enters. */
+	releaseHqHandoff() {
+		if (!this.hqHandoff) return;
+		this.hqHandoff = false;
+		this.setPauseReason("parent", false);
+	}
+	start(fresh = false) {
+		audio.unlock();
+		audio.confirm();
+		if (fresh) this.resetProgress(false);
+		this.started = true;
+		this.userPaused = false;
+		this.setPauseReason("user", false);
+		this.cinematic = {
+			kind: "briefing",
+			title: "THE DROP DAY",
+			subtitle: this.missionComplete ? "MEMPHIS  ·  FREE ROAM" : "CHAPTER 01  ·  MEMPHIS 901",
+			t: 0,
+			duration: 3.4
+		};
+		this.letterbox = 1;
+		this.worldHour = DAY_START_HOUR;
+		analytics.track(fresh || !this.hasSave ? "new_game" : "game_started", {
+			chapter: this.mission.chapter,
+			mission: this.mission.id,
+		});
+		const first = this.mission.steps.find((s) => !s.done);
+		if (first) analytics.track("mission_started", { stepId: first.id, label: first.label });
+		this.emitHud();
+	}
+	resetProgress(emit = true) {
+		try {
+			localStorage.removeItem(SAVE_KEY);
+			localStorage.removeItem(SAVE_KEY_LEGACY);
+			localStorage.removeItem(SAVE_KEY_LEGACY_V1);
+		} catch { /* storage */ }
+		this.mission = createDropDayMission();
+		this.afterHours = createAfterHoursMission();
+		this.side = createSideMissions();
+		this.missionComplete = false;
+		this.sackdollars = 25;
+		this.respect = 0;
+		this.owned = ["starter_tee"];
+		this.grantTourTees();
+		this.hw = emptyHw();
+		this.haunt = null;
+		this.halloweenShootout = false;
+		this.hwEvent = null;
+		this.tonight = { baskets: 0, fish: 0, race: false, strike: false, haunt: false, paid: new Set() };
+		this.grantSeasonFits();
+		this.equipped = "starter_tee";
+		this.trophies = [];
+		this.talked.clear();
+		this.px = 288;
+		this.py = 528;
+		this.leftSpawn = false;
+		this.mover.reset(0);
+		this.vx = 0;
+		this.vy = 0;
+		this.mode = "world";
+		this.shopOpen = false;
+		this.foodMenu = null;
+		this.foodApproach = null;
+		this.foodServe = null;
+		this.sponsorOpen = false;
+		this.rcmMenu = false;
+		this.rcmPick = null;
+		this.rcmDest = null;
+		this.rcmJob = false;
+		this.rcmChauffeur = false;
+		this.rcmRuns = 0;
+		this.cooler = [];
+		this.fedT = 0;
+		this.eaten = new Set();
+		this.dialogue = null;
+		this.ball.missionCredited = false;
+		this.ball.best = 0;
+		this.ball.targetScore = 8;
+		this.worldHour = DAY_START_HOUR;
+		this.hasSave = false;
+		this.runIndex = 1;
+		this.run = createRun(1);
+		this.bestRunScore = 0;
+		this.bestGrade = null;
+		this.dropLive = false;
+		this.dropLiveSeq = 0;
+		this.verifiedOrders = [];
+		this.unlocks = new Set();
+		this.vanSkin = null;
+		this.celebrate = 0;
+		audio.dropLive = false;
+		this.uiPulse = 0;
+		this.punch = 0;
+		this.vehicle = null;
+		this.race = idleRace();
+		this.raceMenu = false;
+		this.rivalCarIndex = -1;
+		this.playerRaceCarIndex = -1;
+		this.hoopPulse = 0;
+		this.lastDeliveryAt = 0;
+		if (emit) this.emitHud();
+	}
+	showToast(msg: string, t = 3.1) {
+		this.toast = msg;
+		this.toastT = t;
+	}
+	float(text: string, color: string, x = this.px, y = this.py - 50) {
+		this.floaters.push({
+			x,
+			y,
+			vy: -42,
+			life: 1.2,
+			text,
+			color,
+			scale: 1.35
+		});
+	}
+	addTrauma(v: number) {
+		if (!this.settings.shake || this.settings.reduceMotion) return;
+		this.trauma = clamp(this.trauma + v, 0, 1);
+	}
+	addPunch(v: number) {
+		this.punch = Math.min(1, this.punch + v);
+	}
+	currentTier() {
+		return tierFor(this.runIndex);
+	}
+	activeQuest() {
+		return this.mission.complete ? this.afterHours : this.mission;
+	}
+	/** Sidewalk south of SackReligious HQ. Not on the door mat, so the store does not open again. */
+	placeOutsideHq() {
+		const store = POIS.find((p) => p.id === "store");
+		if (!store) return;
+		this.mode = "world";
+		this.exitVehicle();
+		this.px = store.x + store.w / 2;
+		this.py = store.y + store.h + 110;
+		this.yaw = 0;
+		this.mover.reset(this.yaw);
+		this.applyYawToFacing();
+		this.hqInside = false;
+		this.leftSpawn = true;
+	}
+	private placeOutsideHqIfReturning() {
+		if (typeof window === "undefined") return;
+		const q = new URLSearchParams(window.location.search);
+		const spawn = q.get("spawn") || q.get("return");
+		const fromQuery = spawn === "hq-door" || spawn === "hq";
+		const fromSession = commerce.consumeStoreReturn();
+		if (!fromQuery && !fromSession) return;
+		this.placeOutsideHq();
+		q.delete("spawn");
+		q.delete("return");
+		const next = `${window.location.pathname}${q.toString() ? `?${q}` : ""}${window.location.hash}`;
+		window.history.replaceState(null, "", next);
+	}
+	loadSave() {
+		try {
+			let raw = localStorage.getItem(SAVE_KEY);
+			if (!raw) raw = localStorage.getItem(SAVE_KEY_LEGACY);
+			if (!raw) raw = localStorage.getItem(SAVE_KEY_LEGACY_V1);
+			this.hasSave = !!raw;
+			if (!raw) return;
+			const data = JSON.parse(raw);
+			this.sackdollars = data.sackdollars ?? 25;
+			this.respect = data.respect ?? 0;
+			this.owned = data.owned?.length ? data.owned : ["starter_tee"];
+			this.grantTourTees();
+			this.hw = readHw(data.halloween2026);
+			this.grantSeasonFits();
+			this.equipped = data.equipped;
+			this.mission.complete = data.missionComplete ?? false;
+			this.missionComplete = this.mission.complete;
+			this.dropLive = !!data.dropLive || this.missionComplete;
+			this.verifiedOrders = Array.isArray(data.verifiedOrders) ? data.verifiedOrders : [];
+			this.unlocks = new Set(Array.isArray(data.unlocks) ? data.unlocks : []);
+			this.vanSkin = data.vanSkin === "chrome" || data.vanSkin === "gold" ? data.vanSkin : null;
+			if (this.dropLive) {
+				audio.dropLive = true;
+				this.seedDropLiveCity();
+			}
+			for (const s of this.mission.steps) s.done = !!data.missionProgress?.[s.id];
+			const firstUndone = this.mission.steps.findIndex((s) => !s.done);
+			this.mission.activeStep = firstUndone === -1 ? this.mission.steps.length : firstUndone;
+			this.trophies = data.trophies ?? [];
+			this.highScore = data.basketballHighScore ?? 0;
+			this.courtBoard = loadBoard();
+			this.courtVenue = venueFor(data.courtVenue).id;
+			this.bowlingHighScore = data.bowlingHighScore ?? 0;
+			this.rcmRuns = data.rcmRuns ?? 0;
+			this.worldHour = DAY_START_HOUR;
+			if (data.settings) this.settings = {
+				...DEFAULT_SETTINGS,
+				...data.settings,
+				cameraView: "third",
+			};
+			if (data.sideProgress) for (const s of this.side) s.done = !!data.sideProgress[s.id];
+			if (Array.isArray(data.cooler)) this.cooler = data.cooler.filter((f: CoolerFish) => f && f.name && f.weightLb).slice(0, 8);
+			if (Array.isArray(data.eaten)) this.eaten = new Set(data.eaten.filter((id: string) => isFoodTruck(id)));
+			if (data.afterHoursProgress) {
+				this.afterHours = createAfterHoursMission();
+				for (const s of this.afterHours.steps) s.done = !!data.afterHoursProgress[s.id];
+				const undone = this.afterHours.steps.findIndex((s) => !s.done);
+				this.afterHours.complete = undone === -1;
+				this.afterHours.activeStep = undone === -1 ? this.afterHours.steps.length : undone;
+			}
+			this.runIndex = Math.max(1, data.dropRunIndex ?? 1);
+			const tier = this.currentTier();
+			if (this.missionComplete) {
+				this.run = createRun(this.runIndex);
+			} else {
+				this.mission = createDropDayMission({ order: tier.deliveryOrder, courtTarget: tier.courtTarget });
+				for (const s of this.mission.steps) s.done = !!data.missionProgress?.[s.id];
+				const firstUndone = this.mission.steps.findIndex((s) => !s.done);
+				this.mission.activeStep = firstUndone === -1 ? this.mission.steps.length : firstUndone;
+				this.run = createRun(this.runIndex);
+				if (data.dropRun) {
+					this.run.active = !!data.dropRun.active;
+					this.run.time = data.dropRun.time ?? 0;
+					this.run.deliveries = data.dropRun.deliveries ?? 0;
+					this.run.combo = data.dropRun.combo ?? 0;
+					this.run.bestCombo = data.dropRun.bestCombo ?? 0;
+					this.run.mistakes = data.dropRun.mistakes ?? 0;
+					this.run.ballMakes = data.dropRun.ballMakes ?? 0;
+					this.run.ballPerfects = data.dropRun.ballPerfects ?? 0;
+					this.run.ballScore = data.dropRun.ballScore ?? 0;
+					this.run.points = data.dropRun.points ?? 0;
+					this.run.grade = data.dropRun.grade ?? null;
+				} else if (this.mission.steps.find((s) => s.id === "pickup")?.done) {
+					this.run.active = true;
+				}
+			}
+			this.ball.targetScore = tier.courtTarget;
+			this.bestRunScore = data.bestRunScore ?? 0;
+			this.bestGrade = data.bestGrade ?? null;
+			this.repairMission();
+			if (!localStorage.getItem(SAVE_KEY)) {
+				data.version = SAVE_VERSION;
+				localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+			}
+		} catch { /* storage */ }
+	}
+	save() {
+		const progress: Record<string, boolean> = {};
+		for (const s of this.mission.steps) progress[s.id] = s.done;
+		const sideProgress: Record<string, boolean> = {};
+		for (const s of this.side) sideProgress[s.id] = s.done;
+		const afterHoursProgress: Record<string, boolean> = {};
+		for (const s of this.afterHours.steps) afterHoursProgress[s.id] = s.done;
+		const data = {
+			version: SAVE_VERSION,
+			sackdollars: this.sackdollars,
+			respect: this.respect,
+			owned: this.owned,
+			equipped: this.equipped,
+			missionProgress: progress,
+			missionActiveStep: this.mission.activeStep,
+			missionComplete: this.mission.complete,
+			basketballHighScore: this.highScore,
+			tutorialDone: true,
+			trophies: this.trophies,
+			sideProgress,
+			worldHour: this.worldHour,
+			settings: this.settings,
+			dropLive: this.dropLive,
+			dropRunIndex: this.runIndex,
+			dropRun: {
+				active: this.run.active,
+				time: this.run.time,
+				deliveries: this.run.deliveries,
+				combo: this.run.combo,
+				bestCombo: this.run.bestCombo,
+				mistakes: this.run.mistakes,
+				ballMakes: this.run.ballMakes,
+				ballPerfects: this.run.ballPerfects,
+				ballScore: this.run.ballScore,
+				points: this.run.points,
+				grade: this.run.grade,
+			},
+			verifiedOrders: this.verifiedOrders,
+			unlocks: [...this.unlocks],
+			vanSkin: this.vanSkin,
+			bestRunScore: this.bestRunScore,
+			bestGrade: this.bestGrade,
+			afterHoursProgress,
+			cooler: this.cooler.slice(0, 8),
+			eaten: [...this.eaten],
+			courtVenue: this.courtVenue,
+			bowlingHighScore: this.bowlingHighScore,
+			rcmRuns: this.rcmRuns,
+			halloween2026: this.hw,
+		};
+		try {
+			localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+			this.hasSave = true;
+		} catch { /* storage */ }
+	}
+	applySettings(next: Partial<GameSettings>) {
+		this.settings = {
+			...this.settings,
+			...next
+		};
+		audio.setVolumes(this.settings);
+		this.applyQuality();
+		this.save();
+		this.emitHud();
+	}
+	applyQuality() {
+		setQuality(this.settings.quality);
+		if (this.world3d) applyRendererQuality(this.world3d);
+	}
+	returnToTitle() {
+		this.userPaused = false;
+		this.setPauseReason("user", false);
+		this.started = false;
+		this.mode = "world";
+		this.shopOpen = false;
+		this.dialogue = null;
+		this.cinematic = null;
+		audio.ui();
+		this.emitHud();
+	}
+	restartMission() {
+		this.resetProgress(false);
+		this.start(true);
+	}
+	openPause(tab: PauseTab = "resume") {
+		this.userPaused = true;
+		this.paused = true;
+		this.pauseTab = tab;
+		audio.ui();
+		this.emitHud();
+	}
+	setPauseTab(tab: PauseTab) {
+		this.pauseTab = tab;
+		audio.ui();
+		this.emitHud();
+	}
+	resume() {
+		this.setPauseReason("user", false);
+		audio.ui();
+	}
+	startLoop() {
+		this.running = true;
+		this.lastT = performance.now();
+		const frame = (t: number) => {
+			if (!this.running) return;
+			let dt = (t - this.lastT) / 1e3;
+			this.lastT = t;
+			dt = Math.min(dt, .1);
+			try {
+			this.fpsEma = this.fpsEma * 0.86 + (dt > 1e-4 ? 1 / dt : 60) * 0.14;
+			this.update(dt);
+			this.draw();
+			const dropped = noteFrame(dt);
+			if (dropped) {
+				this.settings.quality = dropped;
+				this.applyQuality();
+				this.showToast("Phone mode · lowered graphics so it stays smooth");
+			}
+			this.hudAcc += dt;
+			if (this.hudAcc > (this.haunt ? 0.032 : 0.08)) {
+				this.hudAcc = 0;
+				this.emitHud();
+			}
+			} catch (err) {
+				console.error("[sack] frame", err);
+			}
+		};
+		const pump = (t: number) => {
+			frame(t);
+			if (this.running) this.raf = requestAnimationFrame(pump);
+		};
+		const backup = () => {
+			if (!this.running) return;
+			const now = performance.now();
+			if (now - this.lastT > 0.2) frame(now);
+			this.loopBackup = window.setTimeout(backup, 32);
+		};
+		this.raf = requestAnimationFrame(pump);
+		this.loopBackup = window.setTimeout(backup, 250);
+	}
+	update(dt: number) {
+		this.lastDt = dt;
+		this.clock += dt;
+		const act = this.input.poll();
+		audio.tick(dt, this.started && !this.paused, nightAmount(this.worldHour));
+		if (this.started && act.pausePressed && !this.cinematic) {
+			if (commerce.disclaimerOpen) {
+				commerce.dismissStoreDisclaimer();
+				return;
+			}
+			if (this.playtestOpen) this.setPlaytestOpen(false);
+			else if (this.mode === "shop") this.closeShop();
+			else if (this.foodMenu) this.closeFood();
+			else if (this.sponsorOpen) this.closeSponsor();
+			else if (this.rcmMenu) this.closeRcm();
+			else if (this.courtMenu) this.closeCourtMenu();
+			else if (this.mode === "dialogue") this.advanceDialogue();
+			else if (this.mode === "basketball" && act.backPressed) this.exitBasketball();
+			else if (this.bowl.active && act.backPressed) this.leaveBowl();
+			else {
+				this.setPauseReason("user", !this.userPaused);
+				audio.ui();
+			}
+		}
+		if (this.hitstop > 0) {
+			this.hitstop -= dt;
+			this.trauma = Math.max(0, this.trauma - dt * 1.6);
+			this.punch = Math.max(0, this.punch - dt * 2.4);
+			this.hoopPulse = Math.max(0, this.hoopPulse - dt * 4);
+			return;
+		}
+		if (this.toastT > 0) {
+			this.toastT -= dt;
+			if (this.toastT <= 0) this.toast = null;
+		}
+		if (this.trophyPopup) {
+			this.trophyPopup.t -= dt;
+			if (this.trophyPopup.t <= 0) this.trophyPopup = null;
+		}
+		this.trauma = Math.max(0, this.trauma - dt * 1.7);
+		this.uiPulse = Math.max(0, this.uiPulse - dt * 2.6);
+		this.punch = Math.max(0, this.punch - dt * 3.1);
+		this.hoopPulse = Math.max(0, this.hoopPulse - dt * 3.4);
+		this.letterbox += ((this.cinematic ? 1 : 0) - this.letterbox) * (1 - Math.exp(-8 * dt));
+		this.celebrate = Math.max(0, this.celebrate - dt * 0.18);
+		if (this.dropLiveSeq > 0) {
+			this.dropLiveSeq -= dt;
+			this.crowdPulse = Math.max(this.crowdPulse, 0.7);
+		}
+		stepParticles(this.particles, dt);
+		for (let i = this.floaters.length - 1; i >= 0; i--) {
+			const f = this.floaters[i];
+			if (!f) continue;
+			f.y += f.vy * dt;
+			f.life -= dt;
+			f.scale += (1 - f.scale) * (1 - Math.exp(-10 * dt));
+			if (f.life <= 0) this.floaters.splice(i, 1);
+		}
+		if (this.run.active) {
+			this.run.time += dt;
+			const step = this.mission.steps[this.mission.activeStep];
+			const par = this.currentTier().parSeconds;
+			if (step && (step.kind === "deliver" || step.kind === "pickup") && this.run.time > par * 1.5) {
+				expireRun(this.run);
+				this.respect = Math.max(0, this.respect - 8);
+				this.showToast("Clock ran out. Respect took a hit.");
+				this.float("LATE", "#ef4444");
+				audio.groan();
+			}
+		}
+		if (this.cinematic) {
+			const skipBriefing = this.cinematic.kind === "briefing" && (Math.hypot(act.mx, act.my) > 0.2 || act.interactPressed || act.jumpPressed);
+			if (skipBriefing) this.cinematic.t = this.cinematic.duration;
+			this.cinematic.t += dt;
+			if (this.cinematic.t >= this.cinematic.duration) {
+				const kind = this.cinematic.kind;
+				this.cinematic = null;
+				if (kind === "briefing") {
+					const wake = this.mission.steps.find((s) => s.id === "wake");
+					if (wake && !wake.done) this.showToast("You're home. Walk south through the door.");
+					else this.showToast(this.runIndex > 1 ? `Run ${this.runIndex}. Link with K Blanco at HQ.` : "Drop Day is live. Find K Blanco at HQ.");
+				}
+				if (kind === "droplive") {
+					this.openDialogue("k_blanco");
+				}
+				if (kind === "afterhours") {
+					this.showToast("After Hours locked. Side jobs still print Respect.");
+				}
+				this.emitHud();
+			}
+		}
+		if (!this.started || this.paused || commerce.disclaimerOpen) return;
+		if (act.viewPressed) this.toggleView();
+		const lookMul = this.settings.sensitivity || 1;
+		const chauffeurLock = this.rcmJob && this.rcmChauffeur && !!this.vehicle;
+		const scriptedLook = this.fish.active || this.bowl.active || !!this.foodServe;
+		if (!chauffeurLock && !scriptedLook) {
+			if (Math.abs(act.lookX) <= 1.25) this.yaw -= act.lookX * 2.2 * dt * lookMul;
+			else this.yaw -= act.lookX * 0.032 * lookMul;
+		}
+		if (!scriptedLook) {
+			if (Math.abs(act.lookY) <= 1.25) this.pitch -= act.lookY * 1.7 * dt * lookMul;
+			else this.pitch -= act.lookY * 0.028 * lookMul;
+		}
+		if (this.fish.active) {
+			this.yaw = Math.PI;
+			this.pitch = -0.1;
+		}
+		this.pitch = clamp(this.pitch, -1.15, 1.15);
+		this.worldHour = (this.worldHour + dt * HOURS_PER_SECOND) % 24;
+		if (this.worldHour >= 20 && this.worldHour < 20.1) this.unlockTrophy("night_owl");
+		this.updateTraffic(dt);
+		this.updatePeds(dt);
+		if (this.mode === "dialogue") {
+			if (act.interactPressed || act.shootPressed) this.advanceDialogue();
+			return;
+		}
+		if (this.foodMenu) {
+			if (act.backPressed) this.closeFood();
+			return;
+		}
+		if (this.sponsorOpen) {
+			if (act.backPressed) this.closeSponsor();
+			return;
+		}
+		if (this.rcmMenu) {
+			if (act.backPressed) this.closeRcm();
+			return;
+		}
+		if (this.mode === "shop" || this.mode === "menu") return;
+		if (this.haunt) {
+			this.updateHaunt(dt, act);
+			return;
+		}
+		if (this.fish.active) {
+			this.updateFishing(dt, act.shoot, act.shootPressed, act.shootReleased);
+			this.updatePlayer(dt, 0, 0, false, false, false);
+			this.updateProximity();
+			if (act.backPressed || act.pausePressed) this.stopFishing();
+			return;
+		}
+		if (this.bowl.active) {
+			this.updateBowling(dt, act);
+			this.updateProximity();
+			if (act.backPressed) this.leaveBowl();
+			if (!this.inLanes() && this.bowl.phase !== "rolling" && this.bowl.phase !== "pins") this.leaveBowl();
+			return;
+		}
+		const hoopin = this.canShoot();
+		if (hoopin) {
+			if (act.shootPressed) this.beginCharge();
+			if (act.shootReleased) this.releaseShot();
+		}
+		if (this.mode === "basketball") {
+			if (act.backPressed) this.exitBasketball();
+			this.updatePlayer(dt, act.mx, act.my, act.run, false, false);
+			if (this.ball.charging) this.squareToHoop(dt);
+			this.updateBasketball(dt);
+			return;
+		}
+		if (this.cinematic) return;
+		if (this.race.active && this.race.phase === "countdown") {
+			this.updateRace(dt, act.arrowTap);
+			this.updateProximity();
+			this.syncRivalCar();
+			if (act.backPressed) this.leaveRace();
+			return;
+		}
+		if (this.race.phase === "finish" && this.race.recap) {
+			this.syncRivalCar();
+			return;
+		}
+		if (this.race.active && this.race.phase === "green") {
+			this.updateRace(dt, act.arrowTap);
+			this.updateProximity();
+			this.syncRivalCar();
+			if (act.backPressed) this.leaveRace();
+			return;
+		}
+		this.fedT = Math.max(0, this.fedT - dt);
+		if (this.foodServe) {
+			const prev = this.foodServe.t;
+			this.foodServe.t -= dt;
+			if (prev > 0.95 && this.foodServe.t <= 0.95) {
+				this.float("ORDER UP", PAL.gold);
+				audio.cash();
+			}
+			if (this.foodServe.t <= 0) {
+				this.showToast(`Got it · ${this.foodServe.item}`);
+				this.foodServe = null;
+			}
+		}
+		this.mover.walkSpeed = this.fedT > 0 ? 188 : 168;
+		this.mover.runSpeed = this.fedT > 0 ? 292 : 268;
+		this.updatePlayer(dt, act.mx, act.my, act.run, hoopin ? false : act.jumpPressed, hoopin ? false : act.jump);
+		this.updateProximity();
+		this.checkMissionAuto();
+		this.checkSideVisits();
+		this.updateJookin(dt, act.jook, act.jookPressed);
+		if (hoopin) {
+			if (this.ball.charging) this.squareToHoop(dt);
+			this.updateBasketball(dt);
+		} else if (this.ball.inFlight) {
+			this.updateBasketball(dt);
+		} else {
+			this.ball.charging = false;
+			this.ball.active = false;
+		}
+		if (act.interactPressed) this.tryInteract();
+		if (halloweenOn()) this.tickWorldEvent(dt);
+		if (this.vehicle && this.rcmJob) this.tryFinishRcm();
+		if (this.vehicle && act.backPressed) {
+			if (this.race.active && this.race.phase !== "finish") this.leaveRace();
+			else if (this.rcmJob) this.cancelRcm();
+			else this.exitVehicle();
+		}
+	}
+	updateTraffic(dt: number) {
+		const racing = this.race.active && (this.race.phase === "countdown" || this.race.phase === "green" || this.race.phase === "finish");
+		for (let i = 0; i < this.cars.length; i++) {
+			const c = this.cars[i]!;
+			if (this.vehicle?.kind === "car" && this.vehicle.carIndex === i) {
+				c.x = this.px;
+				c.y = this.py;
+				c.vx = this.vx;
+				c.vy = this.vy;
+				c.braking = false;
+				c.yaw = this.yaw + Math.PI / 2;
+				continue;
+			}
+			if (c.laneId === "RIVAL" || c.laneId === "RACER") continue;
+			if (racing) {
+				c.vx = 0;
+				c.vy = 0;
+				c.braking = true;
+				// Keep civilian traffic off the 901 loop so racers never pin on a parked car.
+				if (isRoadPoint(c.x, c.y) && (Math.abs(c.x - 34 * TILE) < 80 || Math.abs(c.x - 50 * TILE) < 80 || Math.abs(c.y - 6 * TILE) < 80 || Math.abs(c.y - 20 * TILE) < 80 || Math.abs(c.y - 34 * TILE) < 80)) {
+					c.x = 16 * TILE + ((i % 3) - 1) * 28;
+					c.y = 12 * TILE + Math.floor(i / 3) * 64;
+					c.laneId = "BEALE ST:east";
+				}
+				continue;
+			}
+			if (c.turnTo && c.turnT < 1) {
+				const dest = this.laneMap.get(c.turnTo);
+				const from = this.laneMap.get(c.laneId);
+				if (!dest || !from) {
+					c.turnTo = null;
+					c.turnT = 0;
+				} else {
+					const step = advanceLaneTurn(c, from, dest, dt, carBlocked);
+					c.x = step.x;
+					c.y = step.y;
+					c.vx = step.vx;
+					c.vy = step.vy;
+					c.yaw = step.yaw;
+					c.turnT = step.t;
+					c.braking = step.blocked || step.vx === 0;
+					if (step.blocked) {
+						c.turnTo = null;
+						c.turnT = 0;
+					} else if (step.done) {
+						c.laneId = dest.id;
+						if (dest.axis === "x") c.y = dest.fixed;
+						else c.x = dest.fixed;
+						c.turnTo = null;
+						const vel = laneVelocity(dest, 0.85);
+						c.vx = vel.vx;
+						c.vy = vel.vy;
+						c.yaw = laneHeading(vel.vx, vel.vy);
+					}
+				}
+				continue;
+			}
+			const lane = this.laneMap.get(c.laneId);
+			if (!lane) continue;
+			if (lane.axis === "x") c.y += (lane.fixed - c.y) * (1 - Math.exp(-8 * dt));
+			else c.x += (lane.fixed - c.x) * (1 - Math.exp(-8 * dt));
+			let scale = 1;
+			for (const o of this.cars) {
+				if (o === c || o.laneId === "RIVAL" || o.laneId === "RACER") continue;
+				const d = aheadDistance(c, o);
+				if (d < 92) scale = Math.min(scale, Math.max(0, (d - 40) / 52));
+			}
+			const pd = aheadDistance(c, { x: this.px, y: this.py });
+			if (pd < 86) scale = Math.min(scale, Math.max(0, (pd - 34) / 52));
+			const along = lane.axis === "x" ? c.x : c.y;
+			const approach = approachingCross(lane, along);
+			if (approach) {
+				const light = signalState(this.clock, lane.axis, approach.ix, approach.iy);
+				const toLine = approach.delta - STOP_LINE;
+				if ((light === "red" || light === "yellow") && toLine > -18 && approach.delta > 0) {
+					if (toLine < 10) scale = 0;
+					else if (toLine < 56) scale = Math.min(scale, Math.max(0.05, (toLine - 8) / 70));
+				}
+				if (light === "green" && approach.delta < 22 && approach.delta > -8 && !c.turnTo) {
+					let blocked = false;
+					for (const o of this.cars) {
+						if (o === c) continue;
+						if (Math.hypot(o.x - approach.ix, o.y - approach.iy) < 58) {
+							blocked = true;
+							break;
+						}
+					}
+					const roll = Math.abs(Math.sin(i * 12.9898 + approach.center * 0.017 + this.clock * 0.02));
+					const turn = !blocked && roll < 0.18 ? "left" : !blocked && roll < 0.32 ? "right" : null;
+					if (turn) {
+						const dest = destinationLane(lane, approach.center, turn);
+						if (dest && !inCourtPx(dest.axis === "x" ? approach.center : dest.fixed, dest.axis === "y" ? approach.center : dest.fixed)) {
+							c.turnTo = dest.id;
+							c.turnT = 0;
+							c.turn0x = lane.axis === "x" ? c.x : lane.fixed;
+							c.turn0y = lane.axis === "y" ? c.y : lane.fixed;
+							c.turnX = dest.axis === "x" ? approach.center + dest.dir * 46 : dest.fixed;
+							c.turnY = dest.axis === "y" ? approach.center + dest.dir * 46 : dest.fixed;
+						}
+					}
+				}
+			}
+			const spd = Math.hypot(c.vx, c.vy);
+			if (spd > 1) {
+				const nx = c.x + (c.vx / spd) * 52;
+				const ny = c.y + (c.vy / spd) * 52;
+				if (carBlocked(nx, ny, 18) || inDeepWater(nx, ny, 18) || inCourtPx(nx, ny)) {
+					scale = 0;
+					const oppId = oppositeLaneId(c.laneId);
+					const opp = oppId ? [...this.laneMap.values()].find((l) => l.id === oppId || l.id.startsWith(`${oppId}~`) || l.id.split("~")[0] === oppId) : null;
+					if (opp && !carBlocked(opp.axis === "x" ? c.x : opp.fixed, opp.axis === "y" ? c.y : opp.fixed, 16)) {
+						c.laneId = opp.id;
+						if (opp.axis === "x") c.y = opp.fixed;
+						else c.x = opp.fixed;
+						const vel = laneVelocity(opp, 0.6);
+						c.vx = vel.vx;
+						c.vy = vel.vy;
+						scale = 0.6;
+					}
+				}
+			}
+			const desired = laneVelocity(lane, scale);
+			c.vx += (desired.vx - c.vx) * (1 - Math.exp(-6 * dt));
+			c.vy += (desired.vy - c.vy) * (1 - Math.exp(-6 * dt));
+			c.braking = scale < 0.55 || Math.hypot(desired.vx, desired.vy) + 8 < spd;
+			const live = Math.hypot(c.vx, c.vy);
+			if (live > 8) c.yaw = laneHeading(c.vx, c.vy);
+			c.x += c.vx * dt;
+			c.y += c.vy * dt;
+			if (lane.axis === "x") c.y = lane.fixed;
+			else c.x = lane.fixed;
+			if (carBlocked(c.x, c.y, 16) || inCourtPx(c.x, c.y)) {
+				const safe = nearestAsphalt(c.x, c.y);
+				c.x = safe.x;
+				c.y = safe.y;
+				if (safe.laneId) c.laneId = safe.laneId;
+				c.vx *= 0.2;
+				c.vy *= 0.2;
+			} else {
+				if (lane.axis === "x") {
+					if (c.x > lane.max - 10 || c.x < lane.min + 10) {
+						const oppId = oppositeLaneId(c.laneId);
+						const opp = oppId ? [...this.laneMap.values()].find((l) => l.id.split("~")[0] === oppId) : null;
+						if (opp) {
+							c.laneId = opp.id;
+							c.y = opp.fixed;
+							const vel = laneVelocity(opp);
+							c.vx = vel.vx;
+							c.vy = vel.vy;
+						} else {
+							c.x = Math.min(lane.max - 12, Math.max(lane.min + 12, c.x));
+							c.vx *= -1;
+						}
+					}
+				} else if (c.y > lane.max - 10 || c.y < lane.min + 10) {
+					const oppId = oppositeLaneId(c.laneId);
+					const opp = oppId ? [...this.laneMap.values()].find((l) => l.id.split("~")[0] === oppId) : null;
+					if (opp) {
+						c.laneId = opp.id;
+						c.x = opp.fixed;
+						const vel = laneVelocity(opp);
+						c.vx = vel.vx;
+						c.vy = vel.vy;
+					} else {
+						c.y = Math.min(lane.max - 12, Math.max(lane.min + 12, c.y));
+						c.vy *= -1;
+					}
+				}
+			}
+		}
+		for (let i = 0; i < this.cars.length; i++) {
+			const a = this.cars[i]!;
+			if (a.laneId === "RIVAL" || a.laneId === "RACER" || a.turnTo) continue;
+			const laneA = this.laneMap.get(a.laneId);
+			if (!laneA) continue;
+			for (let j = i + 1; j < this.cars.length; j++) {
+				const b = this.cars[j]!;
+				if (b.laneId === "RIVAL" || b.laneId === "RACER" || b.turnTo) continue;
+				if (laneA.axis === "x") {
+					if (Math.abs(a.y - b.y) > 30 || Math.abs(a.x - b.x) >= 48) continue;
+					const dir = Math.sign(b.x - a.x) || 1;
+					const push = (48 - Math.abs(a.x - b.x)) * 0.35;
+					a.x -= dir * push;
+					b.x += dir * push;
+					a.vx *= 0.9;
+					b.vx *= 0.9;
+				} else {
+					if (Math.abs(a.x - b.x) > 30 || Math.abs(a.y - b.y) >= 48) continue;
+					const dir = Math.sign(b.y - a.y) || 1;
+					const push = (48 - Math.abs(a.y - b.y)) * 0.35;
+					a.y -= dir * push;
+					b.y += dir * push;
+					a.vy *= 0.9;
+					b.vy *= 0.9;
+				}
+			}
+		}
+		for (const c of this.cars) {
+			if (c.laneId === "RIVAL" || c.laneId === "RACER" || c.turnTo) continue;
+			const lane = this.laneMap.get(c.laneId);
+			if (!lane) continue;
+			if (lane.axis === "x") c.y = lane.fixed;
+			else c.x = lane.fixed;
+			if (Math.hypot(c.vx, c.vy) > 8) c.yaw = laneHeading(c.vx, c.vy);
+		}
+		this.clampCarsToAsphalt();
+	}
+	clampCarsToAsphalt() {
+		for (let i = 0; i < this.cars.length; i++) {
+			const c = this.cars[i]!;
+			if (this.vehicle?.kind === "car" && this.vehicle.carIndex === i) continue;
+			if (c.laneId === "RIVAL" || c.laneId === "RACER") {
+				if (inCourtPx(c.x, c.y) || carBlocked(c.x, c.y, 14)) {
+					const safe = snapToRacePath(c.x, c.y);
+					c.x = safe.x;
+					c.y = safe.y;
+				}
+				continue;
+			}
+			if (inCourtPx(c.x, c.y) || carBlocked(c.x, c.y, 16) || !isRoadPoint(c.x, c.y, 2)) {
+				const safe = nearestAsphalt(c.x, c.y);
+				c.x = safe.x;
+				c.y = safe.y;
+				if (safe.laneId) c.laneId = safe.laneId;
+			}
+		}
+	}
+	updatePeds(dt: number) {
+		const talkingPed = this.dialogue && String(this.dialogueNpcId ?? "").startsWith("ped-")
+			? Number(String(this.dialogueNpcId).slice(4))
+			: -1;
+		const vanPoi = POIS.find((p) => p.id === "dropvan");
+		const vanX = this.vehicle?.kind === "van" ? this.px : vanPoi ? vanPoi.x + vanPoi.w / 2 : 0;
+		const vanY = this.vehicle?.kind === "van" ? this.py : vanPoi ? vanPoi.y + vanPoi.h / 2 : 0;
+		const ctx = {
+			dt,
+			hour: this.worldHour,
+			clock: this.clock,
+			collides: (x: number, y: number, r: number) => this.collides(x, y, r),
+			vanX,
+			vanY,
+			vanHot: this.vehicle?.kind === "van",
+			basketball: this.mode === "basketball" || this.onCourt(),
+			crowdPulse: this.crowdPulse,
+			dropLive: this.dropLive,
+			px: this.px,
+			py: this.py,
+			walks: this.walks,
+		};
+		for (let i = 0; i < this.peds.length; i++) {
+			const p = this.peds[i]!;
+			if (i === talkingPed) {
+				if (p.svx == null) {
+					p.svx = p.vx;
+					p.svy = p.vy;
+				}
+				p.vx = 0;
+				p.vy = 0;
+				p.freeze = 5;
+				continue;
+			}
+			tickCityPed(p, i, this.peds, ctx);
+		}
+		for (const n of this.npcLive) {
+			if (!NPCS.find((x) => x.id === n.id)?.wander) continue;
+			n.t += dt;
+			const nx = n.ox + Math.sin(n.t * .35) * 36;
+			const ny = n.oy + Math.cos(n.t * .28) * 22;
+			if (!this.collides(nx, ny, 16) && !inCourtPx(nx, ny)) {
+				n.x = nx;
+				n.y = ny;
+			}
+		}
+	}
+	presentedView(): "first" | "third" {
+		if (this.fish.active || this.bowl.active || this.foodServe) return "first";
+		if (this.vehicle || (this.race.active && this.race.phase !== "idle")) return "third";
+		return this.settings.cameraView === "first" ? "first" : "third";
+	}
+	toggleView() {
+		if (this.fish.active || this.bowl.active || this.foodServe || this.vehicle) return;
+		this.settings.cameraView = this.settings.cameraView === "first" ? "third" : "first";
+		this.showToast(this.settings.cameraView === "first" ? "First person" : "Third person", 1.4);
+		audio.ui();
+		this.save();
+		this.emitHud();
+	}
+	fwd() {
+		return { x: -Math.sin(this.yaw), y: -Math.cos(this.yaw) };
+	}
+	right() {
+		return { x: Math.cos(this.yaw), y: -Math.sin(this.yaw) };
+	}
+	applyYawToFacing() {
+		this.facingFromAngle(this.yaw);
+	}
+	facingFromAngle(angle: number) {
+		const a = ((angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+		if (a >= Math.PI * 1.75 || a < Math.PI * 0.25) this.facing = "up";
+		else if (a < Math.PI * 0.75) this.facing = "right";
+		else if (a < Math.PI * 1.25) this.facing = "down";
+		else this.facing = "left";
+		this.dir = this.facing;
+	}
+	updatePlayer(dt: number, mx: number, my: number, runHeld: boolean, jumpPressed = false, jumpHeld = false) {
+		const f = this.fwd();
+		const r = this.right();
+		const driving = !!this.vehicle;
+		if (driving && this.rcmJob && this.rcmChauffeur && this.rcmDest) {
+			const dest = POIS.find((p) => p.id === this.rcmDest);
+			if (dest) {
+				const tx = dest.x + dest.w / 2;
+				const ty = dest.id === "river" ? dest.y - 36 : dest.y + dest.h + 28;
+				const dx = tx - this.px;
+				const dy = ty - this.py;
+				const want = Math.atan2(-dx, -dy);
+				let diff = want - this.yaw;
+				while (diff > Math.PI) diff -= Math.PI * 2;
+				while (diff < -Math.PI) diff += Math.PI * 2;
+				this.yaw += Math.max(-1.8 * dt, Math.min(1.8 * dt, diff));
+				this.applyYawToFacing();
+				const face = this.fwd();
+				const distLeft = Math.hypot(dx, dy);
+				const throttle = distLeft < 90 ? 0.35 : 0.82;
+				const spd = 420 * throttle;
+				this.vx = face.x * spd;
+				this.vy = face.y * spd;
+				this.moving = true;
+				this.leftSpawn = true;
+				this.mover.vx = this.vx;
+				this.mover.vy = this.vy;
+				this.mover.speed = Math.hypot(this.vx, this.vy);
+				this.mover.heading = this.yaw;
+				this.mover.state = "run";
+				this.mover.air = 0;
+				this.mover.vz = 0;
+				this.animT += dt * 7;
+				this.bob = Math.sin(this.animT * 2) * 1.1;
+			}
+		} else if (driving) {
+			this.yaw -= mx * 2.35 * dt;
+			this.applyYawToFacing();
+			const face = this.fwd();
+			const throttle = -my;
+			const racing = this.race.active && this.race.phase === "green";
+			const spd = (racing ? (runHeld ? 760 : 560) : (runHeld ? 680 : 500)) * throttle;
+			this.vx = face.x * spd;
+			this.vy = face.y * spd;
+			this.moving = Math.abs(throttle) > 0.08;
+			if (this.moving) this.leftSpawn = true;
+			this.mover.vx = this.vx;
+			this.mover.vy = this.vy;
+			this.mover.speed = Math.hypot(this.vx, this.vy);
+			this.mover.heading = this.yaw;
+			this.mover.state = this.moving ? "run" : "idle";
+			this.mover.air = 0;
+			this.mover.vz = 0;
+			this.animT += dt * (this.moving ? 9 : 2);
+			this.bob = this.moving ? Math.sin(this.animT * 2) * 1.4 : 0;
+		} else {
+		const len = Math.hypot(mx, my);
+		let wishX = 0;
+		let wishY = 0;
+		if (len > 0.01) {
+			mx /= len;
+			my /= len;
+			wishX = mx * r.x + -my * f.x;
+			wishY = mx * r.y + -my * f.y;
+			this.leftSpawn = true;
+		}
+		const wasAir = this.mover.air > 0.08;
+		this.mover.update(dt, wishX, wishY, runHeld, jumpPressed, jumpHeld);
+		this.vx = this.mover.vx;
+		this.vy = this.mover.vy;
+		this.moving = this.mover.speed > 12;
+		this.facing = this.mover.facing();
+		this.dir = this.facing;
+		this.animT = this.mover.animT;
+		this.bob = this.moving ? Math.sin(this.animT * 2) * 3.2 : Math.sin(this.animT) * 0.6;
+		if (this.mover.jumped) {
+			audio.jump();
+			this.addTrauma(JUICE.trauma.jump);
+		}
+		if (this.mover.landed || (wasAir && this.mover.grounded)) {
+			audio.land();
+			this.addTrauma(JUICE.trauma.land);
+			this.punch = Math.max(this.punch, 0.2);
+		}
+		const plant = Math.sin(this.mover.animT);
+		if (this.moving && this.mover.grounded && plant > 0 && this.plantSign <= 0) {
+			audio.foot(this.clock, this.mover.state === "run");
+		}
+		this.plantSign = plant;
+		}
+		const rad = driving ? 26 : 14;
+		let nx = this.px + this.vx * dt;
+		let ny = this.py + this.vy * dt;
+		if (this.mode === "basketball") {
+			const court = POIS.find((p) => p.id === "court")!;
+			nx = clamp(nx, court.x + 18, court.x + court.w - 18);
+			ny = clamp(ny, court.y + 36, court.y + court.h - 16);
+		} else {
+			nx = clamp(nx, 62, WORLD_PX_W - 48 - rad);
+			ny = clamp(ny, 62, WORLD_PX_H - 48 - rad);
+		}
+		if (driving && !this.race.active && !this.playtestNoclip && !this.drivePointOk(nx, this.py)) {
+			nx = this.px;
+			this.vx = 0;
+		}
+		if (!this.collides(nx, this.py, rad)) this.px = nx;
+		else {
+			this.mover.vx = 0;
+			if (driving) this.vx = 0;
+		}
+		if (driving && !this.race.active && !this.playtestNoclip && !this.drivePointOk(this.px, ny)) {
+			ny = this.py;
+			this.vy = 0;
+		}
+		if (!this.collides(this.px, ny, rad)) this.py = ny;
+		else {
+			this.mover.vy = 0;
+			if (driving) this.vy = 0;
+		}
+	}
+	collides(x: number, y: number, r: number) {
+		if (this.playtestNoclip) return false;
+		const indoor = POIS.some((p) => (p.id === "store" || p.id === "apartment" || p.id === "lanes") && x >= p.x && x <= p.x + p.w && y >= p.y && y <= p.y + p.h);
+		for (const w of this.walls) if (x + r > w.x && x - r < w.x + w.w && y + r > w.y && y - r < w.y + w.h) return true;
+		for (const box of this.poiBoxes) if (circleHitsRect(x, y, r, box)) return true;
+		if (!this.vehicle) {
+			const van = POIS.find((p) => p.id === "dropvan");
+			if (van && circleHitsRect(x, y, r, { x: van.x + 8, y: van.y + 10, w: van.w - 16, h: van.h - 16 })) return true;
+			const lot = POIS.find((p) => p.id === "rcmworx");
+			if (lot) {
+				const sprinter = rcmParked(lot, "sprinter");
+				const escalade = rcmParked(lot, "escalade");
+				if (circleHitsRect(x, y, r, { x: sprinter.x - 28, y: sprinter.y - 16, w: 56, h: 32 })) return true;
+				if (circleHitsRect(x, y, r, { x: escalade.x - 26, y: escalade.y - 16, w: 52, h: 32 })) return true;
+			}
+		}
+		if (this.vehicle && (carBlocked(x, y, r + 10) || inCourtPx(x, y))) return true;
+		if (!indoor) {
+			if (!this.vehicle) {
+				for (const t of this.trees) {
+					if (dist(x, y, t.x, t.y) < r + 18) return true;
+				}
+			}
+		}
+		if (!indoor && this.mode !== "basketball" && this.mover.air < 0.55 && !this.vehicle) {
+			for (const c of this.cars) {
+				if (circleHitsRect(x, y, r, { x: c.x - c.w * 0.5, y: c.y - 11, w: c.w, h: 22 })) return true;
+			}
+		}
+		return false;
+	}
+	/** Driving stays on asphalt. A lot pull-out can only move toward the nearest street. */
+	private drivePointOk(x: number, y: number) {
+		if (isRoadPoint(x, y, 8)) return true;
+		if (isRoadPoint(this.px, this.py, 8)) return false;
+		const curb = nearestAsphalt(this.px, this.py);
+		const now = Math.hypot(this.px - curb.x, this.py - curb.y);
+		const next = Math.hypot(x - curb.x, y - curb.y);
+		return next < now - 0.4;
+	}
+	npcPos(id: string) {
+		return this.npcLive.find((n) => n.id === id) ?? {
+			x: 0,
+			y: 0,
+			id
+		};
+	}
+	updateProximity() {
+		this.nearPoi = null;
+		this.nearNpc = null;
+		this.nearPed = -1;
+		this.nearCar = -1;
+		this.interactHint = null;
+		this.hintWalk = false;
+		let bestPoi = 9999;
+		for (const p of POIS) {
+			if (p.id === "river") continue;
+			const d = dist(this.px, this.py, p.x + p.w / 2, p.y + p.h / 2);
+			if (d < Math.max(p.w, p.h) * .55 + 44 && d < bestPoi) {
+				bestPoi = d;
+				this.nearPoi = p.id;
+			}
+		}
+		if (onRiverfront(this.px, this.py) && !this.nearPoi) this.nearPoi = "river";
+		const wasInHQ = this.hqInside;
+		this.hqInside = insideHQ(this.px, this.py);
+		if (wasInHQ && !this.hqInside) commerce.cancelStoreOffer();
+		if (this.foodApproach && this.foodApproach !== this.nearPoi) this.foodApproach = null;
+		let best = 92;
+		const lanes = POIS.find((p) => p.id === "lanes");
+		for (const n of this.npcLive) {
+			// HQ's actor and outside locals cannot be interacted with through walls.
+			if (n.id === "k_blanco" ? !this.hqInside : this.hqInside) continue;
+			if (n.id === "lane_clerk" && lanes && !insidePoi(this.px, this.py, lanes, 8)) continue;
+			const d = dist(this.px, this.py, n.x, n.y);
+			if (d < best && (n.id !== "k_blanco" || d < 56)) {
+				best = d;
+				this.nearNpc = n.id;
+			}
+		}
+		if (!this.nearNpc && !this.hqInside) {
+			let bestPed = 56;
+			for (let i = 0; i < this.peds.length; i++) {
+				const p = this.peds[i]!;
+				if (p.inside) continue;
+				const d = dist(this.px, this.py, p.x, p.y);
+				if (d < bestPed) {
+					bestPed = d;
+					this.nearPed = i;
+				}
+			}
+		}
+		if (!this.vehicle) {
+			let bestCar = 48;
+			for (let i = 0; i < this.cars.length; i++) {
+				const c = this.cars[i]!;
+				const d = dist(this.px, this.py, c.x, c.y);
+				if (d < bestCar && c.laneId !== "RIVAL" && c.laneId !== "RACER") {
+					bestCar = d;
+					this.nearCar = i;
+				}
+			}
+		}
+		const tap = this.input.device === "touch";
+		if (this.vehicle) {
+			if (this.race.active && this.race.phase === "green") {
+				const next = RACE_CHECKPOINTS[this.race.player.next]!;
+				this.interactHint = `${this.race.place === 1 ? "1ST" : "2ND"} · ${next.name}`;
+				return;
+			}
+			if (this.race.active && this.race.phase === "countdown") {
+				this.interactHint = "Wait for green";
+				return;
+			}
+			if (this.nearPoi && this.nearPoi !== "dropvan" && this.nearPoi !== "rcmworx") {
+				this.interactHint = `Pull up · ${POIS.find((x) => x.id === this.nearPoi)?.name ?? "spot"}`;
+			} else if (this.rcmJob) {
+				this.interactHint = this.rcmChauffeur ? (tap ? "Sit back · Rico driving" : "Rico's got it · E on arrival") : (tap ? "Drive to the drop · PARK to arrive" : "WASD · E park on arrival");
+			} else this.interactHint = tap ? "PARK · stick to drive" : "E park it · WASD drive";
+			return;
+		}
+		if (this.nearNpc) {
+			const name = NPCS.find((x) => x.id === this.nearNpc)?.name ?? "local";
+			this.interactHint = `Talk to ${name}`;
+		} else if (this.nearPoi === "store") {
+			this.interactHint = atHqShowroom(this.px, this.py) ? "Browse HQ fits" : this.hqInside ? "Find K Blanco · showroom on the right" : "Walk through the HQ doors";
+			this.hintWalk = !atHqShowroom(this.px, this.py);
+		} else if (this.nearPoi === "apartment") {
+			const apt = POIS.find((p) => p.id === "apartment")!;
+			const inside = this.px >= apt.x && this.px <= apt.x + apt.w && this.py >= apt.y && this.py <= apt.y + apt.h;
+			if (inside) {
+				const wake = this.mission.steps.find((s) => s.id === "wake");
+				if (wake && !wake.done) {
+					this.interactHint = "Walk south · leave home";
+					this.hintWalk = true;
+				}
+			} else {
+				const atDoor =
+					this.py > apt.y + apt.h - 8 &&
+					this.py < apt.y + apt.h + 64 &&
+					this.px > apt.x + 20 &&
+					this.px < apt.x + apt.w - 20;
+				if (atDoor) {
+					this.interactHint = tap ? "Walk in · home" : "Walk inside";
+					this.hintWalk = true;
+				}
+			}
+		} else if (this.nearPoi === "court") this.interactHint = tap ? "TAP · hoop · lanes east" : halloweenOn() ? "E · After Dark hoop" : "E · hoop · 901 Lanes is the pink building east";
+		else if (this.nearPoi === "haunt") this.interactHint = tap ? "TAP · haunted house" : "E · 10 Letters After Dark";
+		else if (this.nearPoi === "lanes") {
+			const lanes = POIS.find((p) => p.id === "lanes")!;
+			const inside = insidePoi(this.px, this.py, lanes, 0);
+			if (this.bowl.active) this.interactHint = this.bowl.phase === "over" ? (tap ? "TAP · bowl again" : "E · another game") : null;
+			else if (inside) this.interactHint = tap ? "TAP · bowl a game" : "E · bowl a game · 901 Lanes";
+			else {
+				this.interactHint = tap ? "Walk in · 901 Lanes" : "Walk inside · 901 Lanes";
+				this.hintWalk = true;
+			}
+		}
+		else if (this.nearPoi === "river") this.interactHint = tap ? "TAP · fish the Mississippi" : "E · fish the Mississippi";
+		else if (this.nearPoi === "strip") this.interactHint = tap ? "TAP · race Cam" : "E · 901 Strip race vs Cam";
+		else if (isFoodTruck(this.nearPoi)) {
+			const truck = foodTruckById(this.nearPoi)!;
+			if (this.foodApproach === truck.id) {
+				this.interactHint = tap ? "TAP · order" : "E · order";
+			} else if (truck.id === "foodtruck" && this.cooler.length) {
+				const fish = this.cooler[0]!;
+				this.interactHint = tap ? `TAP · walk up · grill ${fish.name}` : `E · walk up · grill ${fish.name}`;
+			} else {
+				this.interactHint = tap ? `TAP · walk up · ${truck.tag}` : `E · walk up · ${truck.name}`;
+			}
+		}
+		else if (this.nearPoi === "alley") this.interactHint = this.unlocks.has("gold_alley") ? "Gold Alley" : "Gold Alley · 25 Respect";
+		else if (this.nearPoi === "welcome") this.interactHint = tap ? "TAP · Welkome packages" : "E · Welkome packages · 30 days";
+		else if (this.nearPoi === "rcmworx") this.interactHint = tap ? "TAP · book RCM WORX" : "E · RCM WORX · Sprinter & Escalade";
+		else if (this.nearPoi === "listenpost") this.interactHint = tap ? "TAP · open artist slot" : "E · artist listening post · OPEN";
+		else if (this.nearPoi === "billboard") this.interactHint = tap ? "TAP · premium billboard" : "E · premium $250 billboard · OPEN";
+		else if (this.nearPoi === "beale" || this.nearPoi === "culture") this.interactHint = this.jooking ? (tap ? "JOOK to stop" : "E / J stop jookin") : (tap ? "JOOK to dance" : "J or E · jook");
+		else if (this.jooking) this.interactHint = tap ? "JOOK to stop" : "Jookin · J / JOOK to stop";
+		if (!this.interactHint) {
+			if (this.nearPoi === "dropvan") this.interactHint = "Hop in the drop van";
+			else if (this.nearPed >= 0) this.interactHint = "Talk";
+			else if (this.nearCar >= 0) this.interactHint = "Hop in the whip";
+			else if (this.nearPoi && this.nearPoi !== "apartment") this.interactHint = `Explore ${POIS.find((x) => x.id === this.nearPoi)?.name ?? this.nearPoi}`;
+		}
+	}
+	nearJook() {
+		const beale = POIS.find((p) => p.id === "beale");
+		const culture = POIS.find((p) => p.id === "culture");
+		const on = (p: { x: number; y: number; w: number; h: number } | undefined, pad = 36) =>
+			!!p && this.px >= p.x - pad && this.px <= p.x + p.w + pad && this.py >= p.y - pad && this.py <= p.y + p.h + pad;
+		return on(beale) || on(culture);
+	}
+	toggleJook() {
+		if (this.vehicle || this.mode === "basketball" || this.mode === "shop" || this.mode === "dialogue" || this.bowl.active) return;
+		this.jooking = !this.jooking;
+		if (this.jooking) {
+			this.showToast("Jookin · Memphis feet");
+			audio.ui();
+		} else {
+			if (this.jookT > 1.2) {
+				this.showToast("Cypher closed · Respect up");
+				this.save();
+			}
+			this.jookT = 0;
+		}
+		this.emitHud();
+	}
+	startJook() {
+		if (!this.jooking) this.toggleJook();
+	}
+	updateJookin(dt: number, _held: boolean, pressed = false) {
+		if (this.vehicle || this.mode === "basketball" || this.mode === "shop" || this.mode === "dialogue" || this.cinematic) {
+			this.jooking = false;
+			this.jookT = 0;
+			return;
+		}
+		if (pressed) this.toggleJook();
+		if (!this.jooking) return;
+		this.jookT += dt;
+		this.mover.heading += dt * 5.4;
+		this.facing = this.mover.facing();
+		this.dir = this.facing;
+		this.mover.animT += dt * 12;
+		this.mover.lean = Math.sin(this.clock * 13) * 0.42;
+		this.bob = 5 + Math.abs(Math.sin(this.clock * 16)) * 8;
+		const floorBonus = this.nearJook();
+		if (Math.floor(this.jookT * 2) !== Math.floor((this.jookT - dt) * 2)) {
+			this.respect += floorBonus ? 2 : 1;
+			this.sackdollars += floorBonus ? 2 : 1;
+			this.float(floorBonus ? "JOOK +2" : "JOOK +1", PAL.gold);
+		}
+		if (this.jookT > 8) this.unlockTrophy("city_legend");
+	}
+	buyFood() {
+		if (!isFoodTruck(this.nearPoi)) return;
+		if (this.foodApproach === this.nearPoi) this.openFood(this.nearPoi);
+		else this.approachFoodTruck(this.nearPoi);
+	}
+	approachFoodTruck(id: FoodTruckId) {
+		const poi = POIS.find((p) => p.id === id);
+		const truck = foodTruckById(id);
+		if (!poi || !truck) return;
+		this.px = poi.x + poi.w / 2;
+		this.py = poi.y - 18;
+		this.yaw = Math.PI;
+		this.mover.reset(this.yaw);
+		this.applyYawToFacing();
+		this.foodApproach = id;
+		this.showToast("At the window · E to order");
+		audio.confirm();
+		this.emitHud();
+	}
+	openFood(id: FoodTruckId) {
+		const truck = foodTruckById(id);
+		if (!truck) return;
+		this.foodMenu = id;
+		audio.confirm();
+		this.showToast(truck.tag, 1.2);
+		this.emitHud();
+	}
+	closeFood() {
+		if (!this.foodMenu) return;
+		this.foodMenu = null;
+		audio.ui();
+		this.emitHud();
+	}
+	openSponsor() {
+		this.sponsorOpen = true;
+		audio.confirm();
+		this.showToast("Welkome · 2 + 2 slots · 30 days", 1.4);
+		this.emitHud();
+	}
+	closeSponsor() {
+		if (!this.sponsorOpen) return;
+		this.sponsorOpen = false;
+		audio.ui();
+		this.emitHud();
+	}
+	openRcm() {
+		this.rcmMenu = true;
+		if (!this.rcmPick) this.rcmPick = "sprinter";
+		if (!this.rcmDest) this.rcmDest = "pyramid";
+		audio.confirm();
+		this.showToast(RCM.motto, 1.6);
+		this.emitHud();
+	}
+	closeRcm() {
+		if (!this.rcmMenu) return;
+		this.rcmMenu = false;
+		audio.ui();
+		this.emitHud();
+	}
+	pickRcmVehicle(id: string) {
+		this.rcmPick = id === "escalade" ? "escalade" : "sprinter";
+		audio.ui();
+		this.emitHud();
+	}
+	pickRcmDrop(id: string) {
+		this.rcmDest = (rcmDrop(id).id) as LocationId;
+		audio.ui();
+		this.emitHud();
+	}
+	bookRcm(vehicle: RcmVehicleId, dest: LocationId, chauffeur = false) {
+		this.rcmPick = vehicle;
+		this.rcmDest = dest;
+		this.rcmMenu = false;
+		this.rcmJob = true;
+		this.rcmChauffeur = chauffeur;
+		const v = rcmVehicle(vehicle);
+		const d = rcmDrop(dest);
+		const fare = rcmFare(vehicle, this.rcmRuns);
+		this.enterVehicle(vehicle);
+		this.showToast(
+			chauffeur
+				? `Rico · ${d.name} · ${this.rcmRuns <= 0 ? "partner rate $" : "$"}${fare}`
+				: `${v.name.split(" ").pop()} · ${d.name} · $${fare}`,
+			2.4,
+		);
+		this.emitHud();
+	}
+	tryFinishRcm() {
+		if (!this.rcmJob || !this.rcmDest || !this.vehicle) return false;
+		const dest = POIS.find((p) => p.id === this.rcmDest);
+		if (!dest) return false;
+		const tx = dest.x + dest.w / 2;
+		const ty = dest.id === "river" ? dest.y - 36 : dest.y + dest.h + 28;
+		const curb = nearestAsphalt(tx, ty);
+		const atRing = dist(this.px, this.py, tx, ty) <= RCM_ARRIVE;
+		const atCurb = dist(this.px, this.py, curb.x, curb.y) < 46 && dist(curb.x, curb.y, tx, ty) < 170;
+		if (!atRing && !atCurb) return false;
+		const v = rcmVehicle(this.rcmPick);
+		const fare = rcmFare(v.id, this.rcmRuns);
+		this.sackdollars += fare;
+		this.respect += 3;
+		this.rcmRuns += 1;
+		this.float(`+$${fare}`, "#c9a84c");
+		this.showToast(this.rcmRuns === 1 ? `${RCM.motto} · partner rate` : RCM.motto, 2.8);
+		this.burst(this.px, this.py, "#c9a84c");
+		audio.cash();
+		if (this.rcmRuns >= 3) {
+			this.unlockTrophy("always_ready");
+			this.completeSide("vip_runs");
+		}
+		this.rcmJob = false;
+		this.rcmChauffeur = false;
+		this.exitVehicle(true);
+		this.save();
+		this.emitHud();
+		return true;
+	}
+	cancelRcm() {
+		this.rcmJob = false;
+		this.rcmChauffeur = false;
+		this.exitVehicle(true);
+		this.showToast("Ride cancelled");
+		this.emitHud();
+	}
+	setPlaytestOpen(on: boolean) {
+		this.playtestOpen = on;
+		this.emitHud();
+	}
+	setPlaytestNoclip(on: boolean) {
+		this.playtestNoclip = on;
+		this.showToast(on ? "Noclip on · walk through anything" : "Noclip off");
+		this.emitHud();
+	}
+	warpTo(loc: string) {
+		if (this.mode === "basketball") this.exitBasketball();
+		if (this.haunt) this.haunt = null;
+		if (this.bowl.active) this.leaveBowl();
+		if (this.mode === "shop") this.closeShop();
+		if (this.foodMenu) this.closeFood();
+		if (this.rcmMenu) this.closeRcm();
+		if (this.mode === "dialogue") {
+			this.mode = "world";
+			this.dialogue = null;
+		}
+		this.exitVehicle();
+		this.cinematic = null;
+		if (this.fish.active) this.stopFishing();
+		const p = POIS.find((x) => x.id === loc);
+		if (!p) return;
+		this.px = p.x + p.w / 2;
+		this.py = p.id === "river" ? p.y - 28 : p.id === "store" || p.id === "apartment" || p.id === "lanes" ? p.y + p.h * 0.72 : p.y + p.h + 24;
+		this.leftSpawn = true;
+		this.yaw = 0;
+		this.updateProximity();
+		this.showToast(`Warped · ${p.name}`);
+		this.emitHud();
+	}
+	grantCash(n = 200) {
+		this.sackdollars += n;
+		this.float(`+$${n}`, "#c9a84c");
+		if (this.sackdollars >= 400) this.unlockTrophy("deep_pockets");
+		this.save();
+		this.emitHud();
+	}
+	grantRespect(n = 10) {
+		this.respect += n;
+		this.applyRespectUnlocks();
+		this.float(`+${n} Respect`, "#1db954");
+		this.save();
+		this.emitHud();
+	}
+	setWorldHour(h: number) {
+		this.worldHour = ((h % 24) + 24) % 24;
+		this.showToast(`Clock · ${Math.floor(this.worldHour) % 12 || 12}${this.worldHour >= 12 ? "PM" : "AM"}`);
+		this.emitHud();
+	}
+	forceDropLive() {
+		if (this.dropLive) {
+			this.showToast("Drop already live");
+			return;
+		}
+		this.dropLive = true;
+		audio.dropLive = true;
+		this.unlockTrophy("drop_live");
+		this.seedDropLiveCity();
+		this.showToast("DROP LIVE · forced");
+		this.save();
+		this.emitHud();
+	}
+	unlockAllFits() {
+		for (const a of APPAREL) {
+			if (a.irlOnly) continue;
+			if (!this.owned.includes(a.id)) this.owned.push(a.id);
+		}
+		this.grantTourTees();
+		this.checkSideOwn();
+		this.showToast("Locker full");
+		this.save();
+		this.emitHud();
+	}
+	orderFood(itemId: string) {
+		const base = foodTruckById(this.foodMenu);
+		if (!base) return;
+		const truck = menuFor(base);
+		const item = truck.items.find((it) => it.id === itemId);
+		if (!item) return;
+		if (item.fish && !this.cooler.length) {
+			this.showToast("Catch a fish at the river, then bring it here");
+			audio.ui();
+			return;
+		}
+		if (this.sackdollars < item.price) {
+			this.showToast(`Need $${item.price}`);
+			audio.ui();
+			return;
+		}
+		this.sackdollars -= item.price;
+		const fish = item.fish ? this.cooler.shift() ?? null : null;
+		const name = mealName(item, fish);
+		this.respect += item.respect + (fish?.legendary ? 2 : 0);
+		this.fedT = Math.max(this.fedT, fish ? 34 : 22);
+		this.eaten.add(truck.id);
+		if (fish) this.completeSide("catch_grill");
+		if (isSeasonFood(item.id)) this.noteHalloween("food");
+		if (truck.id === "velis") this.completeSide("velis_plate");
+		if (truck.id === "brothers") this.completeSide("brothers_crown");
+		if (this.eaten.size >= 3) this.unlockTrophy("block_eats");
+		this.foodMenu = null;
+		const extra = fish ? ` · ${fish.weightLb} lb` : "";
+		if (fish) this.sackdollars += Math.round(8 + fish.weightLb * 3);
+		this.foodServe = { truckId: truck.id, t: 2.2, duration: 2.2, item: name + extra };
+		this.showToast("Order up · at the window");
+		audio.confirm();
+		this.save();
+		this.emitHud();
+	}
+	startFishing() {
+		if (this.vehicle || this.mode === "basketball" || this.mode === "shop" || this.mode === "dialogue" || this.bowl.active) return;
+		this.jooking = false;
+		this.fish = beginFishing(this.fish, this.px, this.py);
+		this.yaw = Math.PI;
+		this.pitch = -0.1;
+		this.showToast(halloweenOn() ? "After Dark river · hold to cast" : "Mississippi · hold to cast, set the hook, reel the green");
+		audio.interact();
+		this.emitHud();
+	}
+	stopFishing() {
+		this.fish = cancelFishing(this.fish);
+		this.emitHud();
+	}
+	inLanes() {
+		const lanes = POIS.find((p) => p.id === "lanes");
+		return !!lanes && insidePoi(this.px, this.py, lanes, 4);
+	}
+	startBowl() {
+		if (this.vehicle || this.mode === "basketball" || this.mode === "shop" || this.mode === "dialogue") return;
+		const lanes = POIS.find((p) => p.id === "lanes");
+		if (!lanes || !this.inLanes()) return;
+		this.jooking = false;
+		const cx = lanes.x + lanes.w / 2;
+		const cy = lanes.y + lanes.h / 2;
+		const lane = nearestLane(this.px, this.py, cx, cy);
+		this.bowl = startBowlState(lane);
+		const spot = laneApproachGame(cx, cy, lane);
+		this.px = spot.x;
+		this.py = spot.y;
+		this.yaw = 0;
+		this.facing = "up";
+		this.mover.reset(this.yaw);
+		this.showToast(halloweenOn() ? "901 Lanes · purple light, orange pocket" : "901 Lanes · 10 frames · pocket's right");
+		audio.whoosh();
+		this.emitHud();
+	}
+	leaveBowl(pay = true) {
+		if (!this.bowl.active) return;
+		if (pay && (this.bowl.total > 0 || this.bowl.frames.some((f) => f.rolls.length))) {
+			const payOut = this.bowl.phase === "over" ? this.bowl.payout : payoutFor(this.bowl);
+			if (payOut > 0) {
+				this.sackdollars += payOut;
+				this.float(`+$${payOut}`, "#1db954");
+				this.showToast(`Lanes payout: +$${payOut} $ackdollars`);
+				audio.cash();
+			}
+			if (this.bowl.total > this.bowlingHighScore) this.bowlingHighScore = this.bowl.total;
+			this.save();
+		}
+		this.bowl = idleBowl();
+		this.emitHud();
+	}
+	beginBowlCharge() {
+		if (!this.bowl.active) return;
+		if (this.bowl.phase === "over") {
+			this.startBowl();
+			return;
+		}
+		if (this.bowl.phase !== "setup") return;
+		const lanes = POIS.find((p) => p.id === "lanes");
+		if (lanes) {
+			const cx = lanes.x + lanes.w / 2;
+			const cy = lanes.y + lanes.h / 2;
+			this.bowl.lane = nearestLane(this.px, this.py, cx, cy);
+			const spot = laneApproachGame(cx, cy, this.bowl.lane);
+			this.px = spot.x;
+			this.py = spot.y;
+			this.yaw = 0;
+			this.facing = "up";
+		}
+		this.bowl = beginBowlChargeState(this.bowl);
+		audio.interact();
+		this.emitHud();
+	}
+	releaseBowl() {
+		if (!this.bowl.active || this.bowl.phase !== "charging") return;
+		this.bowl = releaseRoll(this.bowl);
+		audio.bowlRoll();
+		this.emitHud();
+	}
+	updateBowling(dt: number, act: { mx: number; lookX: number; shootPressed: boolean; shootReleased: boolean; run: boolean; my: number; shoot: boolean }) {
+		const frozen = this.bowl.phase === "charging" || this.bowl.phase === "rolling" || this.bowl.phase === "pins" || this.bowl.phase === "mark";
+		if (frozen) this.updatePlayer(dt, 0, 0, false, false, false);
+		else this.updatePlayer(dt, act.mx, act.my, act.run, false, false);
+		if (this.bowl.phase === "setup" && act.shootPressed) this.beginBowlCharge();
+		if (this.bowl.phase === "charging" && act.shootReleased) this.releaseBowl();
+		const prev = this.bowl.phase;
+		this.bowl = tickBowl(this.bowl, dt, act.lookX + act.mx * 0.45);
+		if (prev === "rolling" && this.bowl.phase === "pins") {
+			audio.pinCrash(this.bowl.lastKnocked);
+			if (this.bowl.gutter) audio.groan();
+		}
+		if (prev === "pins" && this.bowl.phase === "mark") {
+			const mark = this.bowl.lastMark;
+			if (mark === "STRIKE") {
+				audio.strike();
+				this.punch = 1;
+				this.celebrate = 1;
+				this.addTrauma(0.42);
+				const turkey = this.bowl.turkey >= 3;
+				this.float(halloweenOn() ? (turkey ? "TRIPLE TROUBLE" : "MONSTER STRIKE") : turkey ? "TURKEY" : "STRIKE", "#d4af37");
+				if (halloweenOn()) {
+					this.tonight.strike = true;
+					this.payTonight("strike", "Monster strike");
+					this.noteHalloween("bowling");
+				}
+				if (this.bowl.turkey >= 3) {
+					this.unlockTrophy("lane_king");
+					this.completeSide("turkey_night");
+				}
+			} else if (mark === "SPARE") {
+				audio.cheer();
+				this.float("SPARE", "#1db954");
+			} else if (mark === "GUTTER") {
+				this.float("GUTTER", "#8a8174");
+			} else if (this.bowl.lastKnocked > 0) {
+				this.float(`${this.bowl.lastKnocked}`, "#f5f0e1");
+			}
+		}
+		if (prev !== "over" && this.bowl.phase === "over") {
+			this.bowl.payout = payoutFor(this.bowl);
+			this.float(`${this.bowl.total}`, "#d4af37");
+			this.showToast(`Game ${this.bowl.total} · +$${this.bowl.payout}${halloweenOn() && this.bowl.total >= 200 ? " · AFTER DARK GAME" : ""}`);
+			if (this.bowl.total > this.bowlingHighScore) this.bowlingHighScore = this.bowl.total;
+			audio.cash();
+			this.save();
+		}
+	}
+	updateFishing(dt: number, hold: boolean, pressed: boolean, released: boolean) {
+		const tap = this.input.device === "touch";
+		const { next, event } = tickFishing(this.fish, dt, hold, pressed, released, this.clock, this.px);
+		const prevPhase = this.fish.phase;
+		this.fish = next;
+		if (event === "splash") audio.splash();
+		if (event === "nibble") audio.nibble();
+		if (event === "strike") audio.interact();
+		if (event === "snap" || event === "fail") audio.groan();
+		if (event === "catch" && next.fish) {
+			this.sackdollars += next.payout;
+			this.respect += next.fish.respect;
+			this.cooler.unshift({
+				id: next.fish.id,
+				name: next.fish.name,
+				weightLb: next.weightLb,
+				legendary: next.legendary,
+			});
+			if (this.cooler.length > 8) this.cooler.length = 8;
+			audio.catchFish();
+			audio.cash();
+			if (next.fish && SEASON_FISH.has(next.fish.id)) {
+				this.noteHalloween("fishing");
+				this.tonight.fish += 1;
+				if (this.tonight.fish >= 2) this.payTonight("fish", "Two season fish");
+			}
+			this.unlockTrophy("river_rat");
+			this.completeSide("river_catch");
+			this.showToast(
+				next.legendary
+					? `${next.fish.name} · ${next.weightLb} lb · in the cooler`
+					: `${next.fish.name} · ${next.weightLb} lb · take it to Catch Kitchen`,
+			);
+			this.save();
+		}
+		if (prevPhase !== next.phase || event) this.emitHud();
+		this.interactHint = fishingHud(this.fish, tap).prompt;
+	}
+	tryInteract() {
+		if (!this.started || this.paused || this.cinematic) return;
+		if (this.haunt) {
+			this.hauntUse();
+			return;
+		}
+		if (this.fish.active) {
+			if (this.fish.phase === "catch" || this.fish.phase === "fail") this.fish = { ...this.fish, window: 0 };
+			else this.stopFishing();
+			this.emitHud();
+			return;
+		}
+		if (this.bowl.active) {
+			if (this.bowl.phase === "over") this.startBowl();
+			else if (this.bowl.phase === "setup") this.beginBowlCharge();
+			this.emitHud();
+			return;
+		}
+		if (this.mode === "dialogue") {
+			this.advanceDialogue();
+			return;
+		}
+		const now = performance.now();
+		if (now - this.lastInteract < 140) return;
+		this.lastInteract = now;
+		this.mover.triggerInteract();
+		audio.interact();
+		this.uiPulse = 1;
+		this.addTrauma(JUICE.trauma.interact);
+		if (this.mode === "shop") return;
+		if (this.vehicle) {
+			if (this.race.active && this.race.phase !== "finish") {
+				this.showToast("Finish the lap or Leave race");
+				return;
+			}
+			if (this.rcmJob && this.tryFinishRcm()) return;
+			if (this.nearPoi && this.nearPoi !== "dropvan" && this.nearPoi !== "rcmworx") {
+				const step = this.activeQuest().steps[this.activeQuest().activeStep];
+				if (step && !step.done && step.target === this.nearPoi && (step.kind === "deliver" || step.kind === "goto")) {
+					this.tryMissionAction(this.nearPoi);
+					return;
+				}
+			}
+			this.exitVehicle();
+			return;
+		}
+		if (this.mode === "basketball") {
+			return;
+		}
+		if (this.nearPoi === "apartment") {
+			const apt = POIS.find((p) => p.id === "apartment");
+			if (apt && this.px >= apt.x && this.px <= apt.x + apt.w && this.py >= apt.y && this.py <= apt.y + apt.h) {
+				const step = this.activeQuest().steps[this.activeQuest().activeStep];
+				if (step?.id === "wake" && !step.done) this.showToast("Walk south through the doorway.", 2.2);
+				return;
+			}
+		}
+		if (this.nearPoi) {
+			const step = this.activeQuest().steps[this.activeQuest().activeStep];
+			if (step && !step.done && step.target === this.nearPoi && (step.kind === "deliver" || step.kind === "pickup" || step.kind === "goto")) {
+				this.tryMissionAction(this.nearPoi);
+				if (this.nearPoi === "dropvan") this.enterVehicle("van");
+				return;
+			}
+		}
+		if (this.nearPoi === "rcmworx") {
+			this.openRcm();
+			return;
+		}
+		if (this.nearNpc) {
+			this.openDialogue(this.nearNpc);
+			return;
+		}
+		if (this.nearPoi === "strip") {
+			this.raceMenu = true;
+			this.emitHud();
+			return;
+		}
+		if (this.nearPoi === "river" || (!this.nearPoi && onRiverfront(this.px, this.py))) {
+			this.startFishing();
+			return;
+		}
+		if (this.nearPoi === "haunt") {
+			this.enterHaunt();
+			return;
+		}
+		if (this.nearPoi === "court") {
+			this.openCourtMenu();
+			return;
+		}
+		if (this.nearPoi === "lanes") {
+			const lanes = POIS.find((p) => p.id === "lanes");
+			const inside = lanes && insidePoi(this.px, this.py, lanes, 0);
+			if (!inside) return;
+			if (!this.bowl.active || this.bowl.phase === "over") this.startBowl();
+			else if (this.bowl.phase === "setup") this.beginBowlCharge();
+			return;
+		}
+		if (this.nearPoi === "store") {
+			const step = this.mission.steps[this.mission.activeStep];
+			if (step && (step.kind === "talk" || step.kind === "return") && !step.done && this.nearNpc === "k_blanco") {
+				this.openDialogue("k_blanco");
+				return;
+			}
+			if (atHqShowroom(this.px, this.py)) this.openShop();
+			else this.showToast(this.hqInside ? "Browse fits at the showroom on the right." : "Walk through the HQ doors.");
+			return;
+		}
+		if (isFoodTruck(this.nearPoi)) {
+			if (this.foodApproach === this.nearPoi) this.openFood(this.nearPoi);
+			else this.approachFoodTruck(this.nearPoi);
+			return;
+		}
+		if (this.nearPoi === "welcome" || this.nearPoi === "listenpost" || this.nearPoi === "billboard") {
+			this.noteHalloween("sponsor");
+			this.openSponsor();
+			if (this.nearPoi === "welcome") this.completeSide("welkome_board");
+			return;
+		}
+		if (this.nearPoi === "alley") {
+			if (!this.unlocks.has("gold_alley")) {
+				this.showToast("Gold Alley opens at 25 Respect");
+				return;
+			}
+			this.completeSide("gold_alley");
+			this.showToast("Gold Alley · after-hours drop");
+			return;
+		}
+		if (this.nearPoi === "beale" || this.nearPoi === "culture") {
+			if (this.nearPed >= 0) {
+				this.openPedTalk(this.nearPed);
+				return;
+			}
+			this.toggleJook();
+			return;
+		}
+		if (this.nearPoi === "dropvan") {
+			this.tryMissionAction("dropvan");
+			this.enterVehicle("van");
+			return;
+		}
+		if (this.nearPed >= 0) {
+			this.openPedTalk(this.nearPed);
+			return;
+		}
+		if (this.nearCar >= 0) {
+			this.enterVehicle("car", this.nearCar);
+			return;
+		}
+		if (this.nearPoi) this.tryMissionAction(this.nearPoi);
+	}
+	openDialogue(npcId: string) {
+		const n = NPCS.find((x) => x.id === npcId);
+		if (!n) return;
+		audio.talk();
+		this.talked.add(npcId);
+		this.checkSideTalk();
+		this.dialogueNpcId = npcId;
+		this.dialogueIndex = 0;
+		const step = this.activeQuest().steps[this.activeQuest().activeStep];
+		if (n.isKBlanco && step && step.kind === "talk" && !step.done && step.id === "link_k") this.dialogueLines = [n.missionTalk ?? "Tonight is Drop Day.", "Grab the van, hit three spots, then come back to me."];
+		else if (n.isKBlanco && step && step.kind === "return" && !step.done && step.id === "return") this.dialogueLines = ["You moved the city, Benji. That's Respect. The drop is live.", "Shop the wall anytime. Wear it like you earned it."];
+		else if (n.isKBlanco && step && step.kind === "return" && !step.done && step.id === "afterparty") this.dialogueLines = [...AFTER_HOURS_LINES];
+		else if (n.isKBlanco && this.afterHours.complete) this.dialogueLines = ["Night's yours. Side jobs still print Respect. Don't disappear."];
+		else if (n.isKBlanco && this.dropLive && this.missionComplete) this.dialogueLines = [...DROP_LIVE_LINES];
+		else this.dialogueLines = halloweenOn() ? [...n.dialogue, halloweenNpcLine(n.id)] : [...n.dialogue];
+		this.dialogue = {
+			speaker: n.name,
+			text: this.dialogueLines[0] ?? "..."
+		};
+		this.mode = "dialogue";
+		this.emitHud();
+	}
+	advanceDialogue() {
+		if (!this.dialogue) return;
+		audio.talk();
+		this.dialogueIndex++;
+		if (this.dialogueIndex >= this.dialogueLines.length) {
+			if (NPCS.find((x) => x.id === this.dialogueNpcId)?.isKBlanco) {
+				const step = this.activeQuest().steps[this.activeQuest().activeStep];
+				if (step && step.kind === "talk" && !step.done) this.completeStep(step.id);
+				if (step && step.kind === "return" && !step.done) this.completeStep(step.id);
+			}
+			if (this.dialogueNpcId === "supporter_1") this.tryMissionAction("neighborhood");
+			if (this.dialogueNpcId === "downtown_fan") this.tryMissionAction("downtown");
+			if (this.dialogueNpcId === "culture_host") this.tryMissionAction("culture");
+			if (this.dialogueNpcId === "photog" && this.dropLive) {
+				this.completeSide("photo_op");
+				this.completeStep("flash");
+			}
+			if (this.dialogueNpcId === "cam") this.raceMenu = true;
+			if (this.dialogueNpcId === "rcm_chauffeur") this.openRcm();
+			this.mode = "world";
+			this.dialogue = null;
+			this.dialogueNpcId = null;
+			this.dialogueLines = [];
+			this.emitHud();
+			return;
+		}
+		this.dialogue = {
+			speaker: this.dialogue.speaker,
+			text: this.dialogueLines[this.dialogueIndex]
+		};
+		this.emitHud();
+	}
+	tryMissionAction(loc: LocationId) {
+		const quest = this.activeQuest();
+		const step = quest.steps[quest.activeStep];
+		if (!step || step.done) {
+			return;
+		}
+		if (step.target && step.target !== loc) {
+			if ((step.kind === "deliver" || step.kind === "pickup") && this.run.active) {
+				const scored = loc === "store" || loc === "court" || loc === "dropvan" || loc === "neighborhood" || loc === "downtown" || loc === "culture";
+				if (scored) noteMistake(this.run);
+			}
+			this.showToast(`Objective: ${step.label}`);
+			return;
+		}
+		if (step.kind === "pickup" && loc === "dropvan") {
+			this.completeStep(step.id);
+			this.burst(this.px, this.py, "#1db954");
+			this.showToast("Drop secured. Hit the next stop.");
+			return;
+		}
+		if (step.kind === "deliver" && step.target === loc) {
+			this.completeStep(step.id);
+			this.burst(this.px, this.py, "#d4af37");
+			this.showToast(`Moved product at ${POIS.find((p) => p.id === loc)?.name ?? loc}`);
+			return;
+		}
+		if (step.kind === "goto") this.completeStep(step.id);
+	}
+	checkMissionAuto() {
+		const quest = this.activeQuest();
+		const step = quest.steps[quest.activeStep];
+		if (!step || step.done) return;
+		if (step.id === "wake" && this.leftSpawn) {
+			const apt = POIS.find((p) => p.id === "apartment");
+			if (apt && !insidePoi(this.px, this.py, apt, 50)) {
+				this.completeStep("wake");
+				this.showToast("Memphis is open. Head to SackReligious HQ.");
+			}
+		}
+		if (this.mission.complete && this.nearPoi === "alley" && this.unlocks.has("gold_alley")) {
+			this.completeStep("alleywalk");
+			this.completeSide("gold_alley");
+		}
+	}
+	checkSideVisits() {
+		for (const s of this.side) {
+			if (s.done || s.kind !== "visit" || !s.target) continue;
+			if (s.id === "gold_alley" && !this.unlocks.has("gold_alley")) continue;
+			if (s.id === "night_van") continue;
+			if (this.nearPoi === s.target) this.completeSide(s.id);
+		}
+	}
+	checkSideTalk() {
+		const s = this.side.find((x) => x.id === "city_tour");
+		if (s && !s.done && this.talked.size >= (s.need ?? 6)) this.completeSide("city_tour");
+	}
+	checkSideOwn() {
+		const s = this.side.find((x) => x.id === "full_fit");
+		if (s && !s.done && this.owned.length >= (s.need ?? 4)) this.completeSide("full_fit");
+		if (this.owned.filter((id) => !id.startsWith("hw_") && !APPAREL.find((a) => a.id === id)?.irlOnly).length >= APPAREL.filter((a) => !a.irlOnly && !a.id.startsWith("hw_")).length) this.unlockTrophy("full_closet");
+	}
+	completeSide(id: string) {
+		const s = this.side.find((x) => x.id === id);
+		if (!s || s.done) return;
+		s.done = true;
+		this.sackdollars += s.reward;
+		this.respect += 4;
+		this.float(`+$${s.reward}`, "#1db954");
+		this.showToast(`SIDE MISSION · ${s.title}`);
+		this.applyRespectUnlocks();
+		audio.mission();
+		this.save();
+	}
+	completeStep(id: string) {
+		const ch2 = this.afterHours.steps.find((s) => s.id === id);
+		if (ch2 && this.mission.complete) {
+			this.completeAfterHours(id);
+			return;
+		}
+		const step = this.mission.steps.find((s) => s.id === id);
+		if (!step || step.done) return;
+		step.done = true;
+		this.sackdollars += step.reward;
+		this.respect += Math.ceil(step.reward / 10);
+		this.burst(this.px, this.py - 20, "#1db954");
+		this.float(`+$${step.reward}`, "#1db954");
+		this.addTrauma(step.kind === "deliver" ? JUICE.trauma.deliver : step.kind === "pickup" ? JUICE.trauma.pickup : JUICE.trauma.cash);
+		if (this.settings.rumble) this.input.rumble(90, .25, .4);
+		this.uiPulse = 1;
+		if (id === "pickup") {
+			this.run.active = true;
+			this.run.time = 0;
+			this.lastDeliveryAt = this.clock;
+			audio.deliver();
+			this.hitstop = JUICE.hitstop.pickup;
+			this.addPunch(JUICE.punch.deliver);
+		} else if (step.kind === "deliver") {
+			const interval = this.lastDeliveryAt > 0 ? this.clock - this.lastDeliveryAt : 0;
+			const gained = scoreDelivery(this.run, interval, this.currentTier().parSeconds);
+			this.lastDeliveryAt = this.clock;
+			this.float(`COMBO x${this.run.combo}`, PAL.gold, this.px, this.py - 78);
+			if (gained > 420) this.float("FAST", PAL.gold);
+			audio.deliver();
+			audio.combo(this.run.combo);
+			this.hitstop = JUICE.hitstop.deliver;
+			this.addPunch(JUICE.punch.deliver);
+		} else {
+			audio.cash();
+		}
+		this.showToast(`+$${step.reward} $ackdollars · ${step.label}`);
+		analytics.track("mission_completed", { stepId: id, label: step.label, reward: step.reward });
+		commerce.notifyMissionComplete(this.mission.id, id);
+		if (id === "wake") this.unlockTrophy("first_steps");
+		if (id === "link_k") this.unlockTrophy("family");
+		if (id === "ball") this.unlockTrophy("baller");
+		const next = this.mission.steps.findIndex((s) => !s.done);
+		if (next === -1) {
+			this.mission.complete = true;
+			this.missionComplete = true;
+			this.mission.activeStep = this.mission.steps.length;
+			this.respect += 25;
+			const result = finalizeRun(this.run, this.currentTier().parSeconds, 180, 18);
+			this.sackdollars += result.bonusDollars;
+			this.respect += result.bonusRespect;
+			this.bestRunScore = Math.max(this.bestRunScore, this.run.points);
+			this.bestGrade = !this.bestGrade || gradeRank(result.grade) >= gradeRank(this.bestGrade) ? result.grade : this.bestGrade;
+			if (result.bonusDollars > 0) this.float(`GRADE ${result.grade} +$${result.bonusDollars}`, PAL.gold);
+			this.unlockTrophy("drop_day");
+			this.beginDropLive(result.grade);
+			analytics.track("chapter_completed", { chapter: this.mission.chapter, grade: result.grade });
+			commerce.notifyChapterComplete(this.mission.chapter);
+			commerce.runComplete({
+				score: this.run.points,
+				durationMs: this.run.time * 1000,
+				level: this.mission.chapter,
+			});
+			if (result.grade === "S") this.unlockTrophy("sackrow_s");
+		} else {
+			this.mission.activeStep = next;
+			const upcoming = this.mission.steps[next];
+			if (upcoming) analytics.track("mission_started", { stepId: upcoming.id, label: upcoming.label });
+		}
+		if (this.respect >= 40) this.unlockTrophy("city_legend");
+		if (this.sackdollars >= 400) this.unlockTrophy("deep_pockets");
+		this.applyRespectUnlocks();
+		this.save();
+		this.emitHud();
+	}
+	unlockTrophy(id: TrophyId) {
+		if (this.trophies.includes(id)) return;
+		const def = TROPHIES.find((t) => t.id === id);
+		if (!def) return;
+		this.trophies.push(id);
+		this.trophyPopup = {
+			name: def.name,
+			rank: def.rank,
+			t: 4.2
+		};
+		audio.trophy();
+		commerce.unlock(`trophy:${id}`, def.name);
+		this.save();
+		this.emitHud();
+	}
+	beginDropLive(grade: string) {
+		this.dropLive = true;
+		this.dropLiveSeq = 8;
+		this.celebrate = 1;
+		this.crowdPulse = 1;
+		if (this.worldHour < 19) this.worldHour = 19.15;
+		this.unlockTrophy("drop_live");
+		this.seedDropLiveCity();
+		this.cinematic = {
+			kind: "droplive",
+			title: "DROP LIVE",
+			subtitle: `IN THE $ACK, WE TRUST  ·  GRADE ${grade}`,
+			t: 0,
+			duration: 6.4,
+		};
+		audio.dropAnthem();
+		audio.grade(grade);
+		this.addTrauma(JUICE.trauma.complete);
+		this.addPunch(1);
+		this.hitstop = 0.22;
+		this.showToast("DROP LIVE · Chapter 02 After Hours is open");
+	}
+	completeAfterHours(id: string) {
+		const step = this.afterHours.steps.find((s) => s.id === id);
+		if (!step || step.done) return;
+		step.done = true;
+		this.sackdollars += step.reward;
+		this.respect += Math.ceil(step.reward / 8);
+		this.burst(this.px, this.py - 20, "#c9a84c");
+		this.float(`+$${step.reward}`, PAL.gold);
+		audio.mission();
+		this.uiPulse = 1;
+		this.showToast(`AFTER HOURS · ${step.label}`);
+		commerce.notifyMissionComplete(this.afterHours.id, id);
+		const next = this.afterHours.steps.findIndex((s) => !s.done);
+		if (next === -1) {
+			this.afterHours.complete = true;
+			this.afterHours.activeStep = this.afterHours.steps.length;
+			this.respect += 20;
+			this.unlockTrophy("after_hours");
+			this.cinematic = {
+				kind: "afterhours",
+				title: "AFTER HOURS",
+				subtitle: "THE NIGHT IS YOURS",
+				t: 0,
+				duration: 4.4,
+			};
+			this.letterbox = 1;
+			audio.dropAnthem();
+			commerce.notifyChapterComplete(this.afterHours.chapter);
+			this.showToast("AFTER HOURS · side jobs still print Respect");
+		} else {
+			this.afterHours.activeStep = next;
+			const upcoming = this.afterHours.steps[next];
+			if (upcoming) analytics.track("mission_started", { stepId: upcoming.id, label: upcoming.label });
+		}
+		this.applyRespectUnlocks();
+		this.save();
+		this.emitHud();
+	}
+	seedDropLiveCity() {
+		boostDropLive(this.peds, this.walks);
+		if (this.cars.length < 70) {
+			const lanes = [...this.laneMap.values()];
+			const colors = ["#0d0d0d", "#c9a84c", "#1db954", "#f5f0e1", "#171717"];
+			let extra = 0;
+			for (const lane of lanes) {
+				if (extra > 16) break;
+				const vel = laneVelocity(lane, 0.45);
+				const along = lane.min + 40 + extra * 90;
+				this.cars.push({
+					x: lane.axis === "x" ? along : lane.fixed,
+					y: lane.axis === "y" ? along : lane.fixed,
+					vx: vel.vx,
+					vy: vel.vy,
+					w: 40,
+					color: colors[extra % colors.length]!,
+					laneId: lane.id,
+					skin: extra % 8,
+					braking: true,
+					yaw: lane.axis === "x" ? 0 : Math.PI / 2,
+					turnT: 0,
+					turnTo: null,
+					turnX: 0,
+					turnY: 0,
+					turn0x: 0,
+					turn0y: 0,
+				});
+				extra++;
+			}
+		}
+	}
+	repairMission() {
+		const undone = this.mission.steps.findIndex((s) => !s.done);
+		if (undone === -1 && this.mission.steps.length && this.mission.steps.every((s) => s.done)) {
+			this.mission.complete = true;
+			this.missionComplete = true;
+			this.dropLive = true;
+			this.mission.activeStep = this.mission.steps.length;
+		} else if (undone >= 0 && this.mission.activeStep !== undone && !this.mission.complete) {
+			this.mission.activeStep = undone;
+		}
+	}
+	applyRespectUnlocks() {
+		for (const m of dueMilestones(this.respect, this.unlocks)) {
+			this.unlocks.add(m.unlock);
+			this.showToast(m.toast);
+			if (m.unlock === "night_run" && !this.owned.includes("night_run")) {
+				/* shop unlock only */
+			}
+			if (m.unlock === "van_chrome") this.vanSkin = this.vanSkin ?? "chrome";
+			if (m.unlock === "van_gold") this.vanSkin = "gold";
+		}
+	}
+	applyVerifiedReward(reward: VerifiedReward) {
+		if (this.verifiedOrders.includes(reward.orderId)) return;
+		this.verifiedOrders.push(reward.orderId);
+		const g = reward.grants;
+		if (g.sackdollars) {
+			this.sackdollars += g.sackdollars;
+			this.float(`+$${g.sackdollars} IRL`, PAL.gold);
+		}
+		if (g.respect) this.respect += g.respect;
+		const fit = g.colorway ?? g.apparelId;
+		if (fit && APPAREL.some((a) => a.id === fit) && !this.owned.includes(fit)) {
+			this.owned.push(fit);
+			this.equipped = fit;
+			this.showToast(`Verified order · wearing ${APPAREL.find((a) => a.id === fit)?.name}`);
+		}
+		if (g.vanSkin) this.vanSkin = g.vanSkin;
+		if (g.badge) this.unlockTrophy(g.badge);
+		else this.unlockTrophy("irl_family");
+		this.applyRespectUnlocks();
+		this.save();
+		this.emitHud();
+	}
+	openShop() {
+		audio.confirm();
+		analytics.track("hq_entered", { location: "store" });
+		this.cinematic = {
+			kind: "enter",
+			title: "SACKRELIGIOUS HQ",
+			subtitle: "IN THE $ACK, WE TRUST",
+			t: 0,
+			duration: 1.15
+		};
+		this.shopOpen = true;
+		this.mode = "shop";
+		this.emitHud();
+	}
+	closeShop() {
+		this.shopOpen = false;
+		this.mode = "world";
+		audio.ui();
+		this.emitHud();
+	}
+	enterVehicle(kind: "van" | "car" | "sprinter" | "escalade", carIndex = -1) {
+		if (this.vehicle || this.mode !== "world") return;
+		this.vehicle = { kind, carIndex };
+		if (kind === "car" && carIndex >= 0) {
+			const c = this.cars[carIndex];
+			if (c) {
+				this.px = c.x;
+				this.py = c.y;
+			}
+		}
+		if (kind === "sprinter" || kind === "escalade") {
+			const lot = POIS.find((p) => p.id === "rcmworx");
+			if (lot) {
+				const park = rcmParked(lot, kind);
+				this.px = park.x;
+				this.py = park.y;
+				this.yaw = park.yaw;
+			}
+			this.showToast(kind === "sprinter" ? "Sprinter · 8 pax luxury" : "Escalade ESV · executive");
+		} else {
+			this.showToast(kind === "van" ? (this.input.device === "touch" ? "Drop van · stick to roll" : "Drop van · WASD to roll") : (this.input.device === "touch" ? "Whip hopped · stick to roll" : "Whip hopped · WASD to roll"));
+		}
+		if (kind === "van" && this.dropLive && (this.worldHour >= 20 || this.worldHour < 5)) this.completeSide("night_van");
+		if (kind === "van" && this.mission.complete) this.completeStep("nightvan");
+		audio.whoosh();
+		this.emitHud();
+	}
+	exitVehicle(silent = false) {
+		if (!this.vehicle) return;
+		const v = this.vehicle;
+		if (v.kind === "car" && v.carIndex >= 0) {
+			const c = this.cars[v.carIndex];
+			if (c) {
+				this.px = c.x + 28;
+				this.py = c.y + 18;
+			}
+		}
+		this.vehicle = null;
+		if (!silent) this.showToast("Parked it");
+		audio.ui();
+		this.emitHud();
+	}
+	startRace(skipCountdown = false) {
+		if (this.mode === "basketball") this.exitBasketball();
+		if (this.mode === "shop") this.closeShop();
+		this.mode = "world";
+		this.dialogue = null;
+		this.raceMenu = false;
+		this.cinematic = null;
+		this.courtMenu = false;
+		if (this.vehicle) this.exitVehicle();
+		const best = this.race.bestTime;
+		this.clearRaceCars();
+		this.race = beginRace(best);
+		if (skipCountdown) {
+			this.race.phase = "green";
+			this.race.countdown = 0;
+		}
+		this.px = this.race.player.x;
+		this.py = this.race.player.y;
+		this.yaw = this.race.player.yaw;
+		this.vx = 0;
+		this.vy = 0;
+		this.spawnPlayerRaceCar();
+		this.spawnRivalCar();
+		this.vehicle = { kind: "car", carIndex: this.playerRaceCarIndex };
+		audio.whoosh();
+		this.showToast(skipCountdown ? "GREEN · pumpkin markers live" : halloweenOn() ? "After Dark grid · arrows, fog, pumpkin boosts" : "Grid locked · arrows on the turns");
+		this.emitHud();
+	}
+	closeRaceMenu() {
+		this.raceMenu = false;
+		this.emitHud();
+	}
+	leaveRace() {
+		if (!this.race.active) return;
+		this.showToast("DNF · bailed the 901");
+		this.endRace(true);
+	}
+	dismissRaceRecap() {
+		this.race.recap = false;
+		this.endRace(false);
+	}
+	private spawnPlayerRaceCar() {
+		this.cars.push({
+			x: this.race.player.x,
+			y: this.race.player.y,
+			vx: 0,
+			vy: 0,
+			w: 46,
+			color: "#1db954",
+			laneId: "RACER",
+			skin: 3,
+			braking: false,
+			yaw: this.race.player.yaw,
+			turnT: 0,
+			turnTo: null,
+			turnX: 0,
+			turnY: 0,
+			turn0x: 0,
+			turn0y: 0,
+		});
+		this.playerRaceCarIndex = this.cars.length - 1;
+	}
+	private spawnRivalCar() {
+		this.cars.push({
+			x: this.race.rival.x,
+			y: this.race.rival.y,
+			vx: 0,
+			vy: 0,
+			w: 46,
+			color: "#c9a84c",
+			laneId: "RIVAL",
+			skin: 2,
+			braking: false,
+			yaw: this.race.rival.yaw,
+			turnT: 0,
+			turnTo: null,
+			turnX: 0,
+			turnY: 0,
+			turn0x: 0,
+			turn0y: 0,
+		});
+		this.rivalCarIndex = this.cars.length - 1;
+	}
+	private clearRivalCar() {
+		this.clearRaceCars();
+	}
+	private clearRaceCars() {
+		this.cars = this.cars.filter((c) => c.laneId !== "RIVAL" && c.laneId !== "RACER");
+		this.rivalCarIndex = -1;
+		this.playerRaceCarIndex = -1;
+	}
+	private syncRivalCar() {
+		if (this.rivalCarIndex < 0 || !this.cars[this.rivalCarIndex] || this.cars[this.rivalCarIndex]?.laneId !== "RIVAL") {
+			this.rivalCarIndex = this.cars.findIndex((x) => x.laneId === "RIVAL");
+		}
+		const c = this.cars[this.rivalCarIndex];
+		if (!c) return;
+		c.x = this.race.rival.x;
+		c.y = this.race.rival.y;
+		c.vx = this.race.rival.vx;
+		c.vy = this.race.rival.vy;
+		c.yaw = this.race.rival.yaw;
+		c.braking = false;
+		if (this.playerRaceCarIndex < 0 || !this.cars[this.playerRaceCarIndex] || this.cars[this.playerRaceCarIndex]?.laneId !== "RACER") {
+			this.playerRaceCarIndex = this.cars.findIndex((x) => x.laneId === "RACER");
+		}
+		const p = this.cars[this.playerRaceCarIndex];
+		if (p && this.vehicle?.kind === "car") {
+			this.vehicle.carIndex = this.playerRaceCarIndex;
+			p.x = this.px;
+			p.y = this.py;
+			p.vx = this.vx;
+			p.vy = this.vy;
+			p.yaw = this.yaw;
+		}
+	}
+	updateRace(dt: number, tap: ArrowDir | null = null) {
+		if (!this.race.active) return;
+		if (this.race.phase === "countdown") {
+			const prev = Math.ceil(this.race.countdown);
+			this.race.countdown -= dt;
+			const next = Math.ceil(this.race.countdown);
+			if (next > 0 && next < prev) {
+				this.showToast(String(next), 0.85);
+				audio.ui();
+			}
+			if (this.race.countdown <= 0) {
+				this.race.phase = "green";
+				this.race.countdown = 0;
+				this.showToast("GREEN · hit the arrows");
+				audio.whoosh();
+				audio.grade("S");
+			}
+			this.px = this.race.player.x;
+			this.py = this.race.player.y;
+			this.yaw = this.race.player.yaw;
+			this.vx = 0;
+			this.vy = 0;
+			return;
+		}
+		if (this.race.phase !== "green") return;
+		this.race.time += dt;
+		const prevNext = this.race.player.next;
+		const prevCue = this.race.cue?.status;
+		tickRaceCues(this.race, dt, tap);
+		if (this.race.cue && this.race.cue.status === "hit" && prevCue === "live") {
+			audio.grade("S");
+			this.addTrauma(0.42);
+			this.showToast(this.race.combo > 1 ? `NITRO x${this.race.combo}` : "NITRO · CATCH CAM", 0.85);
+		} else if (this.race.cue && this.race.cue.status === "miss" && prevCue === "live") {
+			audio.ui();
+			this.showToast("MISS · SLOWED", 0.85);
+		}
+		const passed = tickAutoDrive(this.race.player, dt, this.race.cruise, 8);
+		if (passed) {
+			armNextSegment(this.race);
+			audio.ui();
+			if (halloweenOn()) {
+				this.sackdollars += 15;
+				this.race.boostT = Math.max(this.race.boostT, 0.85);
+				this.float("PUMPKIN", "#ff7a1a");
+			}
+			if (this.race.player.finished) {
+				this.race.player.finishT = this.race.time;
+				this.px = this.race.player.x;
+				this.py = this.race.player.y;
+				this.vx = this.race.player.vx;
+				this.vy = this.race.player.vy;
+				this.yaw = this.race.player.yaw;
+				this.finishRace();
+				return;
+			}
+			const next = RACE_CHECKPOINTS[this.race.player.next]!;
+			this.showToast(next.name, 1.1);
+		} else if (this.race.player.next !== prevNext) {
+			armNextSegment(this.race);
+		}
+		this.px = this.race.player.x;
+		this.py = this.race.player.y;
+		this.vx = this.race.player.vx;
+		this.vy = this.race.player.vy;
+		this.yaw = this.race.player.yaw;
+		this.moving = true;
+		const mph = Math.hypot(this.vx, this.vy) * 0.14;
+		this.trauma = Math.max(this.trauma, 0.05 + Math.min(0.16, mph / 520) + (this.race.boostT > 0 ? 0.18 : 0));
+		tickRival(this.race.rival, dt, progressOf(this.race.player), this.race.boostT > 0);
+		if (inCourtPx(this.race.player.x, this.race.player.y) || carBlocked(this.race.player.x, this.race.player.y, 14)) {
+			const safe = snapToRacePath(this.race.player.x, this.race.player.y, this.race.player.pathI);
+			this.race.player.x = safe.x;
+			this.race.player.y = safe.y;
+			this.race.player.pathI = safe.pathI;
+			this.px = safe.x;
+			this.py = safe.y;
+		}
+		if (inCourtPx(this.race.rival.x, this.race.rival.y) || carBlocked(this.race.rival.x, this.race.rival.y, 14)) {
+			const safe = snapToRacePath(this.race.rival.x, this.race.rival.y, this.race.rival.pathI);
+			this.race.rival.x = safe.x;
+			this.race.rival.y = safe.y;
+			this.race.rival.pathI = safe.pathI;
+		}
+		if (this.race.rival.finished && !this.race.player.finished) {
+			this.race.rival.finishT = this.race.rival.finishT || this.race.time;
+			this.finishRace();
+			return;
+		}
+		const pp = progressOf(this.race.player);
+		const rp = progressOf(this.race.rival);
+		this.race.place = pp >= rp ? 1 : 2;
+		if (halloweenOn()) {
+			this.hwDraftT = Math.max(0, this.hwDraftT - dt);
+			const gap = Math.hypot(this.race.player.x - this.race.rival.x, this.race.player.y - this.race.rival.y);
+			if (this.hwDraftT <= 0 && gap < 90) {
+				this.hwDraftT = 8;
+				this.race.boostT = Math.max(this.race.boostT, 0.7);
+				this.showToast("GHOST DRAFT", 0.8);
+			}
+		}
+		if (playerWrongWay(this.race.player, this.vx, this.vy)) {
+			this.race.wrongWay += dt;
+			if (this.race.wrongWay > 1.15 && this.race.wrongWay < 1.15 + dt + 0.02) this.showToast("Wrong way");
+		} else this.race.wrongWay = 0;
+	}
+	private finishRace() {
+		if (this.race.phase === "finish") return;
+		if (!this.race.rival.finished && this.race.player.finished) this.race.rival.finishT = this.race.time + 8;
+		if (!this.race.player.finished && this.race.rival.finished) this.race.player.finishT = this.race.time + 8;
+		settleRace(this.race);
+		const win = this.race.winner === "player";
+		this.sackdollars += this.race.payout;
+		this.respect += this.race.respect;
+		this.float(win ? "1ST" : "2ND", win ? PAL.gold : "#a8a29e");
+		this.showToast(win ? (halloweenOn() ? `AFTER DARK · 1ST · +$${this.race.payout}` : `YOU BEAT CAM · +$${this.race.payout}`) : `Cam took it · +$${this.race.payout}`);
+		if (win) {
+			if (halloweenOn()) {
+				this.tonight.race = true;
+				this.payTonight("race", "Win the loop");
+				this.noteHalloween("race");
+			}
+			this.unlockTrophy("strip_king");
+			this.completeSide("strip_kings");
+			audio.trophy();
+			audio.grade("S");
+		} else audio.mission();
+		this.applyRespectUnlocks();
+		this.save();
+		this.emitHud();
+	}
+	private debugCompleteRace(win: boolean) {
+		if (!this.race.active) this.startRace(true);
+		this.race.player.finished = win;
+		this.race.rival.finished = !win;
+		this.race.player.finishT = win ? this.race.time : this.race.time + 4;
+		this.race.rival.finishT = win ? this.race.time + 4 : this.race.time;
+		if (win) this.race.player.lap = 3;
+		else this.race.rival.lap = 3;
+		this.finishRace();
+	}
+	private endRace(dnf: boolean) {
+		this.race.phase = "idle";
+		this.race.active = false;
+		this.race.recap = false;
+		if (dnf) this.race.winner = null;
+		this.clearRaceCars();
+		if (this.vehicle) this.exitVehicle();
+		this.save();
+		this.emitHud();
+	}
+	openPedTalk(index: number) {
+		const p = this.peds[index];
+		if (!p) return;
+		audio.talk();
+		this.talked.add(`ped-${index}`);
+		this.checkSideTalk();
+		this.dialogueNpcId = `ped-${index}`;
+		this.dialogueIndex = 0;
+		const lines = halloweenOn()
+			? [halloweenNpcLine(`ped-${index}`)]
+			: [((PED_JOB_CHAT[p.job] ?? PED_CHAT)[index % (PED_JOB_CHAT[p.job] ?? PED_CHAT).length])!];
+		this.dialogueLines = lines;
+		this.dialogue = {
+			speaker: pedSpeaker(p),
+			text: this.dialogueLines[0] ?? "...",
+		};
+		p.svx = p.vx;
+		p.svy = p.vy;
+		p.vx = 0;
+		p.vy = 0;
+		p.freeze = 6;
+		this.mode = "dialogue";
+		this.emitHud();
+	}
+	private halloweenHud(): HudSnapshot["halloween"] {
+		if (!halloweenOn()) return null;
+		const room = this.haunt ? HAUNT_ROOMS[this.haunt.room] : null;
+		const got = room?.letter ? this.hw.letters.includes(room.id) : true;
+		const fit = this.equipped?.startsWith("hw_") ? this.equipped : "hw_doll";
+		return {
+			on: true,
+			letters: this.hw.letters.length,
+			lettersMax: HW_LETTERS,
+			master: this.hw.badge,
+			event: this.hwEvent?.text ?? null,
+			checklist: masterChecklist(this.hw),
+			tonight: [
+				{ id: "baskets", label: "Make 3 baskets", done: this.tonight.baskets >= 3 },
+				{ id: "fish", label: "Catch 2 seasonal fish", done: this.tonight.fish >= 2 },
+				{ id: "race", label: "Win one race", done: this.tonight.race },
+				{ id: "strike", label: "Bowl one strike", done: this.tonight.strike },
+				{ id: "haunt", label: "Visit the haunted house", done: this.tonight.haunt },
+			],
+			haunt: this.haunt && room ? {
+				room: this.haunt.room,
+				rooms: HAUNT_ROOMS.length,
+				name: room.name,
+				image: room.alt && this.hw.shootout && room.id === "cathedral" ? room.alt : room.image,
+				aspect: room.alt && this.hw.shootout && room.id === "cathedral" ? "16 / 9" : room.aspect,
+				objective: hauntDoorOpen(room, this.haunt.acted, got, this.hw.cleared) && room.gate !== "open" ? "Exit unlocked" : room.objective,
+				x: this.haunt.x,
+				y: this.haunt.y,
+				farY: room.farY,
+				nearY: room.nearY,
+				view: room.view,
+				tint: room.tint,
+				letter: this.haunt.halling || !room.letter ? null : { x: room.letter.x, y: room.letter.y, got },
+				hotspot: { x: room.hotspot.x, y: room.hotspot.y, label: room.verb, done: this.haunt.acted },
+				exits: room.exits.map((exit) => ({
+					x: exit.x,
+					y: room.nearY,
+					label: exit.label,
+					back: !!exit.back,
+					open: !!exit.back || hauntDoorOpen(room, this.haunt!.acted, got, this.hw.cleared),
+				})),
+				decoys: room.decoys,
+				action: {
+					x: room.hotspot.x,
+					y: room.hotspot.y,
+					label: room.verb,
+					done: this.haunt.halling || this.haunt.acted,
+				},
+				doorOpen: !this.haunt.halling && hauntDoorOpen(room, this.haunt.acted, got, this.hw.cleared),
+				scare: null,
+				note: this.haunt.note,
+				kind: room.kind,
+				letters: this.hw.letters.length,
+				lettersMax: HW_LETTERS,
+				found: this.hw.letters,
+				visited: this.hw.visited,
+				outfit: `/game/benji/outfits/${fit}/front.png`,
+				popped: this.haunt.popped,
+				hall: this.haunt.halling,
+				floorY: this.haunt.y,
+				walkMinX: room.walkMinX,
+				walkMaxX: room.walkMaxX,
+				doorX: room.doorX,
+				prompt: hauntPrompt(room, this.haunt, got, this.hw.cleared),
+				pop: this.haunt.scareT > 0 && this.haunt.scareImg ? { image: this.haunt.scareImg, line: this.haunt.scareLine ?? "", x: room.lurk.x, y: Math.max(0.2, room.lurk.y - 0.28) } : null,
+				lurk: this.haunt.popped || this.haunt.halling ? null : { image: room.scareImg, x: room.lurk.x, y: room.lurk.y },
+				face: room.face ?? null,
+				fore: room.fore ?? null,
+				benjiH: room.benjiH ?? 46,
+				steam: (room.kind === "steam" && !this.haunt.acted && this.clock % 2.4 >= 1.15) || (room.kind === "timing" && !this.haunt.acted && (Math.sin(this.clock * 2.6) + 1) / 2 <= 0.78),
+				step: this.haunt.puzzleStep,
+			} : null,
+		};
+	}
+	grantTourTees() {
+		for (const id of ["tour_black", "tour_white", "tour_red", "jersey_white_224", "jersey_blue_fresh", "jersey_black_fresh", "black_sackrow_11", "blue_901_day"] as const) {
+			if (!this.owned.includes(id)) this.owned.push(id);
+		}
+	}
+	grantSeasonFits() {
+		if (!halloweenOn()) return;
+		for (const id of ["hw_doll", "hw_sackrow", "hw_claw"] as const) {
+			if (!this.owned.includes(id)) this.owned.push(id);
+		}
+	}
+	private noteHalloween(kind: "fishing" | "bowling" | "race" | "food" | "sponsor" | "enter") {
+		if (!halloweenOn()) return;
+		if (kind === "fishing" && !this.hw.fishing) {
+			this.hw.fishing = true;
+			this.sackdollars += 25;
+			this.showToast("Season catch · Ghost water pays");
+		} else if (kind === "bowling" && !this.hw.bowling) {
+			this.hw.bowling = true;
+			this.showToast("Monster strike is on the board");
+		} else if (kind === "race" && !this.hw.race) {
+			this.hw.race = true;
+			this.sackdollars += 40;
+			this.showToast("After Dark loop cleared");
+		} else if (kind === "food" && !this.hw.food) {
+			this.hw.food = true;
+			this.fedT = Math.max(this.fedT, 36);
+			this.showToast("After Dark menu · legs feel lighter");
+		} else if (kind === "sponsor" && !this.hw.sponsor) {
+			this.hw.sponsor = true;
+			this.showToast("Sponsor slot checked");
+		} else if (kind === "enter" && !this.hw.entered) {
+			this.hw.entered = true;
+		}
+		this.finishHalloweenMaster();
+	}
+	private finishHalloweenMaster() {
+		if (!halloweenOn() || this.hw.badge || !masterReady(this.hw)) return;
+		this.hw.badge = true;
+		this.hw.houseComplete = true;
+		this.sackdollars += 250;
+		this.respect += 12;
+		this.unlockTrophy("after_dark");
+		this.showToast("HALLOWEEN MASTER");
+		audio.trophy();
+	}
+	private payTonight(id: string, label: string) {
+		if (this.tonight.paid.has(id)) return;
+		this.tonight.paid.add(id);
+		this.sackdollars += 20;
+		this.float("+20", "#ff7a1a");
+		this.showToast(`${label} · +$20`);
+	}
+	enterHaunt() {
+		if (!halloweenOn()) return;
+		this.haunt = enterHauntLive(this.hw.cleared);
+		this.hw.entered = true;
+		if (!this.hw.visited.includes("ticket")) this.hw.visited.push("ticket");
+		this.tonight.haunt = true;
+		this.payTonight("haunt", "Visit the house");
+		this.noteHalloween("enter");
+		audio.whoosh();
+		this.showToast("10 LETTERS AFTER DARK");
+		audio.groan();
+		this.emitHud();
+	}
+	leaveHaunt() {
+		if (!this.haunt) return;
+		const house = POIS.find((p) => p.id === "haunt");
+		this.haunt = null;
+		if (house) {
+			this.px = house.x + house.w / 2;
+			this.py = house.y + house.h + 36;
+			this.yaw = 0;
+		}
+		this.save();
+		this.emitHud();
+	}
+	hauntUse() {
+		if (!this.haunt) return;
+		const stepped = tickHaunt(this.haunt, 0, 0, 0, true, this.clock, this.hw.letters, this.hw.cleared);
+		this.applyHauntStep(stepped.live, stepped.event);
+	}
+	hauntCandle(n: number) {
+		if (!this.haunt) return;
+		const stepped = hauntOrderPress(this.haunt, n);
+		this.applyHauntStep(stepped.live, stepped.event);
+	}
+	private markHauntClear(live: HauntLive) {
+		const room = HAUNT_ROOMS[live.room];
+		if (!room || this.hw.cleared.includes(room.id)) return;
+		const got = !room.letter || this.hw.letters.includes(room.id);
+		if (hauntDoorOpen(room, live.acted, got, [])) this.hw.cleared.push(room.id);
+	}
+	private applyHauntStep(live: HauntLive, event: ReturnType<typeof tickHaunt>["event"]) {
+		this.haunt = live;
+		if (event === "letter") {
+			const room = HAUNT_ROOMS[live.room];
+			if (room && !this.hw.letters.includes(room.id)) {
+				this.hw.letters.push(room.id);
+				this.sackdollars += 15;
+				this.respect += 1;
+				this.float("LETTER", "#ff7a1a");
+				audio.swish();
+				this.showToast(`Letter ${this.hw.letters.length}/${HW_LETTERS} · +$15 · +1`);
+			}
+			this.markHauntClear(live);
+		} else if (event === "acted") {
+			audio.whoosh();
+			this.markHauntClear(live);
+		} else if (event === "pop") {
+			audio.scare();
+			if (this.settings.rumble) this.input.rumble(160, 0.55, 0.85);
+		} else if (event === "scare") {
+			audio.groan();
+		} else if (event === "hall") {
+			audio.whoosh();
+		} else if (event === "loot") {
+			this.sackdollars += 25;
+			this.float("+25", "#ff7a1a");
+			audio.cash();
+			this.showToast("Loose chain · +$25");
+		} else if (event === "next") {
+			audio.groan();
+			const arrived = HAUNT_ROOMS[live.room];
+			if (arrived && !this.hw.visited.includes(arrived.id)) this.hw.visited.push(arrived.id);
+		} else if (event === "shootout") {
+			this.startHalloweenShootout();
+			return;
+		}
+		if (this.hw.letters.length >= HW_LETTERS && this.hw.shootout) this.hw.houseComplete = true;
+		this.finishHalloweenMaster();
+		this.save();
+		this.emitHud();
+	}
+	private updateHaunt(dt: number, act: { mx: number; my: number; interactPressed: boolean; backPressed: boolean }) {
+		if (!this.haunt) return;
+		if (act.backPressed) {
+			this.leaveHaunt();
+			return;
+		}
+		const prevX = this.haunt.x;
+		const stepped = tickHaunt(this.haunt, dt, act.mx, act.my, act.interactPressed, this.clock, this.hw.letters, this.hw.cleared);
+		if (!stepped.live.halling && Math.abs(stepped.live.x - prevX) > 0.001) audio.foot(this.clock);
+		if (act.interactPressed || stepped.event) this.applyHauntStep(stepped.live, stepped.event);
+		else this.haunt = stepped.live;
+	}
+	startHalloweenShootout() {
+		if (!halloweenOn()) return;
+		this.shootoutLeaving = false;
+		this.haunt = null;
+		const court = POIS.find((p) => p.id === "court");
+		if (court) {
+			this.px = court.x + court.w / 2;
+			this.py = court.y + court.h - 46;
+		}
+		this.world3d?.setShootoutBackdrop(true);
+		this.startCourt("timed", true);
+	}
+	private settleHalloweenShootout() {
+		if (!this.halloweenShootout) return;
+		const score = this.ball.score;
+		this.hw.shootoutBest = Math.max(this.hw.shootoutBest, score);
+		if (score >= 10) {
+			if (!this.hw.letters.includes("cathedral")) this.hw.letters.push("cathedral");
+			this.hw.shootout = true;
+			this.hw.houseComplete = this.hw.letters.length >= HW_LETTERS;
+			this.sackdollars += 80;
+			this.respect += 6;
+			this.showToast("10 LETTERS SHOOTOUT CLEARED · back in Memphis");
+			this.finishHalloweenMaster();
+		} else this.showToast("Shootout short · the house is still open");
+		this.halloweenShootout = false;
+		this.world3d?.setShootoutBackdrop(false);
+	}
+	private tickWorldEvent(dt: number) {
+		if (!halloweenOn() || this.haunt || this.mode !== "world") return;
+		if (this.hwEvent) {
+			this.hwEvent.t -= dt;
+			if (this.hwEvent.kind === "pumpkin" && Math.hypot(this.px - this.hwEvent.x, this.py - this.hwEvent.y) < 70) {
+				this.sackdollars += 12;
+				this.float("+12", "#ff7a1a");
+				this.hwEvent = null;
+				return;
+			}
+			if (this.hwEvent.kind === "midnight") this.sackdollars += dt * 3;
+			if (this.hwEvent.t <= 0) this.hwEvent = null;
+			return;
+		}
+		this.hwEventWait -= dt;
+		if (this.hwEventWait > 0 || this.fish.active || this.bowl.active || this.race.active) return;
+		const pick = WORLD_EVENTS[Math.floor(Math.random() * WORLD_EVENTS.length)]!;
+		this.hwEvent = { kind: pick.kind, text: pick.text, t: 8 + Math.random() * 6, x: this.px + 80, y: this.py + 40 };
+		this.hwEventWait = 42 + Math.random() * 24;
+		this.showToast(pick.text, 2.2);
+	}
+	buyItem(id: ApparelId) {
+		const item = APPAREL.find((a) => a.id === id);
+		if (!item) return;
+		if (item.irlOnly && !this.owned.includes(id)) {
+			this.showToast("IRL Gold Drop · verified order only");
+			audio.ui();
+			return;
+		}
+		if (item.dropLiveRequired && !this.dropLive && !this.owned.includes(id)) {
+			this.showToast("Night Run unlocks after Drop Live");
+			audio.ui();
+			return;
+		}
+		if (item.respectRequired && this.respect < item.respectRequired && !this.owned.includes(id)) {
+			this.showToast(`Need ${item.respectRequired} Respect to unlock ${item.name}`);
+			audio.ui();
+			return;
+		}
+		if (this.owned.includes(id)) {
+			this.wearOutfit(id, `Equipped ${item.name}`);
+			return;
+		}
+		if (this.sackdollars < item.price) {
+			this.showToast("Not enough $ackdollars");
+			return;
+		}
+		this.sackdollars -= item.price;
+		this.owned.push(id);
+		this.respect += 3;
+		this.float(item.name, item.color);
+		this.burst(this.px, this.py, item.color);
+		audio.cash();
+		if (this.settings.rumble) this.input.rumble(70, .2, .35);
+		this.unlockTrophy("fresh_fit");
+		this.checkSideOwn();
+		if (this.sackdollars >= 400) this.unlockTrophy("deep_pockets");
+		this.wearOutfit(id, `Bought ${item.name}`);
+	}
+	wearOutfit(id: ApparelId, toast?: string) {
+		const item = APPAREL.find((a) => a.id === id);
+		if (!item) return;
+		this.equipped = id;
+		if (toast) this.showToast(toast);
+		audio.ui();
+		this.save();
+		this.emitHud();
+	}
+	/** Try-on the virtual fit that matches a real product, then BUY IRL can open checkout. */
+	wearProduct(id: ApparelId) {
+		const item = APPAREL.find((a) => a.id === id);
+		if (!item) return;
+		this.equipped = id;
+		this.showToast(`Wearing ${item.name} · same piece as the real drop`);
+		audio.ui();
+		this.save();
+		this.emitHud();
+	}
+	enterBasketball() {
+		this.startCourt(this.courtChallenge || "timed");
+	}
+	openCourtMenu() {
+		this.courtMenu = true;
+		this.emitHud();
+	}
+	setCourtVenue(id: string) {
+		this.courtVenue = venueFor(id).id;
+		this.showToast(venueFor(id).name);
+		this.save();
+		this.emitHud();
+	}
+	setCourtChallenge(mode: CourtChallenge) {
+		this.courtChallenge = mode;
+		this.emitHud();
+	}
+	setCourtDifficulty(id: CourtDifficulty) {
+		this.courtDifficulty = id;
+		this.emitHud();
+	}
+	cycleCourtDifficulty() {
+		this.courtDifficulty = cycleDifficulty(this.courtDifficulty);
+		this.showToast(`${DIFFICULTY[this.courtDifficulty].label} heat`);
+		this.emitHud();
+	}
+	startCourt(mode: CourtChallenge = "timed", shootout = false) {
+		audio.whoosh();
+		this.courtMenu = false;
+		this.halloweenShootout = !!shootout && halloweenOn();
+		this.courtChallenge = mode;
+		const spec = DIFFICULTY[this.courtDifficulty];
+		analytics.track("basketball_started", { target: spec.target, mode });
+		this.mode = "basketball";
+		const court = POIS.find((p) => p.id === "court")!;
+		if (!this.onCourt()) {
+			this.px = clamp(this.px, court.x + 24, court.x + court.w - 24);
+			this.py = clamp(this.py, court.y + 48, court.y + court.h - 18);
+		}
+		this.squareToHoop(1);
+		this.mover.reset(this.yaw);
+		this.ball.active = true;
+		this.ball.score = 0;
+		this.ball.shots = 0;
+		this.ball.inFlight = false;
+		this.ball.held = true;
+		this.ball.charging = false;
+		this.ball.power = 0;
+		this.ball.flash = 0;
+		this.ball.combo = 0;
+		this.ball.missionCredited = false;
+		this.ball.grade = "";
+		this.ball.ballZ = 36;
+		this.ball.heat = 0;
+		this.ball.releaseT = 0;
+		this.ball.pending = null;
+		this.ball.scrambleT = 0;
+		this.horseMisses = 0;
+		this.horseIndex = 0;
+		this.threesMade = 0;
+		this.courtStartedAt = performance.now();
+		if (mode === "threes") {
+			this.ball.timeLeft = 42;
+			this.ball.targetScore = 6;
+			this.showToast(`${venueFor(this.courtVenue).name} · 3-POINT · 6 makes from downtown`);
+		} else if (mode === "horse") {
+			this.ball.timeLeft = 999;
+			this.ball.targetScore = HORSE_CALLS.length;
+			this.showToast(`HORSE · call is ${HORSE_CALLS[0]} · miss = letter`);
+		} else if (mode === "pickup") {
+			this.ball.timeLeft = 9999;
+			this.ball.targetScore = 999;
+			this.showToast(`${venueFor(this.courtVenue).name} · pickup · hoop till you leave`);
+		} else if (this.halloweenShootout) {
+			this.ball.timeLeft = 80;
+			this.ball.targetScore = 10;
+			this.showToast("10 LETTERS SHOOTOUT · make 10");
+		} else {
+			this.ball.timeLeft = spec.time;
+			const night = this.activeQuest().steps[this.activeQuest().activeStep]?.id === "nightball";
+			this.ball.targetScore = night ? 10 : this.missionComplete ? spec.target : this.currentTier().courtTarget;
+			this.showToast(night ? `Night court · score ${this.ball.targetScore}` : halloweenOn() ? `${venueFor(this.courtVenue).name} · After Dark` : `${venueFor(this.courtVenue).name} · ${spec.label} · need ${this.ball.targetScore}`);
+		}
+		this.bark("Don't rush the release. Green window.");
+		this.emitHud();
+	}
+	private bark(line: string) {
+		this.ogBark = line;
+		this.ogBarkT = 2.6;
+	}
+	closeCourtMenu() {
+		this.courtMenu = false;
+		this.emitHud();
+	}
+	tryCreditBasketball() {
+		const step = this.activeQuest().steps[this.activeQuest().activeStep];
+		if (step?.kind === "basketball" && this.ball.score >= this.ball.targetScore && !step.done && !this.ball.missionCredited) {
+			this.ball.missionCredited = true;
+			this.completeStep(step.id);
+			analytics.track("basketball_completed", { score: this.ball.score, target: this.ball.targetScore });
+			this.showToast(step.id === "nightball" ? "Night court locked. Take the van after dark." : "Respect earned. Return to HQ when ready.");
+		}
+		const side = this.side.find((s) => s.id === "pickup_kings");
+		if (side && !side.done && this.ball.score >= (side.need ?? 16)) this.completeSide("pickup_kings");
+		if (this.courtChallenge === "threes" && this.threesMade >= 6) this.completeSide("downtown_threes");
+		if (this.courtChallenge === "horse" && this.horseIndex >= HORSE_CALLS.length) this.completeSide("horse_beat");
+		if (this.ball.score >= 20) this.unlockTrophy("court_king");
+		if (this.ball.score > this.highScore) this.highScore = this.ball.score;
+		if (this.mission.complete && this.ball.score >= 10) this.completeStep("nightball");
+	}
+	exitBasketball() {
+		const clearedShootout = this.halloweenShootout && this.ball.score >= 10;
+		this.settleHalloweenShootout();
+		this.tryCreditBasketball();
+		if (this.ball.shots > 0) {
+			this.courtBoard = pushBoard({
+				score: this.ball.score,
+				mode: this.courtChallenge,
+				difficulty: this.courtDifficulty,
+				combo: this.ball.best,
+				at: Date.now(),
+			});
+		}
+		const comboPay = Math.max(0, this.ball.combo) * 4;
+		const pay = this.ball.score * 5 + comboPay;
+		if (pay > 0) {
+			this.sackdollars += pay;
+			this.float(`+$${pay}`, "#1db954");
+			if (clearedShootout) this.showToast("10 LETTERS SHOOTOUT CLEARED · back in Memphis");
+			else this.showToast(`Court payout: +$${pay} $ackdollars`);
+			audio.cash();
+		} else if (clearedShootout) {
+			this.showToast("10 LETTERS SHOOTOUT CLEARED · back in Memphis");
+		}
+		this.mode = "world";
+		this.ball.charging = false;
+		this.ball.inFlight = false;
+		this.ball.held = true;
+		this.ball.heat = 0;
+		this.ball.active = this.onCourt();
+		if (this.ball.shots > 0 || this.courtChallenge !== "timed") {
+			commerce.runComplete({
+				score: this.ball.score,
+				durationMs: Math.max(0, performance.now() - (this.courtStartedAt || performance.now())),
+				level: `court-${this.courtChallenge}-${this.courtDifficulty}`,
+			});
+		}
+		this.save();
+		this.emitHud();
+	}
+	onCourt() {
+		const court = POIS.find((p) => p.id === "court");
+		if (!court) return false;
+		return this.px >= court.x - 10 && this.px <= court.x + court.w + 10 && this.py >= court.y - 6 && this.py <= court.y + court.h + 18;
+	}
+	hoops() {
+		const court = POIS.find((p) => p.id === "court")!;
+		const cx = court.x + court.w / 2;
+		const cy = court.y + court.h / 2;
+		return [
+			{ id: 0, x: cx, y: court.y + 22, z: 86, axis: "x" as const },
+			{ id: 1, x: cx, y: court.y + court.h - 22, z: 86, axis: "x" as const },
+			{ id: 2, x: court.x + 22, y: cy, z: 86, axis: "y" as const },
+			{ id: 3, x: court.x + court.w - 22, y: cy, z: 86, axis: "y" as const },
+		];
+	}
+	hoopById(id: number) {
+		return this.hoops()[id] ?? this.hoops()[0]!;
+	}
+	courtSpot() {
+		const hoop = this.hoop();
+		const d = dist(this.px, this.py, hoop.x, hoop.y);
+		const along = hoop.axis === "x" ? Math.abs(this.px - hoop.x) : Math.abs(this.py - hoop.y);
+		if (d < 72) return { zone: "close" as const, label: "LAYUP", pts: 2 };
+		if (d < 118) return { zone: "close" as const, label: "PAINT", pts: 2 };
+		if (along > 108 && d < 210) return { zone: "deep" as const, label: "CORNER", pts: 3 };
+		if (d < 168) return { zone: "mid" as const, label: "MID", pts: 2 };
+		if (d < 236) return { zone: "deep" as const, label: "THREE", pts: 3 };
+		return { zone: "deep" as const, label: "LOGO", pts: 4 };
+	}
+	squareToHoop(dt: number) {
+		const hoop = this.hoop();
+		const lookTo = Math.atan2(-(hoop.x - this.px), -(hoop.y - this.py));
+		let err = lookTo - this.yaw;
+		while (err > Math.PI) err -= Math.PI * 2;
+		while (err < -Math.PI) err += Math.PI * 2;
+		this.yaw += err * Math.min(1, dt * 11);
+		this.mover.heading = this.yaw;
+		this.applyYawToFacing();
+	}
+	canShoot() {
+		if (!this.started || this.paused || this.cinematic || this.vehicle || this.fish.active) return false;
+		if (this.mode === "shop" || this.mode === "dialogue" || this.mode === "menu" || this.mode === "interior") return false;
+		return this.mode === "basketball" || this.onCourt();
+	}
+	hoop() {
+		const court = POIS.find((p) => p.id === "court")!;
+		const list = this.hoops();
+		const f = this.fwd();
+		let best = list[0]!;
+		let bestScore = Infinity;
+		for (const h of list) {
+			const dx = h.x - this.px;
+			const dy = h.y - this.py;
+			const d = Math.hypot(dx, dy) || 1;
+			const align = (dx / d) * f.x + (dy / d) * f.y;
+			const score = d * (align > 0.12 ? 0.42 : 1.35);
+			if (score < bestScore) {
+				bestScore = score;
+				best = h;
+			}
+		}
+		return { ...best, court, sway: 0 };
+	}
+	updateBasketball(dt: number) {
+		if (this.onCourt() && !this.vehicle) {
+			this.ball.active = true;
+			if (!this.ball.inFlight && !this.ball.held && this.ball.releaseT <= 0 && this.ball.followThroughT <= 0) {
+				const reach = dist(this.px, this.py, this.ball.ballX, this.ball.ballY);
+				if (reach < 120 || this.ball.ballX === 0 || this.ball.returnIn > 0) this.giveBall();
+			}
+		}
+		if (this.ball.followThroughT > 0) this.ball.followThroughT = Math.max(0, this.ball.followThroughT - dt);
+		this.ball.heat = Math.max(0, this.ball.heat - dt * 0.045);
+		if (this.ball.flash > 0) this.ball.flash -= dt;
+		if (this.ogBarkT > 0) {
+			this.ogBarkT -= dt;
+			if (this.ogBarkT <= 0) this.ogBark = null;
+		}
+		this.crowdPulse = Math.max(0, this.crowdPulse - dt * 0.85);
+		if (this.mode === "basketball" && this.courtChallenge !== "horse") {
+			this.ball.timeLeft -= dt;
+			if (this.ball.timeLeft <= 0) {
+				this.ball.timeLeft = 0;
+				const shoot = this.halloweenShootout;
+				this.exitBasketball();
+				if (!shoot) this.showToast("Run over · keep shooting pickup");
+				return;
+			}
+		}
+		if (this.ball.releaseT > 0) {
+			this.ball.releaseT -= dt;
+			const f = this.fwd();
+			const r = this.right();
+			this.ball.ballX = this.px + f.x * 8 + r.x * 3;
+			this.ball.ballY = this.py + f.y * 8 + r.y * 3;
+			this.ball.ballZ = 62;
+			if (this.ball.releaseT <= 0 && this.ball.pending) {
+				this.ball.ballVx = this.ball.pending.vx;
+				this.ball.ballVy = this.ball.pending.vy;
+				this.ball.ballVz = this.ball.pending.vz;
+				this.ball.pending = null;
+				this.ball.inFlight = true;
+				this.ball.held = false;
+			}
+			return;
+		}
+		if (this.ball.charging && this.ball.held) {
+			this.ball.power = Math.min(1, this.ball.power + dt * 0.88);
+			if (this.ball.power >= 1) {
+				this.releaseShot();
+				// The normal release delay/flight path owns the separate ball.
+				return;
+			}
+		}
+		if (this.ball.held) {
+			const f = this.fwd();
+			const r = this.right();
+			const moving = Math.hypot(this.vx, this.vy) > 12;
+			if (this.ball.charging) {
+				const t = this.ball.power;
+				this.ball.ballX = this.px + f.x * (4 + t * 12) + r.x * (10 - t * 12);
+				this.ball.ballY = this.py + f.y * (4 + t * 12) + r.y * (10 - t * 12);
+				this.ball.ballZ = 22 + t * 48;
+			} else if (moving) {
+				const bounce = Math.abs(Math.sin(this.clock * 11));
+				this.ball.ballX = this.px + f.x * 7 + r.x * 12;
+				this.ball.ballY = this.py + f.y * 7 + r.y * 12;
+				this.ball.ballZ = 5 + bounce * 28;
+			} else {
+				this.ball.ballX = this.px + f.x * 4 + r.x * 11;
+				this.ball.ballY = this.py + f.y * 4 + r.y * 11;
+				this.ball.ballZ = 22;
+			}
+			if (moving) this.mover.animT += dt * 2.1;
+			return;
+		}
+		if (this.ball.inFlight || this.ball.ballZ > 8) {
+			this.ball.ballX += this.ball.ballVx * dt;
+			this.ball.ballY += this.ball.ballVy * dt;
+			this.ball.ballZ += this.ball.ballVz * dt;
+			this.ball.ballVz -= 780 * dt;
+			const hoop = this.hoopById(this.ball.hoopId);
+			const dx = this.ball.ballX - hoop.x;
+			const dy = this.ball.ballY - hoop.y;
+			let planar = Math.hypot(dx, dy);
+			const makeR = this.ball.shotDist < 125 ? 20 : Math.max(7.5, 12.5 - this.ball.heat * 3.4);
+			if (this.ball.ballVz < 0 && this.ball.ballZ <= hoop.z + 18 && this.ball.ballZ >= hoop.z - 28) {
+				if (this.ball.shotDist < 125 && planar < 28) {
+					this.ball.ballX += (hoop.x - this.ball.ballX) * 0.45;
+					this.ball.ballY += (hoop.y - this.ball.ballY) * 0.45;
+					planar = Math.hypot(this.ball.ballX - hoop.x, this.ball.ballY - hoop.y);
+				}
+				if (planar < makeR) {
+					const perfect = this.ball.grade === "PERFECT";
+					const label = this.ball.spotLabel;
+					const threeish = label === "THREE" || label === "CORNER" || label === "LOGO";
+					if (this.courtChallenge === "threes" && !threeish) {
+						this.bark(ogLine("miss", this.ball.shots));
+						this.ball.inFlight = false;
+						this.ball.ballVz = -40;
+						this.ball.ballVx *= 0.2;
+						this.ball.ballVy *= 0.2;
+					} else {
+					const pts = this.courtChallenge === "threes" ? 3 : perfect ? this.ball.spotPts + 1 : this.ball.spotPts;
+					this.ball.score += pts;
+					this.ball.combo += 1;
+					this.ball.best = Math.max(this.ball.best, this.ball.combo);
+					if (halloweenOn()) {
+						this.tonight.baskets += 1;
+						if (this.tonight.baskets >= 3) this.payTonight("baskets", "3 MADE");
+						const streak = this.ball.combo;
+						const call = streak >= 6 ? "SACKROW HEAT CHECK" : streak >= 4 ? "ON FIRE" : streak === 3 ? "3 MADE" : streak === 2 ? "2 MADE" : null;
+						if (call) this.float(call, streak >= 4 ? "#39ff14" : "#ff7a1a");
+						if (this.halloweenShootout && this.ball.score >= 10 && !this.shootoutLeaving) {
+							this.shootoutLeaving = true;
+							this.emitHud();
+							window.setTimeout(() => {
+								if (this.mode === "basketball") this.exitBasketball();
+							}, 1100);
+							return;
+						}
+					}
+					this.ball.heat = Math.min(1, this.ball.heat + (0.14 + (this.ball.spotPts >= 3 ? 0.08 : 0)) * DIFFICULTY[this.courtDifficulty].heat);
+					this.ball.flash = 0;
+					this.hoopPulse = perfect ? 0.85 : 0.62;
+					this.crowdPulse = perfect || this.ball.combo >= 3 ? 0.7 : 0.4;
+					if (this.run.active) scoreMake(this.run, perfect, shotZone(this.ball.shotDist), this.ball.combo);
+					if (perfect) audio.perfect();
+					else audio.swish();
+					if (this.ball.combo > 1) audio.combo(this.ball.combo);
+					if (perfect || threeish || this.ball.combo >= 3) audio.cheer();
+					if (this.settings.rumble) this.input.rumble(perfect ? 140 : 80, 0.3, 0.55);
+					if (this.courtChallenge === "threes" && threeish) this.threesMade += 1;
+					if (this.courtChallenge === "horse") {
+						const call = HORSE_CALLS[this.horseIndex] ?? "MID";
+						if (label === call) {
+							this.horseIndex += 1;
+							this.bark(ogLine("horseMake", this.horseIndex));
+							if (this.horseIndex >= HORSE_CALLS.length) {
+								this.completeSide("horse_beat");
+								this.tryCreditBasketball();
+								this.showToast("HORSE · you cleared the calls");
+							} else {
+								this.showToast(`Next call · ${HORSE_CALLS[this.horseIndex]}`);
+							}
+						} else {
+							this.bark("Wrong spot. That's the call, not yours.");
+						}
+					} else if (label === "LOGO") this.bark(ogLine("logo", this.ball.shots));
+					else if (threeish) this.bark(ogLine(perfect ? "perfect" : "three", this.ball.shots));
+					else if (this.ball.combo >= 3) this.bark(ogLine("streak", this.ball.combo));
+					else this.bark(ogLine(perfect ? "perfect" : "make", this.ball.shots));
+					this.tryCreditBasketball();
+					this.ball.inFlight = false;
+					this.ball.ballVz = -70;
+					this.ball.ballVx *= 0.12;
+					this.ball.ballVy *= 0.12;
+					this.ball.returnIn = 0.12;
+					}
+				} else if (planar < 22) {
+					this.ball.combo = 0;
+					this.ball.heat *= 0.55;
+					if (this.run.active) scoreMiss(this.run);
+					audio.rim();
+					audio.groan();
+					this.hoopPulse = 0.7;
+					this.crowdPulse = 0.15;
+					this.bark(ogLine("rim", this.ball.shots));
+					if (this.courtChallenge === "horse") this.horseLetter();
+					const nx = dx / (planar || 1);
+					const ny = dy / (planar || 1);
+					this.ball.ballVx = nx * 110 + Math.sin(this.clock * 9) * 40;
+					this.ball.ballVy = ny * 110 + Math.cos(this.clock * 7) * 40;
+					this.ball.ballVz = Math.abs(this.ball.ballVz) * 0.35 + 55;
+					this.ball.scrambleT = 0.01;
+				}
+			}
+			if (this.ball.inFlight && this.ball.shotDist >= 125 && planar < 28 && this.ball.ballZ > 50 && this.ball.ballZ < 120 && this.ball.ballVz < 0) {
+				this.ball.ballVy = Math.abs(this.ball.ballVy) * 0.45;
+				this.ball.ballVx *= 0.7;
+				this.hoopPulse = Math.max(this.hoopPulse, 0.4);
+				audio.rim();
+			}
+			const court = this.hoop().court;
+			if (this.ball.ballX < court.x - 80 || this.ball.ballX > court.x + court.w + 80) {
+				this.ball.ballVx *= 0.92;
+			}
+			if (this.ball.ballY < court.y - 80 || this.ball.ballY > court.y + court.h + 80) {
+				this.ball.ballVy *= 0.92;
+			}
+		}
+		if (this.ball.ballZ <= 8) {
+			this.ball.ballZ = 8;
+			if (Math.abs(this.ball.ballVz) > 80) {
+				this.ball.ballVz = Math.abs(this.ball.ballVz) * 0.48;
+				this.ball.ballVx *= 0.72;
+				this.ball.ballVy *= 0.72;
+				audio.bounce();
+			} else {
+				this.ball.ballVz = 0;
+				this.ball.ballVx *= 0.9;
+				this.ball.ballVy *= 0.9;
+				if (this.ball.inFlight) {
+					this.ball.inFlight = false;
+					this.ball.combo = 0;
+					this.bark(ogLine("air", this.ball.shots));
+					audio.groan();
+					if (this.courtChallenge === "horse") this.horseLetter();
+					this.ball.scrambleT = 0.01;
+				}
+			}
+		}
+		if (this.ball.returnIn > 0) {
+			this.ball.returnIn -= dt;
+			if (this.ball.returnIn <= 0) this.giveBall();
+		}
+		if (!this.ball.held && !this.ball.inFlight && this.ball.releaseT <= 0 && this.ball.returnIn <= 0) {
+			this.ball.scrambleT += dt;
+			const reach = dist(this.px, this.py, this.ball.ballX, this.ball.ballY);
+			const scrambleNeed = 0.55 * DIFFICULTY[this.courtDifficulty].scramble;
+			if (reach < 86 && this.ball.ballZ <= 28) {
+				this.giveBall();
+				audio.bounce();
+			} else if (this.ball.scrambleT > scrambleNeed) {
+				this.giveBall();
+				this.bark("I got you. Don't make me chase it next time.");
+			} else {
+				this.ball.ballVx *= Math.exp(-1.6 * dt);
+				this.ball.ballVy *= Math.exp(-1.6 * dt);
+				this.ball.ballX += this.ball.ballVx * dt;
+				this.ball.ballY += this.ball.ballVy * dt;
+			}
+		} else if (this.ball.held) {
+			this.ball.returnIn = 0;
+		}
+	}
+	horseLetter() {
+		this.horseMisses = Math.min(5, this.horseMisses + 1);
+		this.bark(ogLine("horseMiss", this.horseMisses));
+		this.showToast(horseDisplay(this.horseMisses));
+		if (this.horseMisses >= 5) {
+			this.showToast("HORSE · OG got you. Run it back.");
+			this.exitBasketball();
+		}
+	}
+	giveBall() {
+		this.ball.held = true;
+		this.ball.inFlight = false;
+		this.ball.charging = false;
+		this.ball.power = 0;
+		this.ball.scrambleT = 0;
+		this.ball.returnIn = 0;
+		this.ball.releaseT = 0;
+		this.ball.followThroughT = 0;
+		this.ball.pending = null;
+		this.ball.ballZ = 28;
+		if (this.input.keys.has("Space") || this.input.keys.has("KeyF") || this.input.touch.shoot) this.beginCharge();
+	}
+	releaseShot() {
+		if (!this.canShoot() || this.ball.inFlight || this.ball.releaseT > 0) return;
+		if (!this.ball.held) return;
+		if (!this.ball.charging) return;
+		if (this.ball.power < 0.1) this.ball.power = 0.55;
+		this.ball.charging = false;
+		this.ball.shots++;
+		audio.bounce();
+		const hoop = this.hoop();
+		const pwr = this.ball.power;
+		const d = dist(this.px, this.py, hoop.x, hoop.y);
+		const spot = this.courtSpot();
+		const heat = this.ball.heat;
+		const moving = Math.hypot(this.vx, this.vy);
+		const aligned = hoop.axis === "x" ? Math.abs(this.px - hoop.x) < 42 : Math.abs(this.py - hoop.y) < 42;
+		const close = spot.label === "LAYUP" || spot.label === "PAINT";
+		const half = this.currentTier().perfectHalfWidth
+			* DIFFICULTY[this.courtDifficulty].window
+			* (1 - heat * 0.28)
+			* (spot.label === "LOGO" ? 0.55 : spot.label === "CORNER" ? 0.64 : spot.label === "THREE" ? 0.74 : spot.label === "MID" ? 0.95 : 1.35);
+		const win = perfectWindow(spot.zone, half);
+		const good = goodWindow(win);
+		const perfect = pwr >= win.lo && pwr <= win.hi;
+		let isGood = pwr >= good.lo && pwr <= good.hi;
+		if (close && aligned && pwr > 0.16 && pwr < 0.94) isGood = true;
+		this.ball.grade = perfect ? "PERFECT" : isGood ? "GOOD" : "LATE";
+		const T = clamp(0.46 + d / 300, 0.48, 1.18);
+		const g = 780;
+		const dx = hoop.x - this.px;
+		const dy = hoop.y - this.py;
+		const dz = hoop.z - 42;
+		let vx = dx / T;
+		let vy = dy / T;
+		let vz = (dz + 0.5 * g * T * T) / T;
+		const pwrMul = perfect || (close && aligned) ? 1 : isGood ? 0.995 : close ? 0.96 : clamp(0.84 + pwr * 0.28, 0.8, 1.04);
+		vz *= pwrMul;
+		const corner = Math.abs(Math.atan2(this.px - hoop.x, hoop.y - this.py));
+		const noise = close && aligned
+			? (perfect ? 0.006 : 0.014)
+			: (perfect ? 0.016 : isGood ? 0.05 : 0.16)
+				+ d / 1400
+				+ Math.max(0, corner - 0.5) * 0.12
+				+ heat * 0.12
+				+ Math.min(moving / 520, 0.12);
+		const n1 = Math.sin(this.clock * 37.1 + this.ball.shots * 4.2);
+		const n2 = Math.cos(this.clock * 19.7 + this.ball.shots * 2.8);
+		vx += n1 * 78 * noise;
+		vy += n2 * 78 * noise;
+		this.ball.shotDist = d;
+		this.ball.spotLabel = spot.label;
+		this.ball.spotPts = spot.pts;
+		this.ball.hoopId = hoop.id;
+		this.ball.made = isGood || perfect;
+		this.ball.active = true;
+		this.ball.power = 0;
+		this.ball.pending = { vx, vy, vz };
+		this.ball.releaseT = close ? 0.08 : 0.12;
+		this.ball.followThroughT = 0.42;
+		this.mover.triggerShoot();
+	}
+	beginCharge() {
+		if (!this.canShoot() || this.ball.releaseT > 0) return;
+		if (this.ball.inFlight) return;
+		if (!this.ball.held) {
+			const reach = dist(this.px, this.py, this.ball.ballX, this.ball.ballY);
+			if (reach < 140 && this.ball.ballZ < 56) this.giveBall();
+			else if (this.ball.returnIn > 0 || this.onCourt()) this.giveBall();
+			else return;
+		}
+		this.ball.active = true;
+		if (this.ball.charging) return;
+		this.ball.charging = true;
+		this.ball.power = 0.02;
+		this.ball.followThroughT = 0;
+		this.mover.triggerShoot();
+	}
+	burst(_x: number, _y: number, color: string) {
+		this.particles.push(...emitBurst(color, 22));
+	}
+	dismissRecap() {
+		this.run.recap = false;
+		this.emitHud();
+	}
+	replayDrop() {
+		if (this.mode === "basketball") this.exitBasketball();
+		if (this.mode === "shop") this.closeShop();
+		this.mode = "world";
+		this.dialogue = null;
+		this.cinematic = null;
+		this.runIndex += 1;
+		const tier = this.currentTier();
+		this.mission = createDropDayMission({ order: tier.deliveryOrder, courtTarget: tier.courtTarget });
+		this.missionComplete = false;
+		this.ball.missionCredited = false;
+		this.ball.targetScore = tier.courtTarget;
+		this.run = createRun(this.runIndex);
+		this.lastDeliveryAt = 0;
+		const store = POIS.find((p) => p.id === "store");
+		if (store) {
+			this.px = store.x + store.w / 2;
+			this.py = store.y + store.h + 28;
+		}
+		this.leftSpawn = true;
+		this.cinematic = {
+			kind: "briefing",
+			title: `DROP RUN ${this.runIndex}`,
+			subtitle: `${tier.courtTarget} ON THE COURT  ·  TIGHTER CLOCK`,
+			t: 0,
+			duration: 2.6,
+		};
+		this.showToast(`Run ${this.runIndex}. Link with K Blanco, then take a new route.`);
+		this.save();
+		this.emitHud();
+	}
+	getObjectiveTarget() {
+		const step = this.mission.steps[this.mission.activeStep];
+		if (!step?.target || this.mission.complete) {
+			const turkey = this.side.find((s) => s.id === "turkey_night");
+			if (turkey && !turkey.done) {
+				const lanes = POIS.find((p) => p.id === "lanes");
+				if (lanes) return { x: lanes.x + lanes.w / 2, y: lanes.y + lanes.h + 20 };
+			}
+			if (this.rcmJob && this.rcmDest) {
+				const dest = POIS.find((p) => p.id === this.rcmDest);
+				if (dest) return { x: dest.x + dest.w / 2, y: dest.id === "river" ? dest.y - 36 : dest.y + dest.h + 28 };
+			}
+			const vip = this.side.find((s) => s.id === "vip_runs");
+			if (vip && !vip.done) {
+				const lot = POIS.find((p) => p.id === "rcmworx");
+				if (lot) return { x: lot.x + lot.w / 2, y: lot.y + lot.h + 16 };
+			}
+			return null;
+		}
+		const p = POIS.find((x) => x.id === step.target);
+		if (step.id === "wake" && p) {
+			return { x: p.x + TILE, y: p.y + p.h + 40 };
+		}
+		if (step.kind === "talk" || step.kind === "return") {
+			const k = this.npcPos("k_blanco");
+			if (k) return {
+				x: k.x,
+				y: k.y
+			};
+		}
+		if (!p) return null;
+		return {
+			x: p.x + p.w / 2,
+			y: p.y + p.h / 2
+		};
+	}
+	draw() {
+		const ctx = this.ctx;
+		const w = this.canvas.clientWidth;
+		const h = this.canvas.clientHeight;
+		const dpr = pixelRatio();
+		if (this.world3d) {
+			this.world3d.seasonFlicker = this.hwEvent?.kind === "blackout" ? this.hwEvent.t : 0;
+			this.world3d.batSwarm = this.hwEvent?.kind === "bats" ? this.hwEvent.t : 0;
+			this.world3d.sync({
+				px: this.px,
+				py: this.py,
+				yaw: this.yaw,
+				pitch: this.pitch,
+				cameraView: this.presentedView(),
+				mode: this.mode,
+				facing: this.facing,
+				moving: this.moving,
+				bob: this.bob,
+				trauma: this.trauma,
+				clock: this.clock,
+				ball: {
+					x: this.ball.ballX,
+					y: this.ball.ballY,
+					z: this.ball.ballZ,
+					held: this.ball.held,
+					inFlight: this.ball.inFlight,
+					active: this.ball.active || this.canShoot() || this.ball.inFlight,
+				},
+				cars: this.cars,
+				peds: this.peds,
+				npcs: this.npcLive
+					.filter((n) => {
+						if (n.id === "cam" && this.race.active) return false;
+						if (n.id === "k_blanco") return false;
+						return true;
+					})
+					.map((n) => ({
+					id: n.id,
+					x: n.x,
+					y: n.y,
+					isK: !!NPCS.find((d) => d.id === n.id)?.isKBlanco,
+				})),
+				images: this.images,
+				dt: this.lastDt,
+				heading: this.mover.heading,
+				moveSpeed: this.mover.speed,
+				lean: this.mover.lean,
+				animT: this.mover.animT,
+				loco: this.mover.state,
+				indoor: venueFor(this.courtVenue).indoor && this.onCourt() || this.mode === "interior" || this.mode === "shop" || this.nearPoi === "store" || this.nearPoi === "apartment" || this.nearPoi === "lanes" || this.bowl.active ||
+					(() => {
+						const home = POIS.find((p) => p.id === "apartment")!;
+						const hq = POIS.find((p) => p.id === "store")!;
+						const lanes = POIS.find((p) => p.id === "lanes")!;
+						const hit = (p: typeof home) => this.px >= p.x && this.px <= p.x + p.w && this.py >= p.y && this.py <= p.y + p.h;
+						return hit(home) || hit(hq) || hit(lanes);
+					})(),
+				punch: this.punch,
+				hoopPulse: this.hoopPulse,
+				hoopSway: this.hoop().sway,
+				hoopIndex: this.ball.inFlight ? this.ball.hoopId : this.hoop().id,
+				ballCharging: this.ball.charging,
+				air: this.mover.air,
+				vz: this.mover.vz,
+				equipped: this.equipped,
+				outfitColor: APPAREL.find((a) => a.id === this.equipped)?.color ?? null,
+				dropLive: this.dropLive,
+				driving: !!this.vehicle,
+				vehicleKind: this.vehicle?.kind ?? null,
+				jooking: this.jooking,
+				listening: (() => {
+					if (this.vehicle) return false;
+					const near = (id: string, r: number) => {
+						const p = POIS.find((x) => x.id === id);
+						if (!p) return false;
+						return Math.hypot(this.px - (p.x + p.w / 2), this.py - (p.y + p.h / 2)) < r;
+					};
+					return near("velis", 168) || near("listenpost", 150);
+				})(),
+				worldHour: this.onCourt() ? venueFor(this.courtVenue).hour : this.worldHour,
+				dribbling: this.ball.held && !this.ball.charging && this.ball.releaseT <= 0 && this.ball.followThroughT <= 0 && this.canShoot() && Math.hypot(this.vx, this.vy) > 12,
+				releasing: this.ball.releaseT > 0 || this.ball.followThroughT > 0,
+				crowdPulse: this.crowdPulse,
+				celebrate: this.celebrate,
+				talking: this.mode === "dialogue",
+				interacting: !this.vehicle && !!this.nearNpc && this.mode === "world" && Math.hypot(this.vx, this.vy) < 24,
+				rebounding: this.canShoot() && !this.ball.held && !this.ball.inFlight && this.ball.releaseT <= 0 && this.ball.followThroughT <= 0 && dist(this.px, this.py, this.ball.ballX, this.ball.ballY) < 88,
+				vanSkin: this.vanSkin,
+				fishing: this.fish.active
+					? {
+						active: true,
+						phase: this.fish.phase,
+						bobX: this.fish.bobX,
+						bobY: this.fish.bobY,
+						nibble: this.fish.phase === "nibble" || this.fish.phase === "strike",
+						power: this.fish.power,
+						progress: this.fish.progress,
+						tension: this.fish.tension,
+						fishId: this.fish.fish?.id ?? null,
+					}
+					: null,
+				raceClear: this.race.active && this.race.phase !== "idle",
+				raceLook: this.race.active
+					? {
+						live: this.race.phase === "green" || this.race.phase === "countdown",
+						mph: Math.hypot(this.vx, this.vy) * 0.14,
+						boosting: this.race.boostT > 0,
+						slowed: this.race.slowT > 0,
+						phase: this.race.phase,
+					}
+					: undefined,
+				raceGates: this.race.active
+					? RACE_CHECKPOINTS.map((c, i) => ({
+						x: c.x,
+						y: c.y,
+						next: i === this.race.player.next,
+					}))
+					: [],
+				foodServe: this.foodServe,
+				courtVenue: this.courtVenue,
+				bowling: this.bowl.active
+					? {
+						active: true,
+						phase: this.bowl.phase,
+						lane: this.bowl.lane,
+						progress: this.bowl.progress,
+						ballX: this.bowl.ballX,
+						standing: this.bowl.standing,
+						knocked: this.bowl.knocked,
+						pinT: this.bowl.pinT,
+						flash: this.bowl.flash,
+						gutter: this.bowl.gutter,
+					}
+					: null,
+				rcmDest: this.rcmJob && this.rcmDest
+					? (() => {
+						const dest = POIS.find((p) => p.id === this.rcmDest);
+						if (!dest) return null;
+						return { x: dest.x + dest.w / 2, y: dest.id === "river" ? dest.y - 36 : dest.y + dest.h + 28 };
+					})()
+					: null,
+			});
+			if (!this.haunt) this.world3d.render(w, h);
+		}
+		if (ctx.canvas.width !== Math.floor(w * dpr) || ctx.canvas.height !== Math.floor(h * dpr)) {
+			ctx.canvas.width = Math.floor(w * dpr);
+			ctx.canvas.height = Math.floor(h * dpr);
+		}
+		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		ctx.clearRect(0, 0, w, h);
+		if (!this.world3d) this.drawFallbackWorld(ctx, w, h);
+		this.drawConsoleGrade(ctx, w, h);
+		for (const p of this.particles) {
+			if (this.mode === "basketball") break;
+			const a = Math.max(0, p.life / p.maxLife);
+			ctx.globalAlpha = a;
+			ctx.fillStyle = p.color;
+			ctx.fillRect(w * 0.5 + p.ox - p.size / 2, h * 0.36 + p.oy - p.size / 2, p.size, p.size);
+		}
+		ctx.globalAlpha = 1;
+		if (this.presentedView() === "first") {
+			ctx.strokeStyle = "rgba(232,226,214,0.5)";
+			ctx.lineWidth = 1.4;
+			ctx.beginPath();
+			ctx.moveTo(w / 2 - 7, h / 2);
+			ctx.lineTo(w / 2 + 7, h / 2);
+			ctx.moveTo(w / 2, h / 2 - 7);
+			ctx.lineTo(w / 2, h / 2 + 7);
+			ctx.stroke();
+		}
+		for (const [i, f] of this.floaters.entries()) {
+			if (this.mode === "basketball") continue;
+			ctx.globalAlpha = Math.max(0, f.life);
+			ctx.fillStyle = f.color;
+			ctx.font = `700 ${Math.round(16 * f.scale)}px DM Sans, sans-serif`;
+			ctx.textAlign = "center";
+			ctx.fillText(f.text, w / 2, h * 0.22 - i * 22);
+			ctx.textAlign = "start";
+		}
+		ctx.globalAlpha = 1;
+		if (this.canShoot() && (this.ball.charging || this.ball.power > 0) && !this.fish.active) this.drawShotMeter(ctx, w, h);
+		if (this.ball.flash > 0 && this.mode === "basketball") {
+			this.ball.flash = 0;
+		}
+		if (this.started && (this.mode === "world" || this.mode === "basketball")) {
+			this.drawCompass(ctx, w, h);
+			this.drawMinimap(ctx, w, h);
+		}
+	}
+	drawConsoleGrade(ctx: CanvasRenderingContext2D, w: number, h: number) {
+		const racing = this.race.active && (this.race.phase === "green" || this.race.phase === "countdown" || this.race.phase === "finish");
+		const vignette = ctx.createRadialGradient(w * 0.5, h * 0.46, Math.min(w, h) * 0.18, w * 0.5, h * 0.5, Math.max(w, h) * 0.72);
+		vignette.addColorStop(0, "rgba(0,0,0,0)");
+		vignette.addColorStop(1, racing ? "rgba(0,0,0,0.5)" : "rgba(6,8,12,0.22)");
+		ctx.fillStyle = vignette;
+		ctx.fillRect(0, 0, w, h);
+		if (!racing) return;
+		const bars = this.race.phase === "countdown" ? 0.11 : 0.045;
+		ctx.fillStyle = "rgba(0,0,0,0.72)";
+		ctx.fillRect(0, 0, w, h * bars);
+		ctx.fillRect(0, h * (1 - bars), w, h * bars);
+		if (this.race.phase !== "green") return;
+		const mph = Math.hypot(this.vx, this.vy) * 0.14;
+		const boost = this.race.boostT > 0;
+		const alpha = Math.min(0.72, 0.12 + mph / 140);
+		ctx.strokeStyle = boost ? `rgba(255, 214, 90, ${alpha})` : `rgba(255,255,255,${alpha * 0.65})`;
+		ctx.lineWidth = boost ? 2.4 : 1.4;
+		const cx = w * 0.5;
+		const cy = h * 0.5;
+		const reach = Math.min(w, h);
+		for (let i = 0; i < 18; i++) {
+			const a = (i / 18) * Math.PI * 2 + this.clock * (boost ? 2.2 : 0.65);
+			const inner = reach * (0.34 + (i % 4) * 0.03);
+			const outer = inner + reach * (0.08 + Math.min(0.16, mph / 420));
+			ctx.beginPath();
+			ctx.moveTo(cx + Math.cos(a) * inner, cy + Math.sin(a) * inner * 0.72);
+			ctx.lineTo(cx + Math.cos(a) * outer, cy + Math.sin(a) * outer * 0.72);
+			ctx.stroke();
+		}
+	}
+	drawFallbackWorld(ctx: CanvasRenderingContext2D, w: number, h: number) {
+		this.camX = clamp(this.px - w / 2, 0, Math.max(0, WORLD_PX_W - w));
+		this.camY = clamp(this.py - h / 2, 0, Math.max(0, WORLD_PX_H - h));
+		const night = nightAmount(this.worldHour);
+		ctx.fillStyle = night > 0.35 ? "#1a1612" : night > 0.08 ? "#6a8aa0" : "#9ec9e6";
+		ctx.fillRect(0, 0, w, h);
+		ctx.save();
+		ctx.translate(-this.camX, -this.camY);
+		if (this.mapCanvas) ctx.drawImage(this.mapCanvas, 0, 0);
+		for (const car of this.cars) this.drawCar(ctx, car);
+		for (const p of this.peds) if (!p.inside) this.drawPed(ctx, p);
+		for (const n of NPCS) this.drawNpc(ctx, n);
+		this.drawPlayer(ctx);
+		ctx.restore();
+		if (night > 0.05) {
+			ctx.fillStyle = `rgba(6,8,14,${night * 0.45})`;
+			ctx.fillRect(0, 0, w, h);
+		}
+	}
+	drawShotMeter(ctx: CanvasRenderingContext2D, w: number, h: number) {
+		const mw = 188;
+		const mh = 16;
+		const mx = w / 2 - mw / 2;
+		const my = h - 128;
+		const spot = this.courtSpot();
+		const half = this.currentTier().perfectHalfWidth * (1 - this.ball.heat * 0.34)
+			* (spot.label === "LOGO" ? 0.52 : spot.label === "CORNER" ? 0.62 : spot.label === "THREE" ? 0.72 : spot.label === "MID" ? 0.9 : 1.2);
+		const win = perfectWindow(spot.zone, half);
+		const good = goodWindow(win);
+		ctx.fillStyle = "rgba(0,0,0,0.6)";
+		ctx.beginPath();
+		rr(ctx, mx - 5, my - 5, 198, 26, 8);
+		ctx.fill();
+		ctx.fillStyle = "#1a1a1a";
+		ctx.fillRect(mx, my, mw, mh);
+		ctx.fillStyle = "rgba(29,185,84,0.28)";
+		ctx.fillRect(mx + mw * good.lo, my, mw * (good.hi - good.lo), mh);
+		ctx.fillStyle = "rgba(29,185,84,0.7)";
+		ctx.fillRect(mx + mw * win.lo, my, mw * (win.hi - win.lo), mh);
+		ctx.fillStyle = "#1db954";
+		ctx.fillRect(mx, my, mw * this.ball.power, mh);
+		ctx.textAlign = "start";
+	}
+	drawFishMeter(ctx: CanvasRenderingContext2D, w: number, h: number) {
+		const mw = 188;
+		const mh = 16;
+		const mx = w / 2 - mw / 2;
+		const my = h - 128;
+		ctx.fillStyle = "rgba(0,0,0,0.6)";
+		ctx.beginPath();
+		rr(ctx, mx - 5, my - 5, 198, 26, 8);
+		ctx.fill();
+		ctx.fillStyle = "#1a1a1a";
+		ctx.fillRect(mx, my, mw, mh);
+		if (this.fish.phase === "cast") {
+			ctx.fillStyle = "rgba(79,157,223,0.7)";
+			ctx.fillRect(mx, my, mw * this.fish.power, mh);
+		} else {
+			ctx.fillStyle = "rgba(232,80,80,0.28)";
+			ctx.fillRect(mx + mw * 0.82, my, mw * 0.18, mh);
+			ctx.fillStyle = "rgba(29,185,84,0.55)";
+			ctx.fillRect(mx + mw * 0.18, my, mw * 0.64, mh);
+			ctx.fillStyle = "#f4e27c";
+			ctx.fillRect(mx + mw * Math.min(1, this.fish.tension) - 2, my - 3, 4, mh + 6);
+			ctx.fillStyle = "#4f9ddf";
+			ctx.fillRect(mx, my - 10, mw * this.fish.progress, 4);
+		}
+	}
+	drawCar(ctx: CanvasRenderingContext2D, car: { x: number; y: number; vx: number; vy: number; w: number; color: string }) {
+		ctx.save();
+		ctx.translate(car.x, car.y);
+		if (Math.abs(car.vy) > Math.abs(car.vx)) ctx.rotate(car.vy > 0 ? Math.PI / 2 : -Math.PI / 2);
+		else if (car.vx < 0) ctx.rotate(Math.PI);
+		ctx.fillStyle = "rgba(0,0,0,0.3)";
+		ctx.fillRect(2, 6, car.w, 16);
+		ctx.fillStyle = car.color;
+		ctx.fillRect(0, 0, car.w, 18);
+		ctx.fillStyle = "rgba(180,220,255,0.35)";
+		ctx.fillRect(car.w * .45, 3, car.w * .28, 12);
+		ctx.fillStyle = "#fde68a";
+		ctx.fillRect(car.w - 3, 3, 3, 5);
+		ctx.fillRect(car.w - 3, 10, 3, 5);
+		ctx.restore();
+	}
+	drawPed(ctx: CanvasRenderingContext2D, p: { x: number; y: number; color: string; t: number }) {
+		ctx.fillStyle = "rgba(0,0,0,0.25)";
+		ctx.beginPath();
+		ctx.ellipse(p.x, p.y + 3, 8, 4, 0, 0, Math.PI * 2);
+		ctx.fill();
+		ctx.fillStyle = p.color;
+		ctx.fillRect(p.x - 6, p.y - 20 + Math.sin(p.t * 6) * 1.2, 12, 18);
+		ctx.fillStyle = "#1c1917";
+		ctx.beginPath();
+		ctx.arc(p.x, p.y - 24, 6, 0, Math.PI * 2);
+		ctx.fill();
+	}
+	drawCompass(ctx: CanvasRenderingContext2D, w: number, h: number) {
+		const target = this.getObjectiveTarget();
+		if (!target) return;
+		const sx = target.x - this.camX;
+		const sy = target.y - this.camY;
+		const margin = 48;
+		if (sx > margin && sx < w - margin && sy > margin && sy < h - margin) return;
+		const cx = w / 2;
+		const cy = h / 2;
+		const ang = Math.atan2(target.y - this.py, target.x - this.px);
+		const edgePad = 56;
+		const cos = Math.cos(ang);
+		const sin = Math.sin(ang);
+		const tX = cos > 0 ? (w - edgePad - cx) / cos : cos < 0 ? (edgePad - cx) / cos : Infinity;
+		const tY = sin > 0 ? (h - edgePad - cy) / sin : sin < 0 ? (edgePad - cy) / sin : Infinity;
+		const t = Math.min(Math.abs(tX), Math.abs(tY));
+		const ax = clamp(cx + cos * t, edgePad, w - edgePad);
+		const ay = clamp(cy + sin * t, 96, h - edgePad - 80);
+		ctx.save();
+		ctx.translate(ax, ay);
+		ctx.rotate(ang);
+		ctx.fillStyle = "rgba(29,185,84,0.95)";
+		ctx.beginPath();
+		ctx.moveTo(14, 0);
+		ctx.lineTo(-10, 9);
+		ctx.lineTo(-6, 0);
+		ctx.lineTo(-10, -9);
+		ctx.closePath();
+		ctx.fill();
+		ctx.restore();
+		const meters = Math.round(dist(this.px, this.py, target.x, target.y) / 12);
+		ctx.fillStyle = "rgba(10,12,11,0.75)";
+		ctx.font = "600 11px DM Sans, sans-serif";
+		const label = `${meters}m`;
+		const tw = ctx.measureText(label).width;
+		const lx = clamp(ax - tw / 2, 8, w - tw - 8);
+		const ly = clamp(ay + 22, 20, h - 20);
+		ctx.fillRect(lx - 4, ly - 11, tw + 8, 16);
+		ctx.fillStyle = "#1db954";
+		ctx.fillText(label, lx, ly);
+	}
+	drawMinimap(ctx: CanvasRenderingContext2D, w: number, h: number) {
+		const size = Math.min(136, Math.max(100, w * .15));
+		const pad = 12;
+		const mx = pad;
+		const my = h - size - pad - (w < 640 ? 108 : 10);
+		const scaleX = size / WORLD_PX_W;
+		const scaleY = size / WORLD_PX_H;
+		ctx.fillStyle = "rgba(10,12,11,0.86)";
+		ctx.beginPath();
+		rr(ctx, mx - 3, my - 3, size + 6, size + 6, 12);
+		ctx.fill();
+		ctx.strokeStyle = "rgba(29,185,84,0.45)";
+		ctx.lineWidth = 2;
+		ctx.stroke();
+		ctx.save();
+		ctx.beginPath();
+		rr(ctx, mx, my, size, size, 10);
+		ctx.clip();
+		ctx.fillStyle = "#1a211c";
+		ctx.fillRect(mx, my, size, size);
+		ctx.fillStyle = "#2a332c";
+		ctx.fillRect(mx, my + 960 * scaleY - 2, size, 4);
+		ctx.fillRect(mx + 768 * scaleX - 2, my, 4, size);
+		ctx.fillRect(mx + 1632 * scaleX - 2, my, 4, size);
+		for (const p of POIS) {
+			const isTarget = this.mission.steps[this.mission.activeStep]?.target === p.id;
+			ctx.fillStyle = isTarget ? "#1db954" : p.color;
+			const px = mx + p.x * scaleX;
+			const py = my + p.y * scaleY;
+			const pw = Math.max(4, p.w * scaleX);
+			const ph = Math.max(4, p.h * scaleY);
+			ctx.fillRect(px, py, pw, ph);
+			if (isTarget) {
+				ctx.strokeStyle = `rgba(29,185,84,${.4 + Math.sin(this.clock * 5) * .3})`;
+				ctx.lineWidth = 2;
+				ctx.strokeRect(px - 2, py - 2, pw + 4, ph + 4);
+			}
+		}
+		const ppx = mx + this.px * scaleX;
+		const ppy = my + this.py * scaleY;
+		ctx.fillStyle = "#f2f5f3";
+		ctx.beginPath();
+		ctx.arc(ppx, ppy, 4, 0, Math.PI * 2);
+		ctx.fill();
+		ctx.strokeStyle = "#1db954";
+		ctx.lineWidth = 1.5;
+		ctx.stroke();
+		const fang = this.facing === "up" ? -Math.PI / 2 : this.facing === "down" ? Math.PI / 2 : this.facing === "left" ? Math.PI : 0;
+		ctx.fillStyle = "#1db954";
+		ctx.beginPath();
+		ctx.moveTo(ppx + Math.cos(fang) * 8, ppy + Math.sin(fang) * 8);
+		ctx.lineTo(ppx + Math.cos(fang + 2.5) * 4, ppy + Math.sin(fang + 2.5) * 4);
+		ctx.lineTo(ppx + Math.cos(fang - 2.5) * 4, ppy + Math.sin(fang - 2.5) * 4);
+		ctx.closePath();
+		ctx.fill();
+		ctx.restore();
+		ctx.fillStyle = "rgba(242,245,243,0.55)";
+		ctx.font = "600 9px DM Sans, sans-serif";
+		ctx.fillText("MEMPHIS 901", 20, my + 14);
+	}
+	drawNpc(ctx: CanvasRenderingContext2D, n: NpcDef) {
+		const live = this.npcPos(n.id);
+		const x = live.x;
+		const y = live.y;
+		ctx.fillStyle = "rgba(0,0,0,0.3)";
+		ctx.beginPath();
+		ctx.ellipse(x, y + 4, 14, 6, 0, 0, Math.PI * 2);
+		ctx.fill();
+		if (n.isKBlanco && this.images.k) {
+			const img = this.images.k;
+			const ih = 72;
+			const iw = img.width / img.height * ih;
+			ctx.drawImage(img, x - iw / 2, y - ih + 4, iw, ih);
+		} else {
+			ctx.fillStyle = n.color;
+			ctx.fillRect(x - 12, y - 40, 24, 36);
+			ctx.fillStyle = "#1c1917";
+			ctx.beginPath();
+			ctx.arc(x, y - 48, 12, 0, Math.PI * 2);
+			ctx.fill();
+		}
+		ctx.fillStyle = "rgba(10,12,11,0.78)";
+		ctx.font = "600 11px DM Sans, sans-serif";
+		const tw = ctx.measureText(n.name).width;
+		ctx.fillRect(x - tw / 2 - 6, y - 78, tw + 12, 16);
+		ctx.fillStyle = n.isKBlanco ? "#1db954" : "#f2f5f3";
+		ctx.fillText(n.name, x - tw / 2, y - 66);
+		if (this.nearNpc === n.id) {
+			ctx.strokeStyle = "#1db954";
+			ctx.lineWidth = 2;
+			ctx.beginPath();
+			ctx.ellipse(x, y + 4, 18, 8, 0, 0, Math.PI * 2);
+			ctx.stroke();
+		}
+	}
+	drawPlayer(ctx: CanvasRenderingContext2D) {
+		const y = this.py + this.bob;
+		ctx.fillStyle = "rgba(0,0,0,0.35)";
+		ctx.beginPath();
+		ctx.ellipse(this.px, this.py + 6, 16, 7, 0, 0, Math.PI * 2);
+		ctx.fill();
+		const view = this.facing === "up" ? "back" : this.facing === "down" ? "front" : this.facing === "left" ? "left" : "right";
+		const fit = this.equipped ? this.images[outfitImageKey(this.equipped, view)] || this.images[outfitImageKey(this.equipped, "front")] : undefined;
+		const img = fit
+			?? (view === "front" ? this.images.frontHi : view === "back" ? this.images.backHi : view === "left" ? this.images.leftHi : this.images.rightHi)
+			?? this.images[view];
+		if (img) {
+			const dressed = fit
+				? img
+				: (() => {
+					const look = lookFor(this.equipped);
+					const key = stampFor(look, view);
+					const stamp = (key && this.images[key]) || this.images.icon;
+					const ovKey = overlayKey(look, view);
+					const overlay = (ovKey && this.images[ovKey]) || null;
+					return dressBenji(cleanSprite(img), look, view, stamp, overlay);
+				})();
+			const h = 80;
+			const w = dressed.width / dressed.height * h;
+			const sx = this.moving ? 1 + Math.sin(this.animT) * .05 : 1;
+			const sy = this.moving ? 1 - Math.sin(this.animT) * .05 : 1;
+			ctx.save();
+			ctx.translate(this.px, y);
+			ctx.scale(sx, sy);
+			ctx.drawImage(dressed, -w / 2, -76, w, h);
+			ctx.restore();
+		} else {
+			ctx.fillStyle = "#1db954";
+			ctx.fillRect(this.px - 14, y - 48, 28, 40);
+		}
+	}
+	getLocationName() {
+		if (this.nearPoi) return POIS.find((p) => p.id === this.nearPoi)?.name ?? "Memphis";
+		if (onRiverfront(this.px, this.py)) return "Mississippi River";
+		if (this.py > riverHole().y - 80) return "Riverfront";
+		if (this.px > 3072 * .7) return "East Memphis";
+		if (this.px < 3072 * .28) return "West Side";
+		return "Memphis Streets";
+	}
+	getDistrict() {
+		if (this.nearPoi) return POIS.find((p) => p.id === this.nearPoi)?.district ?? "901";
+		return "901";
+	}
+	hourLabel() {
+		const h = Math.floor(this.worldHour);
+		const m = Math.floor((this.worldHour - h) * 60);
+		const ap = h >= 12 ? "PM" : "AM";
+		return `${h % 12 === 0 ? 12 : h % 12}:${m.toString().padStart(2, "0")} ${ap}`;
+	}
+	emitHud() {
+		this.onHud?.(this.getHud());
+	}
+	getHud() {
+		const quest = this.activeQuest();
+		const step = quest.steps[quest.activeStep];
+		const done = quest.steps.filter((s) => s.done).length;
+		const prompts = this.input.prompt(this.input.device);
+		const ch2 = this.dropLive ? this.afterHours.steps.map((s) => ({
+			id: s.id,
+			label: s.label,
+			done: s.done,
+			description: s.description,
+		})) : [];
+		return {
+			mode: this.mode,
+			sackdollars: this.sackdollars,
+			respect: this.respect,
+			missionTitle: quest.title,
+			missionChapter: quest.chapter,
+			missionStep: quest.complete && this.mission.complete
+				? "Free roam · After Hours locked"
+				: this.mission.complete && !this.afterHours.complete
+					? (step ? step.label : "After Hours")
+					: this.mission.complete
+						? "Free roam · side missions live"
+						: step ? step.label : "—",
+			missionProgress: `${done}/${quest.steps.length}`,
+			interactHint: this.bowl.active
+				? bowlHud(this.bowl, this.input.device === "touch").prompt
+				: this.fish.active
+				? fishingHud(this.fish, this.input.device === "touch").prompt
+				: this.mode === "world"
+				? this.interactHint
+				: this.mode === "dialogue"
+					? (this.input.device === "touch" ? "TAP to continue" : `${prompts.interact} to continue`)
+					: this.mode === "basketball"
+						? null
+						: null,
+			hintWalk: this.mode === "world" && this.hintWalk && !this.fish.active,
+			locationName: this.getLocationName(),
+			district: this.getDistrict(),
+			dialogue: this.dialogue,
+			shopOpen: this.shopOpen,
+			toast: this.toast,
+			equipped: this.equipped,
+			owned: [...this.owned],
+			basketball: this.mode === "basketball" ? {
+				score: this.ball.score,
+				timeLeft: this.mode === "basketball" && this.courtChallenge !== "horse" ? Math.ceil(this.ball.timeLeft) : 0,
+				shots: this.ball.shots,
+				active: true,
+				combo: this.ball.combo,
+				power: this.ball.power,
+				charging: this.ball.charging,
+				best: this.ball.best,
+				target: this.ball.targetScore,
+				perfects: this.run.ballPerfects,
+				zone: this.courtSpot().label,
+				difficulty: DIFFICULTY[this.courtDifficulty].label,
+				challenge: this.courtChallenge,
+				ogLine: this.ogBark,
+				horse: this.courtChallenge === "horse" ? horseDisplay(this.horseMisses) : null,
+				call: this.courtChallenge === "horse" ? HORSE_CALLS[this.horseIndex] ?? "DONE" : this.courtChallenge === "threes" ? "THREES ONLY" : null,
+				board: this.courtBoard.slice(0, 5).map((r) => ({ score: r.score, label: `${r.mode} · ${r.difficulty}` })),
+				venue: venueFor(this.courtVenue).name,
+				shootout: this.halloweenShootout,
+			} : null,
+			courtMenu: this.courtMenu ? {
+				difficulty: DIFFICULTY[this.courtDifficulty].label,
+				unlocked: this.missionComplete,
+				venue: this.courtVenue,
+				challenge: this.courtChallenge,
+				venues: COURT_VENUES.map((v) => ({ id: v.id, name: v.name, tag: v.tag, thumb: v.thumb })),
+			} : null,
+			canShoot: this.canShoot(),
+			paused: this.paused,
+			started: this.started,
+			missionComplete: this.missionComplete,
+			cinematic: this.cinematic,
+			letterbox: this.letterbox,
+			worldHour: this.worldHour,
+			inputDevice: this.input.device,
+			promptButton: prompts.interact,
+			trophies: [...this.trophies],
+			trophyPopup: this.trophyPopup,
+			pauseTab: this.pauseTab,
+			settings: this.settings,
+			sideMissions: this.side.map((s) => ({
+				id: s.id,
+				title: s.title,
+				description: s.description,
+				done: s.done,
+				reward: s.reward
+			})),
+			highScore: this.highScore,
+			hasSave: this.hasSave,
+			cameraView: this.presentedView(),
+			steps: [
+				...this.mission.steps.map((s) => ({
+					id: s.id,
+					label: s.label,
+					done: s.done,
+					description: s.description
+				})),
+				...ch2,
+			],
+			dropRun: toHud(this.run, this.currentTier().courtTarget, this.currentTier().parSeconds),
+			uiPulse: this.uiPulse,
+			bestGrade: this.bestGrade,
+			bestRunScore: this.bestRunScore,
+			buildVersion: GAME_BUILD_VERSION,
+			dropLive: this.dropLive,
+			inHq: this.hqInside || this.mode === "shop",
+			driving: !!this.vehicle,
+			jooking: this.jooking,
+			nextUnlock: (() => {
+				const n = nextMilestone(this.respect, this.unlocks);
+				return n ? { label: n.label, at: n.at } : null;
+			})(),
+			vanSkin: this.vanSkin,
+			race: toRaceHud(this.race),
+			raceMenu: this.raceMenu,
+			fishing: this.fish.active ? fishingHud(this.fish, this.input.device === "touch") : null,
+			bowling: this.bowl.active ? bowlHud(this.bowl, this.input.device === "touch") : null,
+			food: this.foodMenu ? foodHud(menuFor(foodTruckById(this.foodMenu)!), this.cooler, this.sackdollars) : null,
+			coolerCount: this.cooler.length,
+			fed: this.fedT > 0,
+			sponsor: sponsorHud(),
+			sponsorOpen: this.sponsorOpen,
+			rcm: rcmHud({
+				open: this.rcmMenu,
+				vehicle: this.rcmPick,
+				destId: this.rcmDest,
+				runs: this.rcmRuns,
+				job: this.rcmJob,
+				chauffeur: this.rcmChauffeur,
+			}),
+			playtestOpen: this.playtestOpen,
+			playtest: {
+				fps: this.fpsEma,
+				dtMs: this.lastDt * 1000,
+				px: this.px,
+				py: this.py,
+				tileX: this.px / TILE,
+				tileY: this.py / TILE,
+				yaw: this.yaw,
+				facing: this.facing,
+				loco: this.mover.state,
+				air: this.mover.air,
+				nearPoi: this.nearPoi,
+				hint: this.interactHint,
+				equipped: this.equipped,
+				vehicle: this.vehicle?.kind ?? null,
+				indoor: POIS.some((p) => (p.id === "store" || p.id === "apartment" || p.id === "lanes") && this.px >= p.x && this.px <= p.x + p.w && this.py >= p.y && this.py <= p.y + p.h),
+				hour: this.worldHour,
+				artRev: ART_REV,
+				quality: this.settings.quality,
+				noclip: this.playtestNoclip,
+			},
+			halloween: this.halloweenHud(),
+		};
+	}
+};
