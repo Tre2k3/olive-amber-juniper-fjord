@@ -1016,8 +1016,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const lookZ = Math.cos(camYaw);
     const talking = place === "hq" && dialogue.startsWith("K Blanco");
     const inside = place === "home" || place === "hq" || place === "haunt";
-    const dist = camDist ?? (talking ? 2.9 : place === "haunt" ? 2.45 : inside ? 3.05 : 3.05);
-    const height = camHeight ?? (talking ? 1.42 : inside ? 1.5 : 1.42);
+    const dist = camDist ?? (talking ? 2.9 : place === "haunt" ? 2.45 : inside ? 3.05 : 3.4);
+    const height = camHeight ?? (talking ? 1.42 : inside ? 1.5 : 1.32);
     const side = talking ? 1.35 : 0;
     let destX = player.position.x - lookX * dist + lookZ * side;
     let destZ = player.position.z - lookZ * dist - lookX * side;
@@ -1031,25 +1031,25 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     camera.position.y += (destY - camera.position.y) * follow;
     camera.position.z += (destZ - camera.position.z) * follow;
     const ahead = talking ? 0.28 : 0.72;
-    const lookY = player.position.y + (camLookY ?? (talking ? 1.12 : 1.18));
+    const lookY = player.position.y + (camLookY ?? (talking ? 1.12 : inside ? 1.18 : 1.02));
     camera.lookAt(player.position.x + lookX * ahead, lookY, player.position.z + lookZ * ahead);
   }
 
   function applyNight() {
     const outside = place === "street" || place === "court";
-    world.sun.intensity = night ? 0.16 : golden ? 2.05 : outside ? 2.7 : 0.85;
-    world.sun.color.set(night ? 0x1c2838 : golden ? 0xff8a3c : 0xfff1d6);
-    world.sun.position.set(golden ? -46 : -22, golden ? 8.5 : 32, golden ? 18 : 14);
-    world.hemi.intensity = night ? 0.34 : golden ? 0.48 : outside ? 0.72 : 0.7;
-    world.hemi.color.set(night ? 0x243044 : golden ? 0xffc48a : 0xcfe6ff);
-    world.hemi.groundColor.set(night ? 0x14110e : golden ? 0x6a4528 : 0x5d7a48);
-    renderer.toneMappingExposure = night ? 0.92 : golden ? 1.16 : 1.08;
-    bloom.strength = night ? 0.42 : golden ? 0.24 : 0.16;
+    world.sun.intensity = night ? 0.22 : golden ? 2.35 : outside ? 2.45 : 0.85;
+    world.sun.color.set(night ? 0x243044 : golden ? 0xff7a28 : 0xfff1d6);
+    world.sun.position.set(golden ? -52 : -22, golden ? 6.2 : 28, golden ? 24 : 14);
+    world.hemi.intensity = night ? 0.42 : golden ? 0.55 : outside ? 0.68 : 0.7;
+    world.hemi.color.set(night ? 0x31465f : golden ? 0xffc48a : 0xcfe6ff);
+    world.hemi.groundColor.set(night ? 0x1a140e : golden ? 0x7a4a28 : 0x5d7a48);
+    renderer.toneMappingExposure = night ? 0.98 : golden ? 1.22 : 1.05;
+    bloom.strength = night ? 0.38 : golden ? 0.28 : 0.14;
     world.scene.background = night ? world.skyNight : golden ? world.skyGolden : world.skyDay;
     const fog = world.scene.fog as THREE.Fog;
-    fog.color.setHex(night ? 0x12161e : golden ? 0xe7c4a0 : 0xc5d4e2);
-    fog.near = night ? 18 : golden ? 14 : 26;
-    fog.far = night ? 78 : golden ? 68 : 92;
+    fog.color.setHex(night ? 0x141820 : golden ? 0xf0c090 : 0xc5d4e2);
+    fog.near = night ? 16 : golden ? 12 : 24;
+    fog.far = night ? 72 : golden ? 58 : 90;
     const hqDay = world.exterior.getObjectByName("hq-plate-day");
     const hqNight = world.exterior.getObjectByName("hq-plate-night");
     if (hqDay) hqDay.visible = !night || !hqNight;

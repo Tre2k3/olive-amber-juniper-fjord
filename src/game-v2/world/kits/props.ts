@@ -83,6 +83,13 @@ export function utilityPole(x: number, z: number, parent: THREE.Object3D) {
   mesh(new THREE.BoxGeometry(1.4, 0.08, 0.08), trim, x, 6.15, z, parent);
 }
 
+export function stormDrain(x: number, z: number, parent: THREE.Object3D) {
+  mesh(new THREE.BoxGeometry(0.72, 0.04, 0.42), black, x, 0.07, z, parent);
+  mesh(new THREE.BoxGeometry(0.56, 0.02, 0.06), silver, x, 0.09, z, parent);
+  mesh(new THREE.BoxGeometry(0.56, 0.02, 0.06), silver, x, 0.09, z + 0.12, parent);
+  mesh(new THREE.BoxGeometry(0.56, 0.02, 0.06), silver, x, 0.09, z - 0.12, parent);
+}
+
 export function planter(x: number, z: number, parent: THREE.Object3D) {
   mesh(new THREE.CylinderGeometry(0.42, 0.36, 0.55, 12), black, x, 0.3, z, parent);
   mesh(new THREE.SphereGeometry(0.34, 10, 8), new THREE.MeshStandardMaterial({ color: 0x2f6a34, roughness: 0.9 }), x, 0.62, z, parent);

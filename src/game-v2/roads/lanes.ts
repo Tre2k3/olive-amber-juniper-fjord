@@ -18,22 +18,27 @@ function build(id: string, pts: { x: number; z: number }[]): Lane {
   return { id, pts, len, total };
 }
 
-/** Closed loops on the asphalt. Avenue lanes sit inside a two-lane street with a curb shoulder. */
+/**
+ * Home-block road profile, meters, centerline z = 0.
+ * Asphalt 8.2 wide (z -4.1 to 4.1). Two 3.7 m lanes, centers at z = ±1.85.
+ * Sidewalks stay at z = ±6.35 (about 1.8 m wide) with a grass parkway between curb and walk.
+ * Traffic stays on the asphalt. Do not move one of these without the others.
+ */
 export function productionLanes(): Lane[] {
   return [
     build("avenue", [
-      { x: -48, z: -1.25 },
-      { x: 64, z: -1.25 },
-      { x: 74, z: -1.25 },
-      { x: 80, z: -0.35 },
-      { x: 80, z: 0.35 },
-      { x: 74, z: 1.25 },
-      { x: 64, z: 1.25 },
-      { x: -48, z: 1.25 },
-      { x: -58, z: 1.25 },
-      { x: -64, z: 0.35 },
-      { x: -64, z: -0.35 },
-      { x: -58, z: -1.25 },
+      { x: -48, z: -1.85 },
+      { x: 64, z: -1.85 },
+      { x: 74, z: -1.85 },
+      { x: 80, z: -0.55 },
+      { x: 80, z: 0.55 },
+      { x: 74, z: 1.85 },
+      { x: 64, z: 1.85 },
+      { x: -48, z: 1.85 },
+      { x: -58, z: 1.85 },
+      { x: -64, z: 0.55 },
+      { x: -64, z: -0.55 },
+      { x: -58, z: -1.85 },
     ]),
     build("cross", [
       { x: 6.55, z: 18 },

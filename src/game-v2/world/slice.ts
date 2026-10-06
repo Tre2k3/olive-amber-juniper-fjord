@@ -4,9 +4,9 @@ import { characters, frameSize, type Facing, type Spawnable } from "../assets/ch
 import { carBody, resetVehicleCards } from "./kits/vehicles";
 import { residence } from "./kits/residence";
 import { sidewalkRun } from "./kits/street";
-import { grass as grassMatKit } from "./kits/materials";
-import { matureTree, palmTree, shadeTree, shrub as kitShrub, streetTree } from "./kits/trees";
-import { bench, streetlight } from "./kits/props";
+import { concreteSlab, grass as grassMatKit } from "./kits/materials";
+import { crepeMyrtle, matureTree, ornamental, shadeTree, shrub as kitShrub, streetTree } from "./kits/trees";
+import { bench, hydrant, picketFence, planter, stormDrain, streetlight, trashBin } from "./kits/props";
 import { addGround, clearGround } from "./ground";
 import { characterMaterial, footMarker, plantFeet, solePlane, solidCutout } from "./feet";
 import { buildDistricts, type DistrictAnchors } from "./districts";
@@ -67,7 +67,6 @@ export type SliceWorld = {
 
 const trimMat = new THREE.MeshStandardMaterial({ color: 0xf3efe6, roughness: 0.55 });
 const gold = new THREE.MeshStandardMaterial({ color: 0xe0b33a, roughness: 0.35, metalness: 0.72, emissive: 0x5a3e08, emissiveIntensity: 0.2 });
-const chrome = new THREE.MeshStandardMaterial({ color: 0xd5d8dc, roughness: 0.22, metalness: 0.92 });
 const black = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.55 });
 const glassMat = new THREE.MeshStandardMaterial({ color: 0xd5e4ee, roughness: 0.08, metalness: 0.15, transparent: true, opacity: 0.22 });
 const wood = new THREE.MeshStandardMaterial({ color: 0x8a623d, roughness: 0.75 });
@@ -258,10 +257,6 @@ function tree(x: number, z: number, parent: THREE.Object3D, scale = 1) {
   else streetTree(x, z, parent, scale);
 }
 
-function palm(x: number, z: number, parent: THREE.Object3D) {
-  palmTree(x, z, parent);
-}
-
 function lamp(x: number, z: number, parent: THREE.Object3D, lights: THREE.PointLight[]) {
   streetlight(x, z, parent, lights);
 }
@@ -275,7 +270,7 @@ function carSolid(x: number, z: number, yaw: number, length: number, width: numb
 
 export function parkedCar(x: number, z: number, yaw: number, kind: VehicleKind, parent: THREE.Object3D) {
   const car = carBody(kind);
-  car.position.set(x, 0.06, z);
+  car.position.set(x, 0.02, z);
   car.rotation.y = yaw;
   parent.add(car);
   return car;
@@ -375,18 +370,18 @@ export function buildSlice(): SliceWorld {
   const headlightMats: THREE.MeshStandardMaterial[] = [];
   const asphalt = asphaltTex();
   mesh(new THREE.PlaneGeometry(200, 160), grassMatKit(), 8, 0, -6, exterior).rotation.x = -Math.PI / 2;
-  mesh(new THREE.PlaneGeometry(46, 16), new THREE.MeshStandardMaterial({ color: 0x2f552c, roughness: 1 }), -28, 0.004, 16, exterior).rotation.x = -Math.PI / 2;
-  box(156, 0.06, 9.1, 8, 0.03, 0, asphalt, exterior);
+  mesh(new THREE.PlaneGeometry(46, 16), grassMatKit(), -28, 0.006, 16, exterior).rotation.x = -Math.PI / 2;
+  box(156, 0.06, 8.2, 8, 0.03, 0, asphalt, exterior);
   box(9.1, 0.06, 48, 8, 0.03, -2, asphalt, exterior);
-  addGround({ minX: -70, maxX: 86, minZ: -4.55, maxZ: 4.55, y: 0.06 });
+  addGround({ minX: -70, maxX: 86, minZ: -4.1, maxZ: 4.1, y: 0.06 });
   addGround({ minX: 3.45, maxX: 12.55, minZ: -26, maxZ: 22, y: 0.06 });
   sidewalkRun(exterior, 6.35, -62, 78, [[-38.2, -32.4], [-18.6, -14.2]]);
   sidewalkRun(exterior, -6.35, -62, 78, [[31.2, 36.4]]);
   box(0.34, 0.22, 40, 4.55, 0.11, -2, curbMat, exterior);
   box(0.34, 0.22, 40, 11.45, 0.11, -2, curbMat, exterior);
   for (let x = -46; x < 68; x += 16) {
-    box(0.7, 0.02, 0.45, x, 0.08, 4.15, black, exterior);
-    box(0.7, 0.02, 0.45, x + 8, 0.08, -4.15, black, exterior);
+    box(0.7, 0.02, 0.45, x, 0.08, 3.45, black, exterior);
+    box(0.7, 0.02, 0.45, x + 8, 0.08, -3.45, black, exterior);
   }
 
   const yellow = new THREE.MeshStandardMaterial({ color: 0xe6c15a, roughness: 0.55 });
@@ -396,8 +391,8 @@ export function buildSlice(): SliceWorld {
     box(1.7, 0.02, 0.12, x, 0.07, 0, yellow, exterior);
   }
   for (let x = -40; x < 70; x += 6) {
-    box(2.4, 0.015, 0.08, x, 0.07, 4.15, white, exterior);
-    box(2.4, 0.015, 0.08, x, 0.07, -4.15, white, exterior);
+    box(2.4, 0.015, 0.08, x, 0.07, 3.45, white, exterior);
+    box(2.4, 0.015, 0.08, x, 0.07, -3.45, white, exterior);
   }
   for (let i = 0; i < 8; i++) {
     box(0.16, 0.02, 0.85, 3.4, 0.08, -3.2 + i * 0.9, white, exterior);
@@ -408,17 +403,28 @@ export function buildSlice(): SliceWorld {
   box(0.28, 0.02, 2.4, 2.6, 0.08, -1.25, white, exterior);
   box(0.28, 0.02, 2.4, 13.4, 0.08, 1.25, white, exterior);
 
+  for (const x of [-40, -16, 8, 30, 52]) {
+    stormDrain(x, 3.82, exterior);
+    stormDrain(x + 5, -3.82, exterior);
+  }
+
   const lamps: THREE.PointLight[] = [];
   for (const x of [-42, -24, -8, 14, 36, 56]) lamp(x, 7.45, exterior, lamps);
   for (const x of [-36, -16, 2, 16, 34, 50]) lamp(x, -8.85, exterior, lamps);
   signal(2.4, 7.2, exterior);
   signal(13.6, -7.2, exterior);
 
-  for (const x of [-46, -38, -24, -14, 16, 34, 46, 62]) tree(x, 11.2, exterior, x % 2 === 0 ? 1 : 1.15);
+  shadeTree(-42.4, 13.5, exterior, 1.15);
+  ornamental(-15.4, 12.8, exterior);
+  shadeTree(-2.2, 12.4, exterior, 1.15);
+  crepeMyrtle(23.9, 13.2, exterior);
+  shadeTree(37.2, 13.4, exterior, 1.05);
+  streetTree(52.4, 12.6, exterior, 1);
+  ornamental(60.2, 13.1, exterior);
   for (const x of [-44, -18, 18]) tree(x, -10.5, exterior, 1.2);
-  palm(14, -9.2, exterior);
-  palm(33, -9.4, exterior);
-  palm(-6, 12.4, exterior);
+  shadeTree(14, -10.2, exterior, 1.1);
+  crepeMyrtle(33, -9.6, exterior);
+  shadeTree(52, -18, exterior, 1.05);
   for (let x = -60; x <= 78; x += 7) tree(x, 26, exterior, 1.35);
   for (let x = -54; x <= 72; x += 9) {
     const tx = x + 3;
@@ -515,54 +521,53 @@ export function buildSlice(): SliceWorld {
     open: boolean,
     style: 0 | 1 | 2,
     hero = false,
+    plate = "",
   ) => {
     const visual = new THREE.Group();
     visual.name = name;
     exterior.add(visual);
-    residence(visual, streetSolids, glowMats, x, z, w, d, wall, roof, door, open, style, hero);
+    residence(visual, streetSolids, glowMats, x, z, w, d, wall, roof, door, open, style, hero, plate);
   };
-  bungalow("house-home", -32, 14.6, 8.6, 7.4, "#efe4cf", 0x6e5848, "#1c1a18", true, 0, true);
-  bungalow("house-02", -20.5, 14.8, 7.4, 6.8, "#c9d4c6", 0x5c6168, "#1a2430", false, 1);
-  bungalow("house-03", -10, 15, 7.8, 7, "#e4d2b8", 0x6a5848, "#3a2418", false, 2);
-  bungalow("house-04", 18, 14.7, 7.6, 6.8, "#f3ead8", 0x7a5a44, "#1f3d32", false, 0);
-  bungalow("house-05", 30, 15.1, 8, 7.2, "#dcc8a4", 0x5c6168, "#3a2a22", false, 1);
-  bungalow("house-06", 44, 14.5, 7.2, 6.6, "#d5ddd6", 0x6a5044, "#1a2430", false, 2);
+  bungalow("house-home", -32, 14.6, 8.6, 7.4, "#efe4cf", 0x6e5848, "#1c1a18", true, 0, true, "2416");
+  bungalow("house-02", -20.5, 14.8, 7.4, 6.8, "#c9d4c6", 0x5c6168, "#1a2430", false, 1, false, "2420");
+  bungalow("house-03", -10, 15, 7.8, 7, "#e4d2b8", 0x6a5848, "#3a2418", false, 2, false, "2424");
+  bungalow("house-04", 18, 14.7, 7.6, 6.8, "#f3ead8", 0x7a5a44, "#1f3d32", false, 0, false, "2508");
+  bungalow("house-05", 30, 15.1, 8, 7.2, "#dcc8a4", 0x5c6168, "#3a2a22", false, 1, false, "2512");
+  bungalow("house-06", 44, 14.5, 7.2, 6.6, "#d5ddd6", 0x6a5044, "#1a2430", false, 2, false, "2516");
+  const porchLight = new THREE.PointLight(0xffc27a, 0, 9, 2);
+  porchLight.position.set(-32, 2.45, 9.3);
+  exterior.add(porchLight);
+  lamps.push(porchLight);
+  const mamaLight = new THREE.PointLight(0xffc27a, 0, 8, 2);
+  mamaLight.position.set(-20.5, 2.45, 10.05);
+  exterior.add(mamaLight);
+  lamps.push(mamaLight);
   for (const hx of [-27.4, -15.2, -5.4, 13.2, 25.4, 39.2]) {
     kitShrub(hx, 10.35, exterior, 0.95);
     kitShrub(hx + 0.55, 10.15, exterior, 0.6);
   }
 
-  for (const [fx, fz] of [
-    [-36.2, 9.4],
-    [-16.8, 9.6],
-    [22, 9.5],
-    [48, 9.2],
-  ] as const) {
-    box(0.12, 0.55, 1.6, fx, 0.35, fz, wood, exterior);
-  }
+  picketFence(-16.8, 9.55, 2.2, exterior);
+  picketFence(22.2, 9.45, 2.4, exterior);
+  picketFence(48.2, 9.15, 2.2, exterior);
+  bench(8.4, 8.15, Math.PI, exterior);
+  planter(5.5, 8.2, exterior);
   box(3.4, 0.05, 6.2, -35.6, 0.04, 8.4, asphalt, exterior);
+  box(3.2, 0.04, 1.5, -35.6, 0.04, 4.55, concreteSlab(2), exterior);
+  hydrant(-38.4, 5.15, exterior);
   const coupe = parkedCar(-35.4, 8.9, 2.35, "coupe", exterior);
   collectLights(coupe, headlightMats);
   streetSolids.push(carSolid(-35.4, 8.9, 2.35, 4.75, 1.84));
   const sedan = parkedCar(-16.2, 9.1, Math.PI, "sedan", exterior);
   collectLights(sedan, headlightMats);
   streetSolids.push(carSolid(-16.2, 9.1, Math.PI, 4.6, 1.78));
-  const curbSuv = parkedCar(33.5, -3.55, Math.PI / 2, "suv", exterior);
+  const curbSuv = parkedCar(33.5, -3.05, Math.PI / 2, "suv", exterior);
   collectLights(curbSuv, headlightMats);
-  streetSolids.push(carSolid(33.5, -3.55, Math.PI / 2, 4.9, 1.96));
+  streetSolids.push(carSolid(33.5, -3.05, Math.PI / 2, 4.9, 1.96));
 
-  box(0.28, 0.9, 0.28, -28.4, 0.55, 7.9, new THREE.MeshStandardMaterial({ color: 0xb43322, roughness: 0.6 }), exterior);
-  box(0.42, 0.28, 0.22, -28.4, 1.05, 7.9, new THREE.MeshStandardMaterial({ color: 0x8d1d1d, roughness: 0.5 }), exterior);
-  const bin = new THREE.MeshStandardMaterial({ color: 0x3d463f, roughness: 0.62, metalness: 0.15 });
-  const lid = new THREE.MeshStandardMaterial({ color: 0x242824, roughness: 0.5, metalness: 0.25 });
-  function trash(tx: number, tz: number) {
-    mesh(new THREE.CylinderGeometry(0.26, 0.3, 0.78, 12), bin, tx, 0.42, tz, exterior);
-    mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.06, 12), lid, tx, 0.84, tz, exterior);
-  }
-  trash(-29.6, 7.85);
-  for (const [tx, tz] of [[-40, 7.85], [6, -7.85], [38, 7.85], [58, -7.85]] as const) trash(tx, tz);
-  box(0.22, 0.55, 0.22, 3.4, 0.35, 4.7, new THREE.MeshStandardMaterial({ color: 0xc4362c, roughness: 0.45 }), exterior);
-  box(0.28, 0.16, 0.28, 3.4, 0.7, 4.7, chrome, exterior);
+  trashBin(-29.6, 7.85, exterior);
+  for (const [tx, tz] of [[-40, 7.85], [6, -7.85], [38, 7.85], [58, -7.85]] as const) trashBin(tx, tz, exterior);
+  hydrant(3.4, 4.7, exterior);
   box(0.7, 0.85, 0.4, 6.8, 0.5, 7.95, new THREE.MeshStandardMaterial({ color: 0x5c6a62, roughness: 0.7 }), exterior);
   box(0.55, 0.4, 0.35, -8, 0.28, -7.9, new THREE.MeshStandardMaterial({ color: 0x3d4a44, roughness: 0.8 }), exterior);
   const ave = sign("901", "AVE", 0.7, 0.4);

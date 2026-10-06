@@ -10,11 +10,11 @@ The GitHub branch `feat/grok-reference-driven-rebuild` on the remote was still `
 
 ## P1
 
-1. **The world does not match the production packs.** Houses, HQ, streets, court, bowl, river, trucks, and the strip are procedural geometry. `public/game-v2/kit/*` facade plates exist and `mountStreetKit()` knows how to hide the box shells, but nothing calls it. Screenshots still read as a prototype next to the illustrated characters.
-2. **Characters are cards.** Two frames, camera-facing or clamped yaw, `alphaTest: 0.5`. Clothes and hair can go transparent. The stride swap still reads as a pop. No body rig, no real walk cycle, no lip sync.
+1. **The home block is still short of the concept boards.** Benji's house is modular geometry (roof, porch, brick skirt, yard), not a pasted facade. HQ, court, bowl, river, trucks, and the strip were not rebuilt in this pass. `mountStreetKit()` is still unused on purpose.
+2. **Characters are still cards.** Standing cutouts, camera-facing. Live renderer is `src/game-v2` (`alphaTest` 0.02, no stride swap). `src/game` is donor code. There is no body rig and no real walk cycle.
 3. **No downtown, no park, no drivable car.** The city the packs describe is not in the runtime.
 4. **Story ends at a four-item checklist.** After the K Blanco drop and fish/bowl/eat/race, the mission string says the block is open. There is no next chapter.
-5. **Lint does not pass.** `useSpot` is flagged as a React hook (7 errors in `runtime.ts`). CI that treats lint as required will reject the branch. Typecheck and `npm run build` do pass.
+5. **Lint exits 0 with 7 warnings.** They are the `GameV2` effect dependency literal, legacy `src/game` hooks, and one unused eslint-disable. No `useSpot` errors. `npm run test:smoke`, `test:foundation`, and `test:slice` still drive the legacy `window.__sack` / "ENTER MEMPHIS" game. The live route is game-v2 (`window.__SACK_V2__`), so those three scripts time out. That is a test-target mismatch, not a home-block crash.
 6. **Save does not restore where you are.** Position, place, and time of day reset. A reload puts Benji back on the sidewalk with his money and mission flags.
 
 ## P2

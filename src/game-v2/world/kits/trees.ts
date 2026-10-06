@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { bark, canvasTex } from "./materials";
+import { bark, canvasTex, mulch } from "./materials";
 
 function mesh(geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, parent: THREE.Object3D) {
   const m = new THREE.Mesh(geo, mat);
@@ -34,62 +34,66 @@ function canopy(seed: number, dark: string, mid: string, lite: string) {
   }, 256, 256);
 }
 
+const crownMats = new Map<string, THREE.MeshStandardMaterial>();
+
+function leafMat(key: string, seed: number, dark: string, mid: string, lite: string, alpha = 0.1) {
+  const hit = crownMats.get(key);
+  if (hit) return hit;
+  const mat = new THREE.MeshStandardMaterial({
+    map: canopy(seed, dark, mid, lite),
+    transparent: true,
+    alphaTest: alpha,
+    side: THREE.DoubleSide,
+    roughness: 1,
+  });
+  crownMats.set(key, mat);
+  return mat;
+}
+
 function crown(x: number, z: number, y: number, w: number, h: number, mat: THREE.Material, parent: THREE.Object3D) {
-  for (const yaw of [0, Math.PI / 3, (2 * Math.PI) / 3]) {
-    const card = mesh(new THREE.PlaneGeometry(w, h), mat, x, y, z, parent);
-    card.rotation.y = yaw;
-    card.castShadow = false;
+  const clusters = [
+    { ox: 0, oz: 0, s: 1, oy: 0 },
+    { ox: w * 0.22, oz: w * 0.08, s: 0.7, oy: -h * 0.16 },
+    { ox: -w * 0.18, oz: -w * 0.06, s: 0.62, oy: -h * 0.08 },
+  ];
+  for (const cluster of clusters) {
+    for (const yaw of [0.15, Math.PI / 3, (2 * Math.PI) / 3]) {
+      const card = mesh(new THREE.PlaneGeometry(w * cluster.s, h * cluster.s), mat, x + cluster.ox, y + cluster.oy, z + cluster.oz, parent);
+      card.rotation.y = yaw;
+      card.castShadow = false;
+    }
   }
 }
 
 function trunk(x: number, z: number, h: number, r: number, parent: THREE.Object3D) {
-  mesh(new THREE.CylinderGeometry(r * 0.7, r, h, 8), bark(), x, h / 2, z, parent);
+  mesh(new THREE.CylinderGeometry(r * 0.72, r, h, 8), bark(), x, h / 2, z, parent);
+  mesh(new THREE.CylinderGeometry(r * 1.35, r * 1.55, h * 0.18, 8), bark(), x, h * 0.08, z, parent);
+  const bed = mesh(new THREE.CircleGeometry(Math.max(0.45, r * 3.4), 8), mulch(), x, 0.015, z, parent);
+  bed.rotation.x = -Math.PI / 2;
+  bed.castShadow = false;
 }
 
 export function shadeTree(x: number, z: number, parent: THREE.Object3D, scale = 1) {
-  trunk(x, z, 2.2 * scale, 0.18 * scale, parent);
-  const mat = new THREE.MeshStandardMaterial({
-    map: canopy(Math.round(x + z), "#1b4a26", "#2f6b34", "#4e8a46"),
-    transparent: true,
-    alphaTest: 0.1,
-    side: THREE.DoubleSide,
-    roughness: 1,
-  });
-  crown(x, z, 2.7 * scale, 2.6 * scale, 2.1 * scale, mat, parent);
+  trunk(x, z, 2.4 * scale, 0.16 * scale, parent);
+  const mat = leafMat("shade", 2, "#1b4a26", "#2f6b34", "#4e8a46");
+  crown(x, z, 2.85 * scale, 2.8 * scale, 2.2 * scale, mat, parent);
 }
 
 export function streetTree(x: number, z: number, parent: THREE.Object3D, scale = 1) {
-  trunk(x, z, 2.6 * scale, 0.12 * scale, parent);
-  const mat = new THREE.MeshStandardMaterial({
-    map: canopy(Math.round(x * 2), "#24562c", "#3d7a38", "#6aa45a"),
-    transparent: true,
-    alphaTest: 0.1,
-    side: THREE.DoubleSide,
-    roughness: 1,
-  });
-  crown(x, z, 3.15 * scale, 1.7 * scale, 1.9 * scale, mat, parent);
+  trunk(x, z, 2.8 * scale, 0.11 * scale, parent);
+  const mat = leafMat("street", 4, "#24562c", "#3d7a38", "#6aa45a");
+  crown(x, z, 3.3 * scale, 1.8 * scale, 2.0 * scale, mat, parent);
 }
 
 export function ornamental(x: number, z: number, parent: THREE.Object3D) {
   trunk(x, z, 1.5, 0.08, parent);
-  const mat = new THREE.MeshStandardMaterial({
-    map: canopy(3, "#6a3048", "#8a4060", "#c46a58"),
-    transparent: true,
-    alphaTest: 0.1,
-    side: THREE.DoubleSide,
-  });
+  const mat = leafMat("ornamental", 3, "#6a3048", "#8a4060", "#c46a58");
   crown(x, z, 1.85, 1.15, 1.05, mat, parent);
 }
 
 export function matureTree(x: number, z: number, parent: THREE.Object3D) {
   trunk(x, z, 3.1, 0.26, parent);
-  const mat = new THREE.MeshStandardMaterial({
-    map: canopy(9, "#163e22", "#2a6230", "#3f7a38"),
-    transparent: true,
-    alphaTest: 0.1,
-    side: THREE.DoubleSide,
-    roughness: 1,
-  });
+  const mat = leafMat("mature", 9, "#163e22", "#2a6230", "#3f7a38");
   crown(x, z, 3.8, 3.4, 2.6, mat, parent);
 }
 
@@ -123,19 +127,14 @@ export function palmTree(x: number, z: number, parent: THREE.Object3D) {
 }
 
 export function shrub(x: number, z: number, parent: THREE.Object3D, s = 1) {
-  const mat = new THREE.MeshStandardMaterial({
-    map: canopy(s * 4, "#1e4e28", "#347238", "#5a9450"),
-    transparent: true,
-    alphaTest: 0.12,
-    side: THREE.DoubleSide,
-  });
+  const mat = leafMat("shrub", 6, "#1e4e28", "#347238", "#5a9450", 0.12);
   const h = 0.62 * s;
   const w = 0.9 * s;
-  const a = mesh(new THREE.PlaneGeometry(w, h), mat, x, 0.28 * s, z, parent);
-  const b = mesh(new THREE.PlaneGeometry(w * 0.85, h), mat, x, 0.28 * s, z, parent);
-  a.castShadow = false;
-  b.castShadow = false;
-  b.rotation.y = Math.PI / 2;
+  for (const yaw of [0, Math.PI / 3, (2 * Math.PI) / 3]) {
+    const card = mesh(new THREE.PlaneGeometry(w, h), mat, x, 0.28 * s, z, parent);
+    card.rotation.y = yaw;
+    card.castShadow = false;
+  }
 }
 
 export function crepeMyrtle(x: number, z: number, parent: THREE.Object3D) {
@@ -143,11 +142,6 @@ export function crepeMyrtle(x: number, z: number, parent: THREE.Object3D) {
     const t = mesh(new THREE.CylinderGeometry(0.04, 0.07, 1.7, 6), bark(), x + ox, 0.85, z + oz, parent);
     t.rotation.z = ox * 0.8;
   }
-  const mat = new THREE.MeshStandardMaterial({
-    map: canopy(5, "#8a3058", "#d06088", "#f0a0b8"),
-    transparent: true,
-    alphaTest: 0.12,
-    side: THREE.DoubleSide,
-  });
+  const mat = leafMat("crepe", 5, "#8a3058", "#d06088", "#f0a0b8", 0.12);
   crown(x, z, 1.85, 1.5, 1.15, mat, parent);
 }

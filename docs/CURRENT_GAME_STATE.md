@@ -10,14 +10,14 @@ Status words: **DONE**, **PARTIAL**, **PLACEHOLDER**, **BROKEN**, **NOT STARTED*
 
 | System | Status | Why |
 |---|---|---|
-| WASD | DONE | `KeyW/A/S/D` in `src/game-v2/runtime.ts` `step()`. Camera-relative. |
+| WASD | DONE | Direct screen movement in `src/game-v2/runtime.ts`. A and D move left and right. W moves away. S moves toward the camera. |
 | Arrow keys | DONE | `ArrowUp/Down/Left/Right` mapped to the same axes as WASD. |
-| Walking | PARTIAL | Moves, eases in and out, distance-based stride. Still a 2-frame cutout, not a real cycle. Back and side views do not use the walk frame (that frame is front-facing and was turning Benji around). |
+| Walking | PARTIAL | Moves and eases. Standing cutouts only. Walk-frame swaps were removed because they popped the body. |
 | Running | DONE | Shift uses 10.2 m/s. Night fit multiplies by 1.12. Fed boost multiplies by 1.22. Race overrides speed. |
-| Directional facing | PARTIAL | Four Benji views with a 1.2× hysteresis so diagonals do not flicker. The card still billboards toward the camera. The front walk PNG only appears on the front view, mid-step. |
-| Grounding | PARTIAL | Sole-anchored plane + `standHeight()`. Shoes are better than the earlier buried build. Soft alpha, porch rails, and pad gaps can still clip a sole. |
+| Directional facing | DONE | Facing follows the movement vector. The card still faces the camera. |
+| Grounding | DONE | Sole plane and `walkableSurfaceAt()`. Foot contact is measured from the cutout alpha. No camera ground nudge. |
 | Collision | PARTIAL | Building AABBs only (`resolve()`, radius 0.34, 3 passes). No world bounds. NPCs are not solid. Cars push Benji out. |
-| Camera | PARTIAL | Chase cam, yaw follows movement, damped. Haunt camera is pulled out of walls. No collision cam on the street. Bowling replaces it with a locked first-person lane cam. |
+| Camera | PARTIAL | Yaw stays put so left remains screen-left. Street camera is a little farther and lower. Bowling still uses a locked lane camera. |
 | Outfit system | PLACEHOLDER | Four fits (`default`, `court`, `river`, `night`) are numeric perks only. Benji's pictures do not change. Wardrobe is an E prompt inside the home. |
 
 ## NPC
@@ -25,7 +25,7 @@ Status words: **DONE**, **PARTIAL**, **PLACEHOLDER**, **BROKEN**, **NOT STARTED*
 | System | Status | Why |
 |---|---|---|
 | Canonical named NPCs | PARTIAL | K Blanco, Court OG, Mama Dee, Unc J, Nitro, Strike use Character Bible cutouts (front/back/left/right). They are cards, not acted characters. |
-| Ambient pedestrians | PARTIAL | Eight illustrated variants (male/female 01–04), front + one stride frame only. They are reused. No photo-humans in game-v2. |
+| Ambient pedestrians | PARTIAL | Eight illustrated variants. The runtime shows the standing frame only so they do not pop. No photo-humans in game-v2. |
 | Walking | PARTIAL | A few sidewalk routes ease speed, brake into a stop, pause ~1.1–2.2s, then reverse. Most named people stand. |
 | Directional facing | PARTIAL | Named cast pick a view from heading vs camera. Front-only pedestrians yaw the card toward their heading, clamped so they do not go edge-on. Partners face each other. |
 | Grounding | PARTIAL | Same sole/ground system as Benji. |
@@ -36,9 +36,9 @@ Status words: **DONE**, **PARTIAL**, **PLACEHOLDER**, **BROKEN**, **NOT STARTED*
 
 | System | Status | Why |
 |---|---|---|
-| Benji home | PARTIAL | Exterior bungalow plus a small interior (wardrobe). Geometry and canvas textures, not a finished architectural set. |
-| Neighborhood | PARTIAL | One residential run of houses, sidewalk, yards, a few trees and props. Readable as a block, not production density. |
-| Streets | PARTIAL | Asphalt, curbs, sidewalks, one avenue and one cross street. |
+| Benji home | PARTIAL | Hero bungalow at x=-32 (number 2416): brick skirt, lap siding, pitched roof, ridge, eaves, fascia, soffit, gutters, chimney, porch, rails at 0.98 m, door about 2.05 m. Still built from modular boxes, not the concept board. |
+| Neighborhood | PARTIAL | Six bungalows with three structural styles (roof rise, porch roof, brick wrap, shutters, driveway, fence). Yards have mulch, shrubs, flowers, and side-yard trees. Not concept density. |
+| Streets | PARTIAL | Avenue asphalt is 8.2 m wide (z -4.1 to 4.1). Lane centers are z = ±1.85. Sidewalks stay at z = ±6.35, walk height 0.17 m, about 2.35 m deep. Parkway sits between the curb and the walk. Live code is `src/game-v2`. `src/game` is the legacy donor. |
 | HQ exterior | PARTIAL | Black/gold boutique massing at x=24, z=-16.4. Playable door. Not a match for the reference boards. |
 | HQ interior | PARTIAL | Separate room offset to z≈200. K Blanco stands inside. Showroom is a furnished box, not the reference interior. |
 | 901 Court | PARTIAL | Painted court, two goals, fence, lights, OG, ball. Custom-looking but still simple. |
@@ -109,21 +109,21 @@ People are **not** `THREE.Sprite`. Each person is a `THREE.Group` with a `THREE.
 - **Pivot:** geometry is translated so the local origin is the visible sole, not the PNG center. `footPad` is transparent rows under the shoe. Current cutouts use `footPad` 0 or 1.
 - **Foot position:** `plantFeet()` sets the group Y to `standHeight(x,z) + GROUND_EPSILON` (0.03) minus parent Y.
 - **Ground sampling:** `groundHeightAt` returns the highest registered pad under the point, else 0. `standHeight` also samples ±0.18 m so a curb edge does not drop the sole.
-- **Alpha:** PNGs are pre-cut. Runtime does not chroma-key. `solidCutout()` disables mipmaps and uses linear filters so hair alpha is not averaged into holes. Material is `MeshBasicMaterial`, `alphaTest: 0.5`, `transparent: false`, double sided, polygon offset -2. **alphaTest 0.5 will delete dark or soft edges** (black cloth, beards, dreads). That is the likely cause of remaining see-through clothes and hair.
-- **Scale:** `presentScale()` returns 1. Height is the asset's meter height. Width is `height * pxW/pxH`. Swapping to a walk PNG rebuilds the plane, so the silhouette pops. There is no distance scaling.
-- **Shadow:** a flat dark ellipse on the group (`shadow` mesh), not a cascaded shadow map. Characters do set `castShadow` on the card.
+- **Alpha:** PNGs are pre-cut. Runtime does not chroma-key. `solidCutout()` disables mipmaps and uses linear filters. Material is `MeshBasicMaterial`, `transparent: true`, `alphaTest: 0.02`, depth write on, polygon offset -4, render order 6. The black comic outline is the drawn stroke, not a runtime halo.
+- **Scale:** `presentScale()` returns 1. Height is the asset's meter height. Width is `height * pxW/pxH`. Walk sheets are not swapped in, so the body box does not pop.
+- **Shadow:** a flat dark ellipse on the group (`shadow` mesh). Characters also cast a shadow from the card.
 - **Facing:** named cast with back/left/right textures pick a view from the angle between `userData.heading` and the camera, then billboard the plane at the camera. Front-only pedestrians yaw the plane toward their heading, clamped to 1.25 rad off the camera.
-- **Walk:** phase advances by `distance / 0.78`. The stride frame shows only while the fraction is between 0.18 and 0.62 and speed is above ~0.28 m/s. A small lateral sway (±0.045 m) and ±0.04 rad roll are applied. No vertical bob in code. Idle people sway about 1.6 cm.
-- **Files:** `src/game-v2/world/feet.ts`, `src/game-v2/world/ground.ts`, `src/game-v2/assets/characters.ts`, `src/game-v2/runtime.ts` (`applyBenji`, `applyCard`, `updatePeds`, `faceCompany`), `src/game-v2/world/slice.ts` (`actor`, `spawn`).
+- **Walk:** standing frames only. `rock()` forces `rotation.z` to 0. There is no stride swap, no hop, and no scale pop. Walk PNGs exist on disk but are not shown.
+- **Files:** `src/game-v2/world/feet.ts`, `src/game-v2/world/ground.ts`, `src/game-v2/assets/characters.ts`, `src/game-v2/runtime.ts` (`applyBenji`, `applyCard`, `updatePeds`, `faceCompany`), `src/game-v2/world/slice.ts` (`actor`, `spawn`). Legacy `src/game/` is donor code and is not this renderer.
 
 Why someone can still look wrong:
 
-- **Sink:** pad missing under that surface, or a PNG whose shoes are not on the bottom row, or a porch rail in front of the legs.
-- **Float:** a ground pad higher than the visual mesh, or `GROUND_EPSILON` plus the camera nudge in `seatOnGround` (0.14 m toward the camera).
-- **Transparent:** `alphaTest: 0.5` plus any soft alpha left in the PNG.
+- **Sink:** a pad missing under that surface, or a porch rail drawn in front of the legs.
+- **Float:** a ground pad higher than the visual mesh. `seatOnGround` only zeros the card's local position. It does not nudge the camera.
+- **Transparent:** a hole left in the source PNG. `alphaTest` is 0.02, so it no longer punches out dark cloth.
 - **Over-cropped:** the source PNG was cropped that way. Runtime does not crop further.
-- **Hop:** the stride PNG is a different drawing, swapped in for part of each step. The body position does not bounce, but the picture does.
-- **Size pop:** walk vs stand aspect ratios differ, so width changes every step.
+- **Jagged outline:** the ink stroke is one pixel of feather. Thickening it smears the drawing.
+- **No walk cycle:** the standing card translates. Side and back views do not have a stride frame.
 
 ## 8. Input and movement
 
