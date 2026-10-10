@@ -3,6 +3,7 @@ import type { Solid } from "../core/types";
 import { addGround } from "./ground";
 import { buildGoal } from "./kits/hoop";
 import { buildHauntExterior, buildHauntFoyer, hauntSurface } from "./kits/haunt-architecture";
+import { buildHauntLibrary } from "./kits/haunt-library";
 
 export type HauntWorld = {
   group: THREE.Group;
@@ -526,7 +527,7 @@ function dressRooms(group: THREE.Group, glow: THREE.MeshStandardMaterial[], soli
       box(0.36, 0.44 + (book % 3) * 0.05, 0.105, 24.75, y, z - 0.4 + book * 0.15, spine, group);
     }
   }
-  box(1.8, 0.75, 0.8, 27.2, 0.45, 4.6, wood, group);
+  buildHauntLibrary(group, solids, glow);
 
   for (let i = 0; i < 4; i++) box(0.12, 0.12, 3.6, 33.2 + i * 0.7, 2.55, 3.2, wood, group);
   box(1.6, 0.7, 0.9, 35.2, 0.4, 5.2, wood, group);
