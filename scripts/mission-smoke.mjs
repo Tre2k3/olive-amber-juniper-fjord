@@ -94,6 +94,9 @@ try {
   check(Boolean(raw), "mission writes a save record", { size: raw?.length });
   const saved = JSON.parse(raw);
   check(saved.delivered && !saved.carrying, "save retains delivered state", saved);
+  // Dispose the first WebGL scene before reopening; two live software renderers
+  // can starve each other and stall frame-based save checks.
+  await page.close();
   const resumed = await context.newPage();
   resumed.on("pageerror", (e) => errors.push(String(e.message)));
   await resumed.addInitScript((payload) => { localStorage.setItem("sack-v2", payload); }, raw);

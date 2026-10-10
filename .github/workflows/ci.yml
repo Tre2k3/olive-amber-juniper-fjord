@@ -89,6 +89,13 @@ jobs:
       - name: Haunted house architecture and gameplay
         run: node scripts/haunt-3d-smoke.mjs
 
+      - name: Upload rendered haunted house views
+        uses: actions/upload-artifact@v4
+        with:
+          name: haunted-house-qa
+          path: artifacts/haunt/
+          if-no-files-found: error
+
       - name: Foundation safety
         run: npm run test:foundation
 
@@ -102,6 +109,7 @@ jobs:
         run: xvfb-run -a node scripts/traffic-smoke.mjs
 
       - name: Mission smoke
+        timeout-minutes: 6
         run: xvfb-run -a node scripts/mission-smoke.mjs
 
       - name: DOM visual smoke
