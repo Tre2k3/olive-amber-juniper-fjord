@@ -197,7 +197,7 @@ export function dressBealeNightlife(
   for(const x of [20, 35, 51, 67, 76]) stringLights(group, x);
   // Narrow frontage tables are outside the 2.2m principal sidewalk.
   for (const x of [23.5, 28.2, 49.5, 56.5, 68.5]) {
-    sidewalkCafe(group, x, -63.2, (x % 2 > 1 ? 0.12 : -0.1));
+    sidewalkCafe(group, x, -61.7, (x % 2 > 1 ? 0.12 : -0.1));
   }
   group.userData.productionVersion = 1;
   group.userData.facingStorefrontCount = 5;
