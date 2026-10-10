@@ -661,9 +661,27 @@ export function buildSlice(): SliceWorld {
     box(w + 0.18, 0.1, 0.1, x, y - h / 2, z, metal, exterior);
     box(0.1, h, 0.1, x - w / 2, y, z, metal, exterior);
     box(0.1, h, 0.1, x + w / 2, y, z, metal, exterior);
-    box(w - 0.04, h - 0.06, 0.04, x, y, frontZ + 0.04, warm, exterior);
-    box(w - 0.08, h - 0.1, 0.03, x, y, frontZ + 0.12, glassMat, exterior);
-    box(0.045, h - 0.16, 0.05, x, y, z + 0.02, frame, exterior);
+    // A real window display is dimensional: backing, hanging rail, individual
+    // garments, illuminated shoe plinth and glass in front. Never put the
+    // whole reference painting into the storefront as one flat plane.
+    const displayBack = new THREE.MeshStandardMaterial({ color: 0x0c1214, roughness: 0.88 });
+    const displayGreen = new THREE.MeshStandardMaterial({ color: 0x19693d, roughness: 0.82 });
+    const displayIvory = new THREE.MeshStandardMaterial({ color: 0xeee9dd, roughness: 0.86 });
+    box(w - 0.04, h - 0.06, 0.06, x, y, frontZ + 0.035, displayBack, exterior);
+    box(w - 0.2, 0.055, 0.13, x, y + 0.91, frontZ + 0.24, gold, exterior);
+    for (const [index, offset] of [-0.7, 0, 0.7].entries()) {
+      const cx = x + offset * (w / 2.65);
+      const fabric = index === 0 ? displayGreen : index === 1 ? displayIvory : metal;
+      box(0.46, 0.68, 0.095, cx, y + 0.38, frontZ + 0.29, fabric, exterior);
+      box(0.16, 0.27, 0.09, cx - 0.29, y + 0.57, frontZ + 0.29, fabric, exterior);
+      box(0.16, 0.27, 0.09, cx + 0.29, y + 0.57, frontZ + 0.29, fabric, exterior);
+      box(0.5, 0.05, 0.36, cx, y - 0.68, frontZ + 0.27, metal, exterior);
+      box(0.36, 0.09, 0.2, cx, y - 0.57, frontZ + 0.36, displayIvory, exterior);
+      box(0.2, 0.16, 0.17, cx + 0.05, y - 0.44, frontZ + 0.35, fabric, exterior);
+    }
+    box(w - 0.18, 0.04, 0.15, x, y - h / 2 + 0.32, frontZ + 0.31, gold, exterior);
+    box(w - 0.08, h - 0.1, 0.03, x, y, frontZ + 0.43, glassMat, exterior);
+    box(0.045, h - 0.16, 0.08, x, y, frontZ + 0.46, frame, exterior);
     const lamp = new THREE.PointLight(0xffb15a, 0, 7, 2);
     lamp.position.set(x, y, frontZ + 1.4);
     exterior.add(lamp);
@@ -671,6 +689,13 @@ export function buildSlice(): SliceWorld {
   }
   displayBay(hqX - 5.15, 2.55);
   displayBay(hqX + 5.15, 2.55);
+  // Architectural warm-gold cove follows the entire flagship frontage.
+  // These are slim 3D LED elements, not a painted concept-board texture.
+  box(18.1, 0.055, 0.2, hqX, 5.85, frontZ + 0.47, gold, exterior);
+  box(18.1, 0.038, 0.08, hqX, 0.64, frontZ + 0.47, gold, exterior);
+  for (const px of [hqX - 8.45, hqX + 8.45]) {
+    box(0.09, 5.2, 0.12, px, 3.05, frontZ + 0.43, gold, exterior);
+  }
   box(1.7, 0.1, 0.1, hqX, 2.58, frontZ + 0.18, metal, exterior);
   box(0.1, 2.45, 0.1, hqX - 0.8, 1.38, frontZ + 0.18, metal, exterior);
   box(0.1, 2.45, 0.1, hqX + 0.8, 1.38, frontZ + 0.18, metal, exterior);
