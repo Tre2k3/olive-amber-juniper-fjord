@@ -92,6 +92,53 @@ function crown(x: number, z: number, y: number, w: number, h: number, mat: THREE
   if (layers > 1) billboard(w * 0.72, h * 0.64, x + w * 0.04, y + h * 0.1, z + 0.18, mat, parent);
 }
 
+/**
+ * Volumetric canopy made of many small, differently oriented leaf clusters.
+ * InstancedMesh costs one draw call per tree rather than hundreds of separate
+ * leaf cards. No camera-facing giant tree image or green sphere geometry.
+ */
+function layeredCanopy(x: number, z: number, y: number, width: number, height: number,
+  mat: THREE.Material, parent: THREE.Object3D, seed: number) {
+  const count = 34;
+  const leaf = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.98, 0.78), mat, count);
+  const obj = new THREE.Object3D();
+  for (let i = 0; i < count; i++) {
+    const t = i / count;
+    const angle = (i * 2.399963229728653 + seed * 1.3) % (Math.PI * 2);
+    const elev = ((i * 17 + seed * 3) % 37) / 36;
+    const ring = 0.25 + 0.73 * Math.sin(Math.PI * elev);
+    const nearFar = ((i * 13 + seed * 9) % 29) / 28 * 2 - 1;
+    obj.position.set(
+      x + Math.cos(angle) * width * 0.41 * ring,
+      y + (elev - 0.5) * height * 0.77,
+      z + Math.sin(angle) * width * 0.29 * ring + nearFar * width * 0.065,
+    );
+    obj.rotation.set((i % 4 - 1.5) * 0.2, angle + Math.PI / 2, Math.sin(angle) * 0.14);
+    const s = 0.76 + ((i * 11 + seed) % 7) * 0.075;
+    obj.scale.set(s * width / 2.7, s * height / 2.1, 1);
+    obj.updateMatrix();
+    leaf.setMatrixAt(i, obj.matrix);
+  }
+  leaf.instanceMatrix.needsUpdate = true;
+  leaf.frustumCulled = false;
+  leaf.castShadow = false;
+  leaf.receiveShadow = true;
+  leaf.name = "instanced-tree-canopy";
+  parent.add(leaf);
+}
+
+function branches(x: number, z: number, at: number, r: number, parent: THREE.Object3D) {
+  const branchMat = bark();
+  for (let i = 0; i < 4; i++) {
+    const a = Math.PI * 2 * i / 4 + 0.35;
+    const limb = mesh(new THREE.CylinderGeometry(r * 0.32, r * 0.6, 1.25, 7),
+      branchMat, x + Math.sin(a) * 0.36, at + 0.22 + (i % 2) * 0.18,
+      z + Math.cos(a) * 0.36, parent);
+    limb.rotation.z = Math.sin(a) * 0.63;
+    limb.rotation.x = Math.cos(a) * -0.63;
+  }
+}
+
 /** Yaw every crown so the flat side never faces the camera. */
 export function faceFoliage(cam: THREE.Vector3) {
   for (const card of yawCards) {
@@ -110,8 +157,9 @@ function trunk(x: number, z: number, h: number, r: number, parent: THREE.Object3
 
 export function shadeTree(x: number, z: number, parent: THREE.Object3D, scale = 1) {
   trunk(x, z, 2.4 * scale, 0.16 * scale, parent);
-  const mat = leafMat("shade", 2, "#1b4a26", "#2f6b34", "#4e8a46");
-  crown(x, z, 2.85 * scale, 2.8 * scale, 2.2 * scale, mat, parent);
+  branches(x, z, 1.94 * scale, 0.16 * scale, parent);
+  const mat = streetLeaves();
+  layeredCanopy(x, z, 2.9 * scale, 2.95 * scale, 2.25 * scale, mat, parent, 2);
 }
 
 let leafCard: THREE.MeshStandardMaterial | null = null;
@@ -133,7 +181,8 @@ function streetLeaves() {
 
 export function streetTree(x: number, z: number, parent: THREE.Object3D, scale = 1) {
   trunk(x, z, 2.8 * scale, 0.11 * scale, parent);
-  crown(x, z, 3.3 * scale, 2.15 * scale, 2.35 * scale, streetLeaves(), parent);
+  layeredCanopy(x, z, 3.3 * scale, 2.35 * scale, 2.35 * scale,
+    streetLeaves(), parent, Math.floor(Math.abs(x * 7 + z * 11)) % 13);
 }
 
 export function ornamental(x: number, z: number, parent: THREE.Object3D) {
@@ -144,8 +193,8 @@ export function ornamental(x: number, z: number, parent: THREE.Object3D) {
 
 export function matureTree(x: number, z: number, parent: THREE.Object3D) {
   trunk(x, z, 3.1, 0.26, parent);
-  const mat = leafMat("mature", 9, "#163e22", "#2a6230", "#3f7a38");
-  crown(x, z, 3.8, 3.4, 2.6, mat, parent);
+  branches(x, z, 2.64, 0.26, parent);
+  layeredCanopy(x, z, 3.84, 4.05, 3.12, streetLeaves(), parent, 9);
 }
 
 export function palmTree(x: number, z: number, parent: THREE.Object3D) {
