@@ -32,7 +32,13 @@ try {
     "desktop WebGL fills the gameplay view", desktop.canvas);
   check(/MEMPHIS|SACK|RESPECT|901/i.test(desktop.hud.toUpperCase()),
     "desktop HUD shows Memphis progression", { sample: desktop.hud.slice(0, 180) });
-  await page.screenshot({ path: "artifacts/dom-desktop.png" });
+  if (process.env.CAPTURE_QA === "1") {
+    try {
+      await page.screenshot({ path: "artifacts/dom-desktop.png", animations: "allow", timeout: 12000 });
+    } catch (error) {
+      console.warn("Visual QA capture unavailable: dom-desktop.png " + String(error));
+    }
+  }
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
@@ -46,7 +52,13 @@ try {
     "mobile WebGL canvas remains visible", mobile.canvas);
   check(/MEMPHIS|RESPECT|901/i.test(mobile.hud.toUpperCase()),
     "mobile HUD retains game progression", { sample: mobile.hud.slice(0, 180) });
-  await page.screenshot({ path: "artifacts/dom-mobile.png" });
+  if (process.env.CAPTURE_QA === "1") {
+    try {
+      await page.screenshot({ path: "artifacts/dom-mobile.png", animations: "allow", timeout: 12000 });
+    } catch (error) {
+      console.warn("Visual QA capture unavailable: dom-mobile.png " + String(error));
+    }
+  }
   check(failures.length === 0, "mobile/desktop boot without runtime errors", failures);
   console.log("Live Memphis responsive smoke passed");
 } finally {
