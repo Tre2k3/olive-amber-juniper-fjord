@@ -92,6 +92,19 @@ try {
     visuals.kinds.includes("suv") && visuals.kinds.includes("van") &&
     visuals.lampPools >= 8,
     "Memphis fleet variants and controlled street illumination present", visuals);
+  // Beale atmosphere must be a true nighttime effect rather than flat
+  // permanently glowing floor artwork. No screenshot is needed to verify
+  // the authored mesh/material state.
+  const bealeDay = await page.evaluate(() => window.__SACK_V2_INPUT__.bealeProduction());
+  check(bealeDay.built && bealeDay.version === 2 && bealeDay.poolCount === 7,
+    "production Beale neon spill meshes mount and reuse light materials", bealeDay);
+  const bealeNight = await page.evaluate(async () => {
+    window.__SACK_V2_INPUT__.setShot({ x: 40, z: -48.2, night: true });
+    for (let i = 0; i < 2; i++) await new Promise((resolve) => requestAnimationFrame(resolve));
+    return window.__SACK_V2_INPUT__.bealeProduction();
+  });
+  check(bealeNight.opacities.length === 7 && bealeNight.opacities.every((a) => a >= 0.22),
+    "nighttime Beale venue signs illuminate pavement", bealeNight);
   check(errors.length === 0, "foundation boot has no page errors", errors);
   console.log("foundation smoke passed");
 } finally {
