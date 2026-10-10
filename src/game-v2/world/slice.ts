@@ -1009,7 +1009,7 @@ export function buildSlice(): SliceWorld {
     backboards: [west.board, east.board],
     courtOg: { x: courtX, z: courtZ + 5.6 },
     wardrobe: { x: -3.5, z: -2.5 },
-    kAnchor: { x: 1.15, z: 1.9 },
+    kAnchor: { x: 1.9, z: 0.1 },
     sun,
     hemi,
     lamps,
