@@ -14,11 +14,8 @@ import { canvasTex } from "./materials";
 const steel = new THREE.MeshStandardMaterial({ color: 0x202b2d, roughness: 0.46, metalness: 0.63 });
 const bronze = new THREE.MeshStandardMaterial({ color: 0xb57d35, roughness: 0.38, metalness: 0.59 });
 const charcoal = new THREE.MeshStandardMaterial({ color: 0x141a1c, roughness: 0.78 });
-const offWhite = new THREE.MeshStandardMaterial({ color: 0xe9dfcb, roughness: 0.74 });
 const paving = new THREE.MeshStandardMaterial({ color: 0x454f51, roughness: 0.88 });
 const tile = new THREE.MeshStandardMaterial({ color: 0x222d2d, roughness: 0.86 });
-const oak = new THREE.MeshStandardMaterial({ color: 0x795b3b, roughness: 0.83 });
-const emerald = new THREE.MeshStandardMaterial({ color: 0x1e7c54, roughness: 0.74 });
 const warmLight = new THREE.MeshStandardMaterial({
   color: 0xffd0a0, emissive: 0xffb25c, emissiveIntensity: 0.55, roughness: 0.45,
 });
