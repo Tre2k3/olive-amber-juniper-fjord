@@ -65,8 +65,8 @@ function leafMat(key: string, seed: number, dark: string, mid: string, lite: str
   if (hit) return hit;
   const mat = new THREE.MeshStandardMaterial({
     map: canopy(seed, dark, mid, lite),
-    transparent: true,
-    alphaTest: 0.35,
+    transparent: false,
+    alphaTest: 0.5,
     side: THREE.DoubleSide,
     roughness: 1,
     depthWrite: true,
@@ -170,8 +170,8 @@ function streetLeaves() {
   map.colorSpace = THREE.SRGBColorSpace;
   leafCard = new THREE.MeshStandardMaterial({
     map,
-    transparent: true,
-    alphaTest: 0.2,
+    transparent: false,
+    alphaTest: 0.5,
     side: THREE.DoubleSide,
     roughness: 0.86,
     depthWrite: true,

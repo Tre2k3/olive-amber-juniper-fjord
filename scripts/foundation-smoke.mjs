@@ -87,7 +87,7 @@ try {
   // 3D chassis and headlights. Street lamps must have day/night light pools.
   const visuals = await page.evaluate(() => window.__SACK_V2_INPUT__.vehicleProduction());
   check(visuals.count >= 8 && visuals.complete === visuals.count,
-    "illustrated car fleet mounts complete grounded 3D support rigs", visuals);
+    "canonical car fleet mounts grounded art and contact shadows", visuals);
   check(visuals.kinds.includes("coupe") && visuals.kinds.includes("sedan") &&
     visuals.kinds.includes("suv") && visuals.kinds.includes("van") &&
     visuals.lampPools >= 8,

@@ -8,7 +8,7 @@ import { productionLanes, sampleLane, type Lane } from "./roads/lanes";
 import { buildSlice, carBody, type SliceWorld } from "./world/slice";
 import { presentVehicles } from "./world/kits/vehicles";
 import { faceFoliage } from "./world/kits/trees";
-import { characters, frameSize } from "./assets/characters";
+import { characters, frameSize, type Cutout } from "./assets/characters";
 import { characterMaterial, footMarker, plantFeet, seatOnGround, solePlane, solidCutout } from "./world/feet";
 import {
   activityCharge,
@@ -140,7 +140,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     });
   }
   const strideTex: Partial<Record<Facing, THREE.Texture>> = {};
-  const frontStride = characters.benji.views.walk;
+  const frontStride = (characters.benji.views as { walk?: Cutout }).walk;
   if (frontStride) {
     loader.load(frontStride.src, (tex) => {
       solidCutout(tex);
@@ -973,12 +973,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (avatar.userData.pose === pose && mat.map) return;
     const tex = stride ?? textures[face];
     if (!tex) return;
-    // Standing mesh only. The stride sheet is a different crop, so a new plane pops the body.
-    if (avatar.userData.box !== face) {
-      const size = frameSize(characters.benji, face);
+    if (avatar.userData.box !== pose) {
+      const size = frameSize(characters.benji, stride ? "walk" : face);
       avatar.geometry.dispose();
       avatar.geometry = solePlane(size.w, size.h, size.footPad, size.pxH, size.centerPx, size.pxW);
-      avatar.userData.box = face;
+      avatar.userData.box = pose;
     }
     mat.map = tex;
     mat.needsUpdate = true;
@@ -1021,11 +1020,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (asset && mesh.userData.pose !== pose) {
       const map = stepping ? walkMap : tex?.[face];
       if (map) {
-        if (mesh.userData.box !== face) {
-          const size = frameSize(asset, face);
+        if (mesh.userData.box !== pose) {
+          const size = frameSize(asset, stepping ? "walk" : face);
           mesh.geometry.dispose();
           mesh.geometry = solePlane(size.w, size.h, size.footPad, size.pxH, size.centerPx, size.pxW);
-          mesh.userData.box = face;
+          mesh.userData.box = pose;
         }
         mesh.userData.pose = pose;
         mesh.userData.face = face;
@@ -1145,7 +1144,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   // Earlier real nighttime QA frames blew out white porch/lamp details.
   // Keep contrast and material texture visible; glow should be warm, not a
   // screen-wide white flare. Use fixed bounds across day/golden/night.
+  let lightingState = "";
   function applyNight() {
+    // Lighting uniforms change with the mode/place, not every animation frame.
+    // Keep a local street-light budget across every Memphis district.
+    const state = `${place}:${night}:${golden}:${Math.floor(player.position.x / 10)}:${Math.floor(player.position.z / 10)}`;
+    if (state === lightingState) return;
+    lightingState = state;
     const outside = place === "street" || place === "court";
     world.sun.intensity = night ? 0.22 : golden ? 2.35 : outside ? 2.85 : 0.85;
     world.sun.color.set(night ? 0x243044 : golden ? 0xff7a28 : 0xffe0b0);
@@ -1164,8 +1169,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const hqNight = world.exterior.getObjectByName("hq-plate-night");
     if (hqDay) hqDay.visible = !night || !hqNight;
     if (hqNight) hqNight.visible = night;
+    const nearby = new Set([...world.lamps]
+      .sort((a, b) => a.position.distanceToSquared(player.position) - b.position.distanceToSquared(player.position))
+      .slice(0, 8));
     for (const lamp of world.lamps) {
       lamp.intensity = night ? 14 : golden ? 5 : 0;
+      lamp.visible = outside && (night || golden) && nearby.has(lamp);
       const diffuser = lamp.userData.bulbMaterial as THREE.MeshStandardMaterial | undefined;
       const halo = lamp.userData.haloMaterial as THREE.MeshBasicMaterial | undefined;
       if (diffuser) diffuser.emissiveIntensity = night ? 1.25 : golden ? 0.55 : 0.12;
@@ -1175,10 +1184,22 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         halo.opacity = night ? 0.18 : golden ? 0.07 : 0;
       }
     }
-    for (const lamp of world.courtLights) lamp.intensity = night ? 20 : golden ? 5 : 0;
-    for (const light of world.homeLights) light.intensity = place === "home" ? 12 : 0;
-    for (const light of world.hqLights) light.intensity = place === "hq" ? 19 : 0;
-    for (const light of world.haunt.lights) light.intensity = place === "haunt" ? 18 : 0;
+    for (const lamp of world.courtLights) {
+      lamp.intensity = night ? 20 : golden ? 5 : 0;
+      lamp.visible = place === "court" && (night || golden);
+    }
+    for (const light of world.homeLights) {
+      light.intensity = 12;
+      light.visible = place === "home";
+    }
+    for (const light of world.hqLights) {
+      light.intensity = 19;
+      light.visible = place === "hq";
+    }
+    for (const light of world.haunt.lights) {
+      light.intensity = 18;
+      light.visible = place === "haunt";
+    }
     for (const mat of world.headlightMats) mat.emissiveIntensity = night ? 1.7 : golden ? 0.8 : 0.3;
     for (const mat of world.glowMats) mat.emissiveIntensity = night ? 1.1 : golden ? 0.55 : 0.2;
     // Color reflected from Beale's venue signs. The decal's opacity is a
@@ -1322,6 +1343,55 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     cameraYaw() {
       return camYaw;
     },
+    spriteState() {
+      const inspect = (host: THREE.Object3D, mesh: THREE.Mesh, id: string) => {
+        const mat = mesh.material as THREE.MeshBasicMaterial;
+        const image = mat.map?.image as HTMLImageElement | undefined;
+        const position = host.getWorldPosition(new THREE.Vector3());
+        const projected = position.clone().project(camera);
+        const canvasBox = canvas.getBoundingClientRect();
+        mesh.geometry.computeBoundingBox();
+        const box = mesh.geometry.boundingBox!;
+        const corners = [
+          new THREE.Vector3(box.min.x, box.min.y, 0),
+          new THREE.Vector3(box.max.x, box.min.y, 0),
+          new THREE.Vector3(box.min.x, box.max.y, 0),
+          new THREE.Vector3(box.max.x, box.max.y, 0),
+        ].map((point) => mesh.localToWorld(point).project(camera));
+        return {
+          id, x: position.x, y: position.y, z: position.z,
+          heading: host.userData.heading as number | undefined,
+          face: mesh.userData.face as Facing | undefined,
+          pose: mesh.userData.pose as string | undefined,
+          src: image?.currentSrc || image?.src || "",
+          loaded: Boolean(image?.complete && image.naturalWidth),
+          visible: mesh.visible && host.parent?.visible !== false,
+          opacity: mat.opacity,
+          screen: { x: (projected.x + 1) * canvasBox.width / 2,
+            y: (1 - projected.y) * canvasBox.height / 2 },
+          screenBounds: {
+            left: Math.min(...corners.map((p) => (p.x + 1) * canvasBox.width / 2)),
+            right: Math.max(...corners.map((p) => (p.x + 1) * canvasBox.width / 2)),
+            top: Math.min(...corners.map((p) => (1 - p.y) * canvasBox.height / 2)),
+            bottom: Math.max(...corners.map((p) => (1 - p.y) * canvasBox.height / 2)),
+          },
+          views: Object.fromEntries(Object.entries(
+            host.userData.tex ?? (id === "benji" ? textures : {}))
+            .map(([face, texture]) => {
+              const image = (texture as THREE.Texture).image as HTMLImageElement;
+              return [face, { src: image.currentSrc || image.src,
+                loaded: image.complete && image.naturalWidth > 0 }];
+            })),
+        };
+      };
+      const hosts = [...world.billboards, kSprite.parent ?? kSprite];
+      return {
+        player: inspect(player, avatar, "benji"),
+        actors: hosts.map((host) => inspect(host,
+          host.getObjectByName("sprite") as THREE.Mesh,
+          (host.userData.asset as { id: string }).id)),
+      };
+    },
     courtProduction() {
       const built = world.exterior.getObjectByName("901-production-environment");
       const features: string[] = [];
@@ -1354,14 +1424,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     vehicleProduction() {
       const vehicles: THREE.Group[] = [];
       world.exterior.traverse((object) => {
-        if (object.type === "Group" && object.userData.visualVersion === 2 &&
+        if (object.type === "Group" && object.userData.visualVersion === 3 &&
             typeof object.userData.kind === "string") vehicles.push(object as THREE.Group);
       });
       return {
         count: vehicles.length,
-        complete: vehicles.filter((v) => v.userData.wheelCount === 4 &&
-          v.children.filter((child) => child.name === "vehicle-wheel").length === 4 &&
-          v.children.filter((child) => child.name === "vehicle-headlamp").length === 2 &&
+        complete: vehicles.filter((v) =>
           v.getObjectByName("body") && v.getObjectByName("vehicle-contact-shadow")).length,
         kinds: [...new Set(vehicles.map((v) => v.userData.kind as string))],
         lampPools: world.lamps.filter((l) => Boolean(l.userData.haloMaterial)).length,

@@ -1,14 +1,13 @@
-# Approved Claude sprite import inbox
+# Approved Claude sprite import
 
-**This is only for the user-approved Claude/Higgsfield image set.**
+The original user-approved ZIP is preserved unchanged in this folder. Install it with:
 
-Upload the exact file `Claude_Canonical_Sprites_Integration.zip` into this `imports/` directory on branch `feat/production-hq-world-pass` using GitHub's **Add file → Upload files**.
+```sh
+python3 scripts/install-claude-sprites.py
+```
 
-The repository's `Install approved Claude sprites` Action will automatically:
-1. Confirm the pack's SHA-256 matches the vetted 2026-10-10 upload.
-2. Extract the eight five-pose illustrated pedestrians, approved main cast, and four vehicle turnarounds.
-3. Register all pedestrian directions and map canonical vehicle sides.
-4. Recalculate measured foot bounds; preserve gameplay, missions, camera and physics.
-5. Run TypeScript, lint and production build; **only then commit** the artwork on this unmerged branch.
+Python requires Pillow for the existing alpha analyzer. The installer accepts either the ZIP path or an extracted folder, validates all required cast/pedestrian/vehicle files before copying, and regenerates sole/alpha metadata. Repeating it is safe.
 
-Do not commit on `main`. Keep the source atlas ZIP unchanged. Review the GitHub Actions result and resulting in-game screenshots before merge. The Action does not publish Claude's playtest page.
+The ZIP's older README says to retain Benji's legacy walk art. That instruction is superseded: it belongs to a different identity. Benji's `front_alt` is an expression, not a stride. Only the eight pedestrians have an approved front walk pose; other directions and the named cast translate using approved standing turnarounds until matching animation is supplied.
+
+Artwork is copied byte-for-byte. Vehicle side/rear names are also copied to the runtime's left/right/back aliases. No image generation, recoloring, mirroring, or replacement identities are used.

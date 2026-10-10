@@ -472,9 +472,9 @@ export function buildSlice(): SliceWorld {
   const talkB = spawn(ped.male02, 3.85, 6.55, exterior);
   talkB.userData.idle = true;
   pair(talkA, talkB);
-  const neighbor = spawn(ped.male03, -31.6, 8.45, exterior);
+  const neighbor = spawn(ped.male03, -29.2, 6.55, exterior);
   neighbor.userData.idle = true;
-  const driveway = spawn(ped.male04, -29.9, 8.35, exterior);
+  const driveway = spawn(ped.male04, -27.5, 6.55, exterior);
   driveway.userData.idle = true;
   pair(neighbor, driveway);
   const porch = spawn(characters.mamaDee, -20.5, 7.72, exterior);

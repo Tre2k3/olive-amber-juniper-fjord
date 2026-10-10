@@ -1,7 +1,10 @@
 #!/bin/sh
 set -eu
-cd /workspace
+cd "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 if curl -sf -o /dev/null --max-time 2 http://127.0.0.1:8080/; then
   exit 0
 fi
-npm run dev >>/tmp/app-startup.log 2>&1 &
+if [ ! -d .output ]; then
+  npm run build >>/tmp/app-startup.log 2>&1
+fi
+npm run preview >>/tmp/app-startup.log 2>&1 &

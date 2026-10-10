@@ -49,6 +49,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Verify approved canonical artwork
+        run: python3 scripts/verify-claude-assets.py
+
       - name: Lint
         run: npm run lint
 
