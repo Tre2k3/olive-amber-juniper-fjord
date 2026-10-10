@@ -4,7 +4,8 @@ import type { Spawnable } from "../assets/characters";
 import { characters } from "../assets/characters";
 import { addGround } from "./ground";
 import { concreteSlab, surface } from "./kits/materials";
-import { palmTree, streetTree } from "./kits/trees";
+import { streetTree } from "./kits/trees";
+import { dressRiverfront, riverWaterMaterial } from "./riverfront-production";
 import { carBody } from "./kits/vehicles";
 import { dressFront } from "./kits/city";
 
@@ -211,11 +212,10 @@ function river(
   walk(parent, -11.4, -36, 2.2, 52);
   for (let z = -16; z > -58; z -= 10) {
     streetTree(-24, z, parent, 1);
-    palmTree(-8, z - 3, parent);
+    streetTree(-8, z - 3, parent, 0.76);
   }
 
-  const waterMat = new THREE.MeshStandardMaterial({ color: 0x1c4d6e, roughness: 0.18, metalness: 0.35, emissive: 0x0c2a40, emissiveIntensity: 0.25 });
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(120, 36), waterMat);
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(120, 36), riverWaterMaterial());
   water.rotation.x = -Math.PI / 2;
   water.position.set(0, 0.02, -84);
   parent.add(water);
@@ -242,16 +242,13 @@ function river(
   parent.add(baitBoard);
   box(1.4, 0.8, 0.6, -27.2, 0.55, -58.6, new THREE.MeshStandardMaterial({ color: 0x2c4a38, roughness: 0.6 }), parent);
 
-  const steel = new THREE.MeshStandardMaterial({ color: 0x6a5538, roughness: 0.45, metalness: 0.4 });
-  box(28, 0.35, 1.2, 8, 7.2, -86, steel, parent);
-  box(0.35, 7.4, 0.35, -6, 3.6, -86, steel, parent);
-  box(0.35, 7.4, 0.35, 22, 3.6, -86, steel, parent);
-  box(26, 0.2, 0.2, 8, 9.2, -86, steel, parent);
-  for (let i = 0; i < 6; i++) box(0.12, 2.4, 0.12, -4 + i * 4.6, 8.2, -86, warm, parent);
+  // The old plank bridge is replaced by structural double-arch trusses.
+  // Keep the original fishing pier, bait interaction and ground surfaces.
+  dressRiverfront(parent, solids);
 
   lamp(-16, 3.2, -66, 0xffb45a, parent, lamps);
   lamp(-30, 3.4, -58, 0xffb45a, parent, lamps);
-  for (const tz of [-48, -58]) box(3.2, 16 + (tz % 7), 3.2, 6, 8, tz, new THREE.MeshStandardMaterial({ color: 0x243044, roughness: 0.7, emissive: 0xffe0b0, emissiveIntensity: 0.04 }), parent);
+  // Downtown already owns the skyline; preserve the bridge sightline.
 }
 
 function trucks(
