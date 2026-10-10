@@ -22,7 +22,7 @@ export function hauntSurface(kind: "stone" | "wood" | "tile") {
     const width = kind === "wood" ? 128 : 32;
     for (let col = -1; col < 256 / width + 1; col++) {
       const x = col * width + (row % 2) * width / 2;
-      const tone = (kind === "stone" ? 98 : 45) + ((row * 13 + col * 7 + 43) % 28);
+      const tone = (kind === "stone" ? 122 : 45) + ((row * 13 + col * 7 + 43) % 28);
       ctx.fillStyle = kind === "wood" ? `rgb(${tone + 22},${tone + 5},${tone - 8})`
         : kind === "tile" ? (row + col) % 2 ? "#242829" : "#aaa496" : `rgb(${tone + 10},${tone + 7},${tone})`;
       ctx.fillRect(x + 1, row * height + 1, width - 2, height - 2);
@@ -53,6 +53,9 @@ export function buildHauntExterior(parent: THREE.Object3D, hx: number, hz: numbe
   const iron = new THREE.MeshStandardMaterial({ color: 0x191c20, metalness: 0.65, roughness: 0.48 });
   const glass = new THREE.MeshStandardMaterial({ color: 0x6f8299, emissive: 0x33567d, emissiveIntensity: 0.35, roughness: 0.25 });
   const amber = new THREE.MeshStandardMaterial({ color: 0xffb569, emissive: 0xff942f, emissiveIntensity: 0.6 });
+  const gold = new THREE.MeshStandardMaterial({ color: 0xa9854a, metalness: 0.52, roughness: 0.43 });
+  const banner = new THREE.MeshStandardMaterial({ color: 0x3b1019, roughness: 0.92 });
+  const vine = new THREE.MeshStandardMaterial({ color: 0x263a20, roughness: 0.98 });
   glow.push(amber);
   // Complete side/rear walls, front wall segments and a recessed entrance.
   block(house, stone, 20, 0.3, 12, 0, 0.15, 0);
@@ -106,6 +109,45 @@ export function buildHauntExterior(parent: THREE.Object3D, hx: number, hz: numbe
   };
   for (const x of [-8, -4.2, 4.2, 8]) for (const y of [2.3, 6.8]) window(x, y, -6.09, 0);
   for (const x of [-10.08, 10.08]) for (const z of [-3.5, 0.6, 4]) for (const y of [2.3, 6.8]) window(x, y, z, x < 0 ? Math.PI / 2 : -Math.PI / 2);
+  // Deep facade relief, hanging banners and creeping vines bring the modeled
+  // building closer to the approved festival-house reference.
+  block(house, trim, 20.35, 0.32, 0.5, 0, 8.92, -6.05);
+  for (const x of [-9.25, -5.95, 5.95, 9.25]) {
+    block(house, trim, 0.62, 9.25, 0.58, x, 4.72, -6.2);
+    block(house, stone, 0.88, 0.38, 0.75, x, 0.42, -6.28);
+    block(house, stone, 0.88, 0.38, 0.75, x, 8.75, -6.28);
+  }
+  for (const x of [-6.9, 6.9]) {
+    block(house, iron, 0.06, 1.05, 0.06, x - 0.75, 9.25, -6.48);
+    block(house, iron, 0.06, 1.05, 0.06, x + 0.75, 9.25, -6.48);
+    block(house, banner, 2.15, 3.1, 0.11, x, 7.15, -6.46);
+    block(house, gold, 2.28, 0.11, 0.16, x, 8.75, -6.5);
+    block(house, gold, 2.28, 0.11, 0.16, x, 5.55, -6.5);
+    const slashA = block(house, amber, 0.12, 1.5, 0.08, x - 0.35, 7.1, -6.55);
+    slashA.rotation.z = -0.48;
+    const slashB = block(house, amber, 0.12, 1.5, 0.08, x + 0.35, 7.1, -6.55);
+    slashB.rotation.z = 0.48;
+  }
+  const medallion = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.13, 8, 36), trim);
+  medallion.position.set(0, 7.18, -6.5); house.add(medallion);
+  const medallionCore = new THREE.Mesh(new THREE.SphereGeometry(0.84, 24, 16), banner);
+  medallionCore.scale.z = 0.12; medallionCore.position.set(0, 7.18, -6.45); house.add(medallionCore);
+  for (const x of [-0.3, 0.3]) {
+    const eye = block(house, amber, 0.28, 0.16, 0.08, x, 7.35, -6.58);
+    eye.rotation.z = x < 0 ? -0.25 : 0.25;
+  }
+  for (const [x, tilt] of [[-8.55, -0.22], [-5.2, 0.18], [5.15, -0.18], [8.55, 0.22]] as const) {
+    for (let segment = 0; segment < 5; segment++) {
+      const stem = block(house, vine, 0.075, 1.65, 0.075, x + segment * tilt, 1.45 + segment * 1.45, -6.54);
+      stem.rotation.z = -tilt;
+      for (const side of [-1, 1]) {
+        const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), vine);
+        leaf.scale.set(1.5, 0.55, 0.3);
+        leaf.position.set(x + segment * tilt + side * 0.18, 1.8 + segment * 1.45, -6.57);
+        leaf.rotation.z = side * 0.45; house.add(leaf);
+      }
+    }
+  }
   // Porch, projecting canopy, columns and iron balustrades have real depth.
   block(house, stone, 11, 0.06, 3.6, 0, 0.03, -7.4);
   block(house, roof, 11.3, 0.28, 3.8, 0, 3.9, -7.3);
@@ -232,3 +274,4 @@ export function buildHauntFoyer(parent: THREE.Object3D, solids: Solid[], glow: T
   addWeb(0.27, 3.35, 1.05, Math.PI / 2);
   addWeb(7.73, 3.4, 6.85, -Math.PI / 2);
 }
+

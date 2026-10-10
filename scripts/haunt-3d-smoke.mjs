@@ -14,7 +14,7 @@ try {
   }, count);
   const set = opts => page.evaluate(o => window.__SACK_V2_INPUT__.setShot(o), opts);
   const state = await page.evaluate(() => window.__SACK_V2_INPUT__.hauntState());
-  assert.ok(state.houseMeshes > 100 && state.foyerMeshes > 60, 'House and foyer must contain modeled architecture');
+  assert.ok(state.houseMeshes > 140 && state.foyerMeshes > 90, 'House and foyer must retain modeled architecture and dressing');
   assert.ok(!requests.some(url => /\/haunt\/(facade\.png|foyer\.jpg|stair\.jpg)/.test(url)), 'House must not load exterior or room pictures as architecture');
   await mkdir('artifacts/haunt', { recursive: true });
   for (const [name, shot] of [
@@ -52,3 +52,4 @@ try {
   assert.deepEqual(errors, [], 'House gameplay must have no uncaught errors');
   console.log('PASS: five actual rendered house and room screenshots captured');
 } finally { await browser.close(); }
+
