@@ -30,6 +30,20 @@ try {
   check(block.peds.every((ped) => ped.y > -0.05 && ped.y < 1.2), "pedestrian soles are on the ground", block.peds);
   check(block.entered === "home", "connected slice can still enter Benji's house", block.entered);
   check(block.cars.length >= 4 && block.cars.every(carOnRoad), "slice traffic stays on the road profile", block.cars);
+  // Actual Golden Hour screenshot of Benji's new hero bungalow.
+  await page.evaluate(() => window.__SACK_V2_INPUT__.setShot({
+    x: -32, z: 6.1, yaw: 0, facing: "back", golden: true, dist: 4.2,
+  }));
+  await page.evaluate(async () => {
+    for (let i = 0; i < 8; i++) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+  });
+  await page.screenshot({
+    path: "artifacts/connected-slice/production-home-golden.png",
+    animations: "disabled",
+  });
+
   // Screenshot the current production interior, not a rendered concept board.
   // The QA artifact lets us compare actual WebGL output with the approved HQ target.
   await page.evaluate(() => window.__SACK_V2_INPUT__.setShot({
