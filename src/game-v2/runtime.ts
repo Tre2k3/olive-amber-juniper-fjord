@@ -822,7 +822,6 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     world.hq.visible = place === "hq";
     world.exterior.visible = place === "street" || place === "court";
     world.haunt.group.visible = place === "haunt";
-    for (const light of world.haunt.lights) light.visible = place === "haunt";
     for (const light of world.homeLights) light.visible = place === "home";
     for (const light of world.hqLights) light.visible = place === "hq";
     if (place === "home" || place === "hq" || place === "haunt") return;
@@ -1153,7 +1152,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     // Wide-angle indoor framing avoids cropping nearby NPCs and shows the
     // room's actual merchandise, mezzanine and architectural depth.
     const inside = place === "home" || place === "hq" || place === "haunt";
-    const framing = cameraFraming(camera.aspect, place === "hq" ? 54 : place === "home" ? 49 : 42, inside);
+    const framing = cameraFraming(camera.aspect, place === "hq" || place === "haunt" ? 54 : place === "home" ? 49 : 42, inside);
     const desiredFov = framing.fov;
     const previousFov = camera.fov;
     camera.fov += (desiredFov - camera.fov) * (1 - Math.exp(-5 * dt));

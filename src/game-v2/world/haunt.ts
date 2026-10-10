@@ -50,6 +50,8 @@ function roomSign(title: string, x: number, y: number, z: number, parent: THREE.
   g.fillRect(0, 0, 512, 128);
   g.fillStyle = "#ff3a2a";
   g.font = "800 54px sans-serif";
+  const fitSize = Math.min(54, 54 * 480 / Math.max(1, g.measureText(title).width));
+  g.font = `800 ${fitSize}px sans-serif`;
   g.textAlign = "center";
   g.textBaseline = "middle";
   g.fillText(title, 256, 64);
@@ -230,6 +232,8 @@ function signPlane(title: string, color: string, w: number, h: number) {
   g.strokeRect(6, 6, 500, 116);
   g.fillStyle = color;
   g.font = "800 54px sans-serif";
+  const fitSize = Math.min(54, 54 * 480 / Math.max(1, g.measureText(title).width));
+  g.font = `800 ${fitSize}px sans-serif`;
   g.textAlign = "center";
   g.textBaseline = "middle";
   g.fillText(title, 256, 64);

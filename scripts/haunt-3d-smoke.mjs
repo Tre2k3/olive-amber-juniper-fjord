@@ -16,28 +16,6 @@ try {
   const state = await page.evaluate(() => window.__SACK_V2_INPUT__.hauntState());
   assert.ok(state.houseMeshes > 100 && state.foyerMeshes > 60, 'House and foyer must contain modeled architecture');
   assert.ok(!requests.some(url => /\/haunt\/(facade\.png|foyer\.jpg|stair\.jpg)/.test(url)), 'House must not load exterior or room pictures as architecture');
-  await set({ place: 'street', x: -88.6, z: 4.35, dollars: 240, yaw: 0 });
-  await page.keyboard.press('KeyE'); await frames(3);
-  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.hauntState())).ticket, true);
-  assert.equal(await page.evaluate(() => window.__SACK_V2__.dollars), 230, 'Ticket still costs $10');
-  await set({ place: 'street', x: -78, z: 8.3, yaw: 0 });
-  await page.keyboard.press('KeyE'); await frames(3);
-  assert.equal(await page.evaluate(() => window.__SACK_V2__.place), 'haunt', 'Gate enters the actual interior');
-  assert.ok((await page.evaluate(() => window.__SACK_V2_INPUT__.hauntState())).activeLights <= 4);
-  await set({ place: 'haunt', x: 7.1, z: 503.9, yaw: 0, dialogue: '' });
-  await page.keyboard.down('KeyD');
-  await page.waitForFunction(() => window.__SACK_V2__.x > 8.3, null, { timeout: 90000 });
-  await page.keyboard.up('KeyD'); await frames(2);
-  assert.ok(await page.evaluate(() => window.__SACK_V2__.x > 8.3), 'Player must walk through the doorway into the stair hall');
-  await set({ place: 'haunt', x: 6.2, z: 502, yaw: 0 });
-  await page.keyboard.down('KeyD');
-  await page.waitForFunction(() => window.__SACK_V2__.x >= 6.4, null, { timeout: 90000 });
-  await frames(8); await page.keyboard.up('KeyD'); await frames(2);
-  assert.ok(await page.evaluate(() => window.__SACK_V2__.x < 6.5), 'Console table must block the player');
-  await set({ place: 'haunt', x: 4, z: 501.2, yaw: Math.PI });
-  await page.keyboard.press('KeyE'); await frames(3);
-  assert.equal(await page.evaluate(() => window.__SACK_V2__.place), 'street', 'House exit returns to the neighborhood');
-  console.log('PASS: modeled house, ticket, room doorway, furniture collision, light budget and exit');
   await mkdir('artifacts/haunt', { recursive: true });
   for (const [name, shot] of [
     ['house-front-day', { place: 'street', x: -78, z: 1, yaw: 0, dist: 14, height: 6, lookY: 6, night: false }],
@@ -49,6 +27,28 @@ try {
     await set(shot); await frames(8);
     await page.screenshot({ path: `artifacts/haunt/${name}.png`, timeout: 60000 });
   }
+  await set({ place: 'street', x: -88.6, z: 4.35, dollars: 240, yaw: 0 });
+  await page.keyboard.press('KeyE'); await frames(3);
+  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.hauntState())).ticket, true);
+  assert.equal(await page.evaluate(() => window.__SACK_V2__.dollars), 230, 'Ticket still costs $10');
+  await set({ place: 'street', x: -78, z: 8.3, yaw: 0 });
+  await page.keyboard.press('KeyE'); await frames(3);
+  assert.equal(await page.evaluate(() => window.__SACK_V2__.place), 'haunt', 'Gate enters the actual interior');
+  assert.ok((await page.evaluate(() => window.__SACK_V2_INPUT__.hauntState())).activeLights <= 4);
+  await set({ place: 'haunt', x: 7.1, z: 503.9, yaw: Math.PI, dialogue: '' });
+  await page.keyboard.down('KeyD');
+  await page.waitForFunction(() => window.__SACK_V2__.x > 8.3, null, { timeout: 90000 });
+  await page.keyboard.up('KeyD'); await frames(2);
+  assert.ok(await page.evaluate(() => window.__SACK_V2__.x > 8.3), 'Player must walk through the doorway into the stair hall');
+  await set({ place: 'haunt', x: 6.2, z: 502, yaw: Math.PI });
+  await page.keyboard.down('KeyD');
+  await page.waitForFunction(() => window.__SACK_V2__.x >= 6.4, null, { timeout: 90000 });
+  await frames(8); await page.keyboard.up('KeyD'); await frames(2);
+  assert.ok(await page.evaluate(() => window.__SACK_V2__.x < 6.5), 'Console table must block the player');
+  await set({ place: 'haunt', x: 4, z: 501.2, yaw: Math.PI });
+  await page.keyboard.press('KeyE'); await frames(3);
+  assert.equal(await page.evaluate(() => window.__SACK_V2__.place), 'street', 'House exit returns to the neighborhood');
+  console.log('PASS: modeled house, ticket, room doorway, furniture collision, light budget and exit');
   assert.deepEqual(errors, [], 'House gameplay must have no uncaught errors');
   console.log('PASS: five actual rendered house and room screenshots captured');
 } finally { await browser.close(); }
