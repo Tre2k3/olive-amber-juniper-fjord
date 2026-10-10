@@ -1160,8 +1160,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const lookX = Math.sin(camYaw);
     const lookZ = Math.cos(camYaw);
     const talking = place === "hq" && dialogue.startsWith("K Blanco");
-    const dist = camDist ?? (talking ? 2.9 : place === "haunt" ? 2.45 : inside ? 3.05 : 3.4) * framing.distanceScale;
-    const height = camHeight ?? (talking ? 1.42 : inside ? 1.5 : 1.32);
+    const dist = camDist ?? (talking ? 2.9 : place === "haunt" ? 3.2 : inside ? 3.05 : 3.4) * framing.distanceScale;
+    const height = camHeight ?? (talking ? 1.42 : place === "haunt" ? 1.72 : inside ? 1.5 : 1.32);
     const side = talking ? 1.35 : 0;
     let destX = player.position.x - lookX * dist + lookZ * side;
     let destZ = player.position.z - lookZ * dist - lookX * side;
@@ -1180,7 +1180,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     camera.position.x = safe.x;
     camera.position.z = safe.z;
     const ahead = talking ? 0.28 : 0.72;
-    const lookY = player.position.y + (camLookY ?? (talking ? 1.12 : inside ? 1.18 : 1.02));
+    const lookY = player.position.y + (camLookY ?? (talking ? 1.12 : place === "haunt" ? 1.34 : inside ? 1.18 : 1.02));
     camera.lookAt(player.position.x + lookX * ahead, lookY, player.position.z + lookZ * ahead);
   }
 

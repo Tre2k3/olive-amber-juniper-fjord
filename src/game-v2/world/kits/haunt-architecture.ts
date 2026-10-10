@@ -130,7 +130,9 @@ export function buildHauntFoyer(parent: THREE.Object3D, solids: Solid[], glow: T
   const iron = new THREE.MeshStandardMaterial({ color: 0x24201c, metalness: 0.6, roughness: 0.4 });
   const gold = new THREE.MeshStandardMaterial({ color: 0xaa874c, metalness: 0.55, roughness: 0.4 });
   const velvet = new THREE.MeshStandardMaterial({ color: 0x571c28, roughness: 0.9 });
-  const candle = new THREE.MeshStandardMaterial({ color: 0xffdd9b, emissive: 0xffa43b, emissiveIntensity: 0.75 }); glow.push(candle);
+  const candle = new THREE.MeshStandardMaterial({ color: 0xffdd9b, emissive: 0xffa43b, emissiveIntensity: 0.9 }); glow.push(candle);
+  const plaster = new THREE.MeshStandardMaterial({ color: 0x654940, roughness: 0.94 });
+  const pumpkin = new THREE.MeshStandardMaterial({ color: 0xb84016, emissive: 0x571000, emissiveIntensity: 0.28, roughness: 0.82 });
   // A modeled staircase and gallery on the left preserve the central walking route.
   for (let i = 0; i < 12; i++) {
     const top = 0.17 + i * 0.2;
@@ -164,4 +166,62 @@ export function buildHauntFoyer(parent: THREE.Object3D, solids: Solid[], glow: T
     block(room, candle, 0.07, 0.3, 0.07, 7.15, 1.15, z);
     solids.push({ minX: 6.8, maxX: 7.5, minZ: z - 0.75, maxZ: z + 0.75 });
   }
+
+  // Layered plaster panels and an arched, curtained opening add architectural
+  // depth without using photographed rooms as walls.
+  for (const x of [0.55, 1.65, 6.95, 7.5]) {
+    block(room, plaster, 0.92, 2.75, 0.12, x, 2.05, 7.73);
+    block(room, wood, 0.98, 0.08, 0.18, x, 0.66, 7.65);
+    block(room, wood, 0.98, 0.08, 0.18, x, 3.46, 7.65);
+  }
+  for (const x of [2.8, 6]) {
+    block(room, gold, 0.12, 3.2, 0.16, x, 2.04, 7.56);
+    for (let fold = 0; fold < 4; fold++) {
+      const drape = block(room, velvet, 0.2, 2.85 - fold * 0.12, 0.14,
+        x + (x < 4 ? -0.12 - fold * 0.11 : 0.12 + fold * 0.11), 2.15 + fold * 0.06, 7.43);
+      drape.rotation.z = (x < 4 ? -1 : 1) * (0.025 + fold * 0.012);
+    }
+  }
+  block(room, gold, 3.28, 0.13, 0.18, 4.4, 3.66, 7.55);
+  const arch = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.075, 7, 28, Math.PI), gold);
+  arch.rotation.z = Math.PI; arch.position.set(4.4, 3.62, 7.53); room.add(arch);
+
+  // Candle sconces, pumpkins and a physical portrait grouping echo the approved
+  // foyer reference while keeping the walking route and console collisions clear.
+  for (const x of [0.42, 7.72]) {
+    block(room, iron, 0.08, 0.72, 0.18, x, 2.46, 3.75);
+    block(room, gold, 0.42, 0.06, 0.24, x, 2.2, 3.75);
+    for (const z of [3.58, 3.92]) block(room, candle, 0.075, 0.34, 0.075, x, 2.38, z);
+  }
+  for (const [x, z, scale] of [[3.15, 6.82, 0.34], [6.42, 6.55, 0.26]] as const) {
+    const body = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), pumpkin);
+    body.scale.set(scale * 1.12, scale, scale); body.position.set(x, scale + 0.1, z);
+    body.castShadow = body.receiveShadow = true; room.add(body);
+    block(room, wood, 0.07, 0.15, 0.07, x, scale * 2 + 0.12, z);
+  }
+  const portrait = new THREE.Group(); portrait.position.set(0.18, 2.45, 5.45); portrait.rotation.y = Math.PI / 2; room.add(portrait);
+  block(portrait, gold, 1.35, 1.75, 0.12, 0, 0, 0);
+  block(portrait, new THREE.MeshStandardMaterial({ color: 0x21161d, roughness: 0.75 }), 1.08, 1.48, 0.08, 0, 0, -0.08);
+
+  // Geometric line webs read as real room dressing and stay inexpensive.
+  const webMaterial = new THREE.LineBasicMaterial({ color: 0xd8d0c4, transparent: true, opacity: 0.46 });
+  const addWeb = (x: number, y: number, z: number, yaw: number) => {
+    const web = new THREE.Group(); web.position.set(x, y, z); web.rotation.y = yaw; room.add(web);
+    const points: THREE.Vector3[] = [];
+    for (let spoke = 0; spoke < 7; spoke++) {
+      const a = spoke * Math.PI / 12;
+      points.push(new THREE.Vector3(0, 0, 0), new THREE.Vector3(Math.cos(a) * 0.9, Math.sin(a) * 0.9, 0));
+    }
+    for (const radius of [0.28, 0.55, 0.82]) {
+      for (let segment = 0; segment < 6; segment++) {
+        const a = segment * Math.PI / 12;
+        const b = (segment + 1) * Math.PI / 12;
+        points.push(new THREE.Vector3(Math.cos(a) * radius, Math.sin(a) * radius, 0),
+          new THREE.Vector3(Math.cos(b) * radius, Math.sin(b) * radius, 0));
+      }
+    }
+    web.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(points), webMaterial));
+  };
+  addWeb(0.27, 3.35, 1.05, Math.PI / 2);
+  addWeb(7.73, 3.4, 6.85, -Math.PI / 2);
 }
