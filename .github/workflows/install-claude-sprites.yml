@@ -1,0 +1,86 @@
+name: Install approved Claude sprites
+
+on:
+  push:
+    branches:
+      - feat/production-hq-world-pass
+    paths:
+      - imports/Claude_Canonical_Sprites_Integration.zip
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: canonical-sprites-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  integrate:
+    if: github.ref == 'refs/heads/feat/production-hq-world-pass'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Check out the unmerged production branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/production-hq-world-pass
+          persist-credentials: true
+          fetch-depth: 2
+      - name: Check original sprite pack was uploaded
+        run: test -s imports/Claude_Canonical_Sprites_Integration.zip
+      - name: Unpack approved reference sprites
+        run: |
+          mkdir -p "$RUNNER_TEMP/claude-sprites"
+          unzip -q imports/Claude_Canonical_Sprites_Integration.zip -d "$RUNNER_TEMP/claude-sprites"
+          test -s "$RUNNER_TEMP/claude-sprites/public/game-v2/characters/benji/front.png"
+          test -s "$RUNNER_TEMP/claude-sprites/public/game-v2/characters/pedestrians/orange_woman/front.png"
+          test -s "$RUNNER_TEMP/claude-sprites/public/game-v2/characters/k-blanco/front.png"
+          test -s "$RUNNER_TEMP/claude-sprites/public/game-v2/vehicles/coupe-side.png"
+      - name: Install Node.js and image-analysis dependencies
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check Pillow==11.2.1
+      - name: Integrate the EXACT uploaded sprites and measured sole offsets
+        run: python scripts/install-claude-sprites.py "$RUNNER_TEMP/claude-sprites"
+      - name: Verify the complete approved turnarounds exist
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          root = Path("public/game-v2/characters")
+          peds = ["orange_woman","denim_girl","pink_jacket_girl","purple_tracksuit_kid","green_jacket_man","blue_hoodie_boy","black_hoodie_man","bucket_hat_oldman"]
+          cast = ["benji","k-blanco","court-og","mama-dee","unc-j","nitro","strike"]
+          for name in peds:
+              for pose in ("front","back","left","right","walk"):
+                  assert (root / "pedestrians" / name / (pose+".png")).stat().st_size > 500
+          for name in cast:
+              for pose in ("front","back","left","right"):
+                  assert (root / name / (pose+".png")).stat().st_size > 500
+          for name in ("coupe","sedan","suv","van"):
+              for pose in ("front","back","left","right"):
+                  assert (Path("public/game-v2/vehicles") / (name+"-"+pose+".png")).stat().st_size > 500
+          print("Approved cast, pedestrians and vehicles all present")
+          PY
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck and build before publishing sprite changes
+        run: |
+          npm run typecheck
+          npm run lint
+          npm run build
+      - name: Commit imported artwork and matching registry
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/game-v2/characters public/game-v2/vehicles src/game-v2/assets/characters.ts src/game-v2/assets/character-bounds.ts
+          if git diff --cached --quiet; then
+            echo "No new sprites were needed."
+            exit 0
+          fi
+          git commit -m "art(game-v2): install approved Claude illustrated cast and 8 directional pedestrians"
+          git push origin HEAD:feat/production-hq-world-pass
