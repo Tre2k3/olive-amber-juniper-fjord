@@ -310,14 +310,36 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
     puddle.position.set(hx + ox, 0.068, z);
     exterior.add(puddle);
   }
-  // Narrow emissive planes read as broken lamp reflections across wet paving.
+  // A faded, interrupted highlight avoids the painted-stripe appearance found
+  // in production captures. This is a cheap light impression, not a mirror.
+  const reflectionCanvas = document.createElement("canvas");
+  reflectionCanvas.width = 128;
+  reflectionCanvas.height = 256;
+  const reflectionContext = reflectionCanvas.getContext("2d")!;
+  reflectionContext.save();
+  reflectionContext.translate(64, 128);
+  reflectionContext.scale(1, 2);
+  const reflectionGradient = reflectionContext.createRadialGradient(0, 0, 2, 0, 0, 62);
+  reflectionGradient.addColorStop(0, "rgba(255,255,255,.7)");
+  reflectionGradient.addColorStop(0.35, "rgba(255,255,255,.3)");
+  reflectionGradient.addColorStop(1, "rgba(255,255,255,0)");
+  reflectionContext.fillStyle = reflectionGradient;
+  reflectionContext.fillRect(-64, -64, 128, 128);
+  reflectionContext.restore();
+  reflectionContext.globalCompositeOperation = "destination-out";
+  for (let i = 0; i < 42; i++) {
+    reflectionContext.fillStyle = `rgba(0,0,0,${0.25 + (i % 4) * 0.15})`;
+    reflectionContext.fillRect((i * 37) % 92, (i * 29) % 252, 24 + i % 28, 2 + i % 4);
+  }
+  const reflectionTexture = new THREE.CanvasTexture(reflectionCanvas);
   for (const [ox, z, color, length] of [
     [-6, 4.6, 0xff8a3a, 3.6], [0, 3.8, 0xff321c, 4.8], [6, 4.9, 0xffa24a, 3.4],
     [-10.5, 2.7, 0xff5a24, 2.3], [10.2, 2.8, 0xff6a2a, 2.5],
   ] as const) {
     const reflection = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.22, length),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.48, blending: THREE.AdditiveBlending, depthWrite: false }),
+      new THREE.PlaneGeometry(0.85, length),
+      new THREE.MeshBasicMaterial({ map: reflectionTexture, color, transparent: true, opacity: 0.35,
+        blending: THREE.AdditiveBlending, depthWrite: false }),
     );
     reflection.rotation.x = -Math.PI / 2;
     reflection.rotation.z = ox * 0.012;
