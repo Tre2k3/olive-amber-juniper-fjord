@@ -1161,7 +1161,16 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const hqNight = world.exterior.getObjectByName("hq-plate-night");
     if (hqDay) hqDay.visible = !night || !hqNight;
     if (hqNight) hqNight.visible = night;
-    for (const lamp of world.lamps) lamp.intensity = night ? 28 : golden ? 10 : 0;
+    for (const lamp of world.lamps) {
+      lamp.intensity = night ? 28 : golden ? 10 : 0;
+      const diffuser = lamp.userData.bulbMaterial as THREE.MeshStandardMaterial | undefined;
+      const halo = lamp.userData.haloMaterial as THREE.MeshBasicMaterial | undefined;
+      if (diffuser) diffuser.emissiveIntensity = night ? 2.2 : golden ? 0.9 : 0.15;
+      if (halo) {
+        halo.opacity = night ? 0.24 : golden ? 0.10 : 0;
+        halo.needsUpdate = true;
+      }
+    }
     for (const lamp of world.courtLights) lamp.intensity = night ? 36 : golden ? 8 : 0;
     for (const light of world.homeLights) light.intensity = place === "home" ? 18 : 0;
     for (const light of world.hqLights) light.intensity = place === "hq" ? 26 : 0;
@@ -1318,6 +1327,22 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         rims: world.hoops.map((h) => ({ ...h })),
         courtOg: { ...world.courtOg },
         stage: world.exterior.getObjectByName("901-production-environment")?.userData.productionVersion,
+      };
+    },
+    vehicleProduction() {
+      const vehicles: THREE.Group[] = [];
+      world.exterior.traverse((object) => {
+        if (object.type === "Group" && object.userData.visualVersion === 2 &&
+            typeof object.userData.kind === "string") vehicles.push(object as THREE.Group);
+      });
+      return {
+        count: vehicles.length,
+        complete: vehicles.filter((v) => v.userData.wheelCount === 4 &&
+          v.children.filter((child) => child.name === "vehicle-wheel").length === 4 &&
+          v.children.filter((child) => child.name === "vehicle-headlamp").length === 2 &&
+          v.getObjectByName("body") && v.getObjectByName("vehicle-contact-shadow")).length,
+        kinds: [...new Set(vehicles.map((v) => v.userData.kind as string))],
+        lampPools: world.lamps.filter((l) => Boolean(l.userData.haloMaterial)).length,
       };
     },
     riverfrontProduction() {
