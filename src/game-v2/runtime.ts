@@ -1178,6 +1178,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     for (const light of world.haunt.lights) light.intensity = place === "haunt" ? 18 : 0;
     for (const mat of world.headlightMats) mat.emissiveIntensity = night ? 3.1 : golden ? 1.4 : 0.35;
     for (const mat of world.glowMats) mat.emissiveIntensity = night ? 2.2 : golden ? 0.9 : 0.28;
+    // Color reflected from Beale's venue signs. The decal's opacity is a
+    // uniform; day/night transitions do not allocate geometry or point lights.
+    const beale = world.exterior.getObjectByName("beale-production-nightlife");
+    const pavementGlow = beale?.userData.neonPools as THREE.MeshBasicMaterial[] | undefined;
+    if (pavementGlow) {
+      for (const spill of pavementGlow) spill.opacity = night ? 0.24 : golden ? 0.09 : 0;
+    }
     const tint = night ? 0xb7c7d8 : golden ? 0xffc898 : place === "hq" ? 0xffd2a8 : place === "home" ? 0xffe4c4 : 0xfff3e4;
     for (const mat of world.figureMats) mat.color.set(tint);
     (avatar.material as THREE.MeshBasicMaterial).color.set(tint);
@@ -1328,6 +1335,17 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         rims: world.hoops.map((h) => ({ ...h })),
         courtOg: { ...world.courtOg },
         stage: world.exterior.getObjectByName("901-production-environment")?.userData.productionVersion,
+      };
+    },
+    bealeProduction() {
+      const district = world.exterior.getObjectByName("beale-production-nightlife");
+      const pools = district?.userData.neonPools as THREE.MeshBasicMaterial[] | undefined;
+      return {
+        built: Boolean(district),
+        version: district?.userData.productionVersion as number | undefined,
+        poolCount: pools?.length ?? 0,
+        opacities: pools?.map((mat) => mat.opacity) ?? [],
+        signCount: district?.children.filter((child) => child.type === "Group").length ?? 0,
       };
     },
     vehicleProduction() {
