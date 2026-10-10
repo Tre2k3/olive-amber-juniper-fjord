@@ -253,6 +253,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const names = [code, e.key].filter(Boolean);
     if (down) names.forEach((name) => keys.add(name));
     else names.forEach((name) => keys.delete(name));
+    // A quick interaction tap may start and end between two rendered frames.
+    if (down && (code === "KeyE" || e.key === "e" || e.key === "E")) interactQueued = true;
     if (down && (code === "KeyN" || e.key === "n" || e.key === "N")) cycleLight();
     if (down && (code === "KeyM" || e.key === "m" || e.key === "M")) logOpen = !logOpen;
   };
