@@ -30,6 +30,21 @@ try {
   check(block.peds.every((ped) => ped.y > -0.05 && ped.y < 1.2), "pedestrian soles are on the ground", block.peds);
   check(block.entered === "home", "connected slice can still enter Benji's house", block.entered);
   check(block.cars.length >= 4 && block.cars.every(carOnRoad), "slice traffic stays on the road profile", block.cars);
+  // Screenshot the current production interior, not a rendered concept board.
+  // The QA artifact lets us compare actual WebGL output with the approved HQ target.
+  await page.evaluate(() => window.__SACK_V2_INPUT__.setShot({
+    place: "hq", x: 80, z: 201.15, yaw: Math.PI, facing: "back",
+  }));
+  await page.evaluate(async () => {
+    for (let i = 0; i < 6; i++) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+  });
+  await page.screenshot({
+    path: "artifacts/connected-slice/production-hq-interior.png",
+    animations: "disabled",
+  });
+  console.log("Saved actual game-v2 HQ screenshot for visual review");
   check(errors.length === 0, "slice boot has no page errors", errors);
   console.log("connected slice smoke passed");
 } finally {
