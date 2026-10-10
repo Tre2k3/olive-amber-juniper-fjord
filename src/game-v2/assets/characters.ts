@@ -1,9 +1,9 @@
 /**
  * Runtime character registry for the production rebuild.
  * Every path is a transparent cutout under public/game-v2/characters/.
- * Named cast is cut from the Character Bible photographs
- * (SackReligious_Character_Bible_AI_Reference_Pack). Not the old
- * illustrated public/game people.
+ * Named cast and pedestrians use the user-approved illustrated Claude atlases.
+ * Never substitute photo-human or generic legacy character art.
+
  *
  * Foot padding and visible bounds come from scripts/analyze-character-alpha.py.
  * They are not guessed.
@@ -14,10 +14,10 @@
  * W / Up moves away from the camera and shows back.
  * S / Down moves toward the camera and shows front.
  *
- * Walk art is PARTIAL. Front has standing + one stride frame.
- * Back, left, and right are standing frames only. Those views
+ * Walk art is PARTIAL. Only pedestrians have an approved front stride.
+ * Benji and named cast have standing turnarounds only. Those views
  * translate. They do not bob, hop, or scale.
- * A stride swaps the map onto the standing mesh. The body box does not change.
+ * Pose geometry retains one pixels-to-world scale and a measured sole anchor.
  */
 import { characterBounds, type AlphaBounds } from "./character-bounds";
 
@@ -41,7 +41,7 @@ export type CharacterAsset = {
 const cut = (src: string): Cutout => {
   const bounds = characterBounds[src];
   if (!bounds) throw new Error(`No alpha bounds for ${src}`);
-  return { src: `${src}?v=10`, footPad: bounds.bottomPadding, ...bounds };
+  return { src: `${src}?v=12`, footPad: bounds.bottomPadding, ...bounds };
 };
 
 const turnaround = (folder: string) => ({
@@ -57,7 +57,6 @@ export const characters = {
     height: 1.68,
     views: {
       ...turnaround("benji"),
-      walk: cut("/game-v2/characters/benji/walk.png"),
     },
     bible: "01_Benji/00_Canonical_Identity/",
   },
@@ -65,7 +64,7 @@ export const characters = {
     id: "k-blanco",
     height: 1.94,
     views: turnaround("k-blanco"),
-    portrait: "/game-v2/characters/k-blanco/portrait.png",
+    portrait: "/game-v2/characters/k-blanco/front.png",
     bible: "02_Core_NPCs/01_K_Blanco_CANONICAL/k_blanco_CANONICAL_reference.png",
   },
   courtOg: {
@@ -99,14 +98,14 @@ export const characters = {
     bible: "02_Core_NPCs/06_Strike/strike_reference_sheet.png",
   },
   pedestrian: {
-    male01: { id: "ped-male-01", height: 1.78, views: { front: cut("/game-v2/characters/pedestrians/male-01.png"), walk: cut("/game-v2/characters/pedestrians/male-01-walk.png") } },
-    female01: { id: "ped-female-01", height: 1.72, views: { front: cut("/game-v2/characters/pedestrians/female-01.png"), walk: cut("/game-v2/characters/pedestrians/female-01-walk.png") } },
-    male02: { id: "ped-male-02", height: 1.7, views: { front: cut("/game-v2/characters/pedestrians/male-02.png"), walk: cut("/game-v2/characters/pedestrians/male-02-walk.png") } },
-    female02: { id: "ped-female-02", height: 1.68, views: { front: cut("/game-v2/characters/pedestrians/female-02.png"), walk: cut("/game-v2/characters/pedestrians/female-02-walk.png") } },
-    male03: { id: "ped-male-03", height: 1.8, views: { front: cut("/game-v2/characters/pedestrians/male-03.png"), walk: cut("/game-v2/characters/pedestrians/male-03-walk.png") } },
-    female03: { id: "ped-female-03", height: 1.66, views: { front: cut("/game-v2/characters/pedestrians/female-03.png"), walk: cut("/game-v2/characters/pedestrians/female-03-walk.png") } },
-    male04: { id: "ped-male-04", height: 1.76, views: { front: cut("/game-v2/characters/pedestrians/male-04.png"), walk: cut("/game-v2/characters/pedestrians/male-04-walk.png") } },
-    female04: { id: "ped-female-04", height: 1.64, views: { front: cut("/game-v2/characters/pedestrians/female-04.png"), walk: cut("/game-v2/characters/pedestrians/female-04-walk.png") } },
+    male01: { id: "ped-green-jacket-man", height: 1.78, views: { ...turnaround("pedestrians/green_jacket_man"), walk: cut("/game-v2/characters/pedestrians/green_jacket_man/walk.png") } },
+    female01: { id: "ped-orange-woman", height: 1.72, views: { ...turnaround("pedestrians/orange_woman"), walk: cut("/game-v2/characters/pedestrians/orange_woman/walk.png") } },
+    male02: { id: "ped-blue-hoodie-boy", height: 1.62, views: { ...turnaround("pedestrians/blue_hoodie_boy"), walk: cut("/game-v2/characters/pedestrians/blue_hoodie_boy/walk.png") } },
+    female02: { id: "ped-denim-girl", height: 1.68, views: { ...turnaround("pedestrians/denim_girl"), walk: cut("/game-v2/characters/pedestrians/denim_girl/walk.png") } },
+    male03: { id: "ped-black-hoodie-man", height: 1.79, views: { ...turnaround("pedestrians/black_hoodie_man"), walk: cut("/game-v2/characters/pedestrians/black_hoodie_man/walk.png") } },
+    female03: { id: "ped-pink-jacket-girl", height: 1.64, views: { ...turnaround("pedestrians/pink_jacket_girl"), walk: cut("/game-v2/characters/pedestrians/pink_jacket_girl/walk.png") } },
+    male04: { id: "ped-bucket-hat-oldman", height: 1.71, views: { ...turnaround("pedestrians/bucket_hat_oldman"), walk: cut("/game-v2/characters/pedestrians/bucket_hat_oldman/walk.png") } },
+    female04: { id: "ped-purple-tracksuit-kid", height: 1.55, views: { ...turnaround("pedestrians/purple_tracksuit_kid"), walk: cut("/game-v2/characters/pedestrians/purple_tracksuit_kid/walk.png") } },
   },
 } as const satisfies Record<string, CharacterAsset | Record<string, CharacterAsset>>;
 
@@ -122,8 +121,8 @@ export type FittedFrame = {
   centerPx: number;
 };
 
-/** Fit a frame in the standing-front body box. Sole stays at y=0. Width cannot exceed that box.
- *  The walk result can still be shorter than the standing mesh. Do not rebuild geometry from it.
+/** One scale per identity. Approved frames share a canvas and sole baseline.
+ * Never shrink a wide stride/side pose to fit the front silhouette.
  */
 export function frameSize(
   asset: { height: number; views: { front: Cutout; walk?: Cutout } & Partial<Record<Facing, Cutout>> },
@@ -132,13 +131,7 @@ export function frameSize(
   const front = asset.views.front;
   const view = (facing === "walk" ? asset.views.walk : asset.views[facing]) ?? front;
   const frontH = front.visibleBottom - front.visibleTop + 1;
-  const frontW = front.visibleRight - front.visibleLeft + 1;
-  const boxH = asset.height;
-  const boxW = boxH * (frontW / frontH);
-  const visH = view.visibleBottom - view.visibleTop + 1;
-  const visW = view.visibleRight - view.visibleLeft + 1;
-  let metersPerPixel = boxH / visH;
-  if (visW * metersPerPixel > boxW) metersPerPixel = boxW / visW;
+  const metersPerPixel = asset.height / frontH;
   const centerPx = (view.visibleLeft + view.visibleRight) / 2 - (view.pxWidth - 1) / 2;
   return {
     w: view.pxWidth * metersPerPixel,

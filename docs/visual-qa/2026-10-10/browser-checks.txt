@@ -1,0 +1,58 @@
+PASS: all 15 identities and 68 available directional/stride textures loaded in the actual game
+PASS: KeyA moves and displays approved left
+PASS: KeyD moves and displays approved right
+PASS: KeyW moves and displays approved back
+PASS: KeyS moves and displays approved front
+Captured benji-front
+Captured benji-back
+Captured benji-left
+Captured benji-right
+Captured mama-dee
+Captured unc-j
+Captured nitro
+Captured strike
+Captured court-og
+Captured hq-k-blanco
+Captured ped-green-jacket-man
+Captured ped-orange-woman
+Captured ped-blue-hoodie-boy
+Captured ped-denim-girl
+Captured ped-black-hoodie-man
+Captured ped-pink-jacket-girl
+Captured ped-bucket-hat-oldman
+Captured ped-purple-tracksuit-kid
+Captured hq-exterior
+Captured neighborhood-vehicles
+Captured 901-court
+Captured beale-night
+Captured riverfront
+Captured mobile-neighborhood
+PASS: game-v2 document loads
+PASS: direct W moves north and stays in lane
+PASS: away-facing is the back cutout
+PASS: sole stays on a walkable surface
+PASS: hero door still enters the house
+PASS: avenue and cross-street cars stay on asphalt
+PASS: Q/R camera orbit responds in both directions
+PASS: HQ front door exits naturally by walking toward the camera
+PASS: 901 Court production art mounts without replacing playable court
+PASS: Court entrance, OG and scoring rim coordinates stay unchanged
+PASS: production riverfront bridge, river and fishing detail mount
+PASS: riverfront retains fishing and bait gameplay anchors
+PASS: canonical car fleet mounts grounded art and contact shadows
+PASS: Memphis fleet variants and controlled street illumination present
+PASS: production Beale neon spill meshes mount and reuse light materials
+PASS: nighttime Beale venue signs illuminate pavement
+PASS: foundation boot has no page errors
+foundation smoke passed
+PASS: Mama Dee is on the home block
+PASS: named neighbors are still placed
+PASS: the block has residents, not an empty street
+PASS: pedestrian soles are on the ground
+PASS: connected slice can still enter Benji's house
+PASS: slice traffic stays on the road profile
+PASS: slice boot has no page errors
+connected slice smoke passed
+PASS: basketball tap releases one shot
+PASS: basketball hold-release releases one shot
+Captured basketball-tested

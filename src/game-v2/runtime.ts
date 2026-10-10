@@ -4,11 +4,14 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import type { Facing, HudState, Place, Solid, V2Public } from "./core/types";
-import { productionLanes, sampleLane, type Lane } from "./roads/lanes";
+import { productionLanes, sampleLane, gapAhead, type Lane } from "./roads/lanes";
+import { createSaveWriter } from "./core/persistence";
+import { pullCamera } from "./core/camera-collision";
+import { cameraFraming } from "./core/camera-framing";
 import { buildSlice, carBody, type SliceWorld } from "./world/slice";
 import { presentVehicles } from "./world/kits/vehicles";
 import { faceFoliage } from "./world/kits/trees";
-import { characters, frameSize } from "./assets/characters";
+import { characters, frameSize, type Cutout } from "./assets/characters";
 import { characterMaterial, footMarker, plantFeet, seatOnGround, solePlane, solidCutout } from "./world/feet";
 import {
   activityCharge,
@@ -140,7 +143,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     });
   }
   const strideTex: Partial<Record<Facing, THREE.Texture>> = {};
-  const frontStride = characters.benji.views.walk;
+  const frontStride = (characters.benji.views as { walk?: Cutout }).walk;
   if (frontStride) {
     loader.load(frontStride.src, (tex) => {
       solidCutout(tex);
@@ -190,6 +193,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   /** Latest dominant axis so a tie on a diagonal does not flicker. */
   let faceAxis: "side" | "depth" = "depth";
   let camYaw = Math.PI / 2;
+  let outsideYaw = camYaw;
   let camDist: number | null = null;
   let camHeight: number | null = null;
   let camLookY: number | null = null;
@@ -244,19 +248,66 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   const onKey = (e: KeyboardEvent, down: boolean) => {
     const code = e.code || e.key;
-    if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyN", "KeyE", "KeyM", "ShiftLeft", "ShiftRight"].includes(code) || ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
+    if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyN", "KeyE", "KeyM", "KeyQ", "KeyR", "ShiftLeft", "ShiftRight"].includes(code) || ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
+    if (down && e.repeat) return;
     const names = [code, e.key].filter(Boolean);
     if (down) names.forEach((name) => keys.add(name));
     else names.forEach((name) => keys.delete(name));
+    // A quick interaction tap may start and end between two rendered frames.
+    if (down && (code === "KeyE" || e.key === "e" || e.key === "E")) interactQueued = true;
     if (down && (code === "KeyN" || e.key === "n" || e.key === "N")) cycleLight();
     if (down && (code === "KeyM" || e.key === "m" || e.key === "M")) logOpen = !logOpen;
   };
   const kd = (e: KeyboardEvent) => onKey(e, true);
   const ku = (e: KeyboardEvent) => onKey(e, false);
-  const clearKeys = () => keys.clear();
+  const clearKeys = () => {
+    keys.clear();
+    pulses.clear();
+    touchX = touchY = 0;
+    glideX = glideZ = 0;
+    charging = false;
+    interactQueued = interactHeld = false;
+    if (orbitPointer !== null) {
+      const pointer = orbitPointer;
+      orbitPointer = null;
+      if (canvas.hasPointerCapture(pointer)) canvas.releasePointerCapture(pointer);
+    }
+  };
+  const onVisibility = () => {
+    if (document.hidden) clearKeys();
+  };
   window.addEventListener("keydown", kd);
   window.addEventListener("keyup", ku);
   window.addEventListener("blur", clearKeys);
+  document.addEventListener("visibilitychange", onVisibility);
+
+  // Mouse dragging and mobile swipes orbit the view. HUD controls use separate elements.
+  let orbitPointer: number | null = null;
+  let lastOrbitX = 0;
+  const orbitDown = (e: PointerEvent) => {
+    if (orbitPointer !== null || (e.pointerType === "mouse" && e.button !== 0)) return;
+    orbitPointer = e.pointerId;
+    lastOrbitX = e.clientX;
+    canvas.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  };
+  const orbitMove = (e: PointerEvent) => {
+    if (orbitPointer !== e.pointerId) return;
+    camYaw += (e.clientX - lastOrbitX) * 0.008;
+    lastOrbitX = e.clientX;
+    e.preventDefault();
+  };
+  const orbitEnd = (e: PointerEvent) => {
+    if (orbitPointer !== e.pointerId) return;
+    orbitPointer = null;
+    if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+  };
+  canvas.style.touchAction = "none";
+  canvas.addEventListener("pointerdown", orbitDown);
+  canvas.addEventListener("pointermove", orbitMove);
+  canvas.addEventListener("pointerup", orbitEnd);
+  canvas.addEventListener("pointercancel", orbitEnd);
+  canvas.addEventListener("lostpointercapture", orbitEnd);
 
   const api: V2Public = { x: player.position.x, y: player.position.y, z: player.position.z, facing, place, cars: [], dollars, respect, mission, carrying, dialogue, pose: facing };
   (window as unknown as { __SACK_V2__?: V2Public }).__SACK_V2__ = api;
@@ -265,18 +316,32 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   let last = performance.now();
   let frame = 0;
 
+  let renderWidth = 0;
+  let renderHeight = 0;
+  let renderRatio = 0;
+  let resizeCount = 0;
   const resize = () => {
-    const w = canvas.clientWidth || window.innerWidth;
-    const h = canvas.clientHeight || window.innerHeight;
+    const w = Math.max(1, canvas.clientWidth || window.innerWidth);
+    const h = Math.max(1, canvas.clientHeight || window.innerHeight);
+    const ratio = Math.min(window.devicePixelRatio || 1, 1.75);
+    if (w === renderWidth && h === renderHeight && ratio === renderRatio) return;
+    renderWidth = w;
+    renderHeight = h;
+    resizeCount++;
+    if (ratio !== renderRatio) {
+      renderRatio = ratio;
+      renderer.setPixelRatio(ratio);
+      composer.setPixelRatio(ratio);
+    }
     renderer.setSize(w, h, false);
     composer.setSize(w, h);
-    bloom.setSize(w, h);
     camera.aspect = w / Math.max(1, h);
     camera.updateProjectionMatrix();
   };
   resize();
   window.addEventListener("resize", resize);
 
+  const save = createSaveWriter((value) => localStorage.setItem(SAVE_KEY, value));
   const loop = (now: number) => {
     frame = requestAnimationFrame(loop);
     const dt = Math.min(0.033, (now - last) / 1000);
@@ -301,11 +366,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (hudAcc > 0.12) {
       hudAcc = 0;
       push(hud());
-      localStorage.setItem(SAVE_KEY, JSON.stringify({
+      save({
         dollars, respect, carrying, delivered, mission,
         bait: city.bait, fit: city.fit, fed: city.fed, fished: city.fished, bowled: city.bowled, raced: city.raced,
         bestBowl: city.bestBowl, bestRace: city.bestRace, hauntTicket, hauntCleared,
-      }));
+      });
     }
   };
   frame = requestAnimationFrame(loop);
@@ -397,6 +462,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   function step(dt: number, hold: boolean, interact: boolean) {
     applyNight();
+    const cameraTurn = (keys.has("KeyR") ? 1 : 0) - (keys.has("KeyQ") ? 1 : 0);
+    camYaw += cameraTurn * 1.75 * dt;
     const busy = locked(city);
     const steer = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) + touchX;
     const sx = steer;
@@ -448,6 +515,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       player.position.z = -17.6;
     }
     separateBodies();
+    // Door openings remain real colliders, not teleport triggers through walls.
+    if (place === "home" && player.position.z >= 203.7 && Math.abs(player.position.x) < 1.35) {
+      leaveInterior("home");
+    } else if (place === "hq" && player.position.z >= 205.65 && Math.abs(player.position.x - 80) < 1.9) {
+      leaveInterior("hq");
+    }
     if (place === "street" || place === "court") {
       if (player.position.x < -104) { player.position.x = -104; glideX = 0; }
       if (player.position.x > 148) { player.position.x = 148; glideX = 0; }
@@ -490,8 +563,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     updateBall(dt, hold, interact);
     updateTraffic(dt);
     updatePeds(dt);
-    faceAvatar();
     placeCamera(dt);
+    faceAvatar();
     faceFoliage(camera.position);
     composer.render();
 
@@ -535,6 +608,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     return { solids: world.solids.street, ox: 0, oz: 0 };
   }
 
+  function leaveInterior(from: "home" | "hq") {
+    const destination = from === "home" ? world.homeOut : world.hqOut;
+    place = "street";
+    player.position.set(destination.x, 0, destination.z);
+    camYaw = outsideYaw;
+    glideX = 0;
+    glideZ = 0;
+  }
+
   function tryEnter() {
     if (city.fish) {
       grant(city.fish.phase === "bite" ? hookFish(city) : pullEarly(city));
@@ -571,19 +653,26 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return;
     }
     if (place === "street" && near(world.homeDoor, 1.4)) {
+      outsideYaw = camYaw;
+      camYaw = Math.PI;
       place = "home";
       player.position.set(world.homeIn.x, 0, 201.2);
+      glideX = 0;
+      glideZ = 0;
       return;
     }
     if (place === "street" && near(world.hqDoor, 1.6)) {
+      outsideYaw = camYaw;
+      camYaw = Math.PI;
       place = "hq";
       player.position.set(80, 0, 201.4);
+      glideX = 0;
+      glideZ = 0;
       mission = metK ? mission : "Talk to K Blanco";
       return;
     }
     if (place === "home" && nearLocal(world.homeIn, 1.3, 0, 200)) {
-      place = "street";
-      player.position.set(world.homeOut.x, 0, world.homeOut.z);
+      leaveInterior("home");
       return;
     }
     if (place === "hq" && nearLocal(world.kAnchor, 2.2, 80, 200)) {
@@ -602,8 +691,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return;
     }
     if (place === "hq" && nearLocal(world.hqIn, 1.4, 80, 200)) {
-      place = "street";
-      player.position.set(world.hqOut.x, 0, world.hqOut.z);
+      leaveInterior("hq");
       return;
     }
     if (place === "street" && near(world.districts.bowlDoor, 2.4)) {
@@ -734,7 +822,6 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     world.hq.visible = place === "hq";
     world.exterior.visible = place === "street" || place === "court";
     world.haunt.group.visible = place === "haunt";
-    for (const light of world.haunt.lights) light.visible = place === "haunt";
     for (const light of world.homeLights) light.visible = place === "home";
     for (const light of world.hqLights) light.visible = place === "hq";
     if (place === "home" || place === "hq" || place === "haunt") return;
@@ -756,7 +843,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       ball.position.set(player.position.x, 1.05, player.position.z);
       ballVel.set(0, 0, 0);
       if (hold) charge = Math.min(1, charge + dt / 0.85);
-      else if (charge > 0.02) {
+      if ((!hold || charge >= 1) && charge > 0.02) {
         const dx = world.hoop.x - player.position.x;
         const dz = world.hoop.z - player.position.z;
         const dist = Math.hypot(dx, dz) || 1;
@@ -769,7 +856,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         ballHeld = false;
         taken += 1;
         charge = 0;
-      } else charge = 0;
+      } else if (!hold) charge = 0;
       return;
     }
     ballVel.y -= 12 * dt;
@@ -922,12 +1009,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (avatar.userData.pose === pose && mat.map) return;
     const tex = stride ?? textures[face];
     if (!tex) return;
-    // Standing mesh only. The stride sheet is a different crop, so a new plane pops the body.
-    if (avatar.userData.box !== face) {
-      const size = frameSize(characters.benji, face);
+    if (avatar.userData.box !== pose) {
+      const size = frameSize(characters.benji, stride ? "walk" : face);
       avatar.geometry.dispose();
       avatar.geometry = solePlane(size.w, size.h, size.footPad, size.pxH, size.centerPx, size.pxW);
-      avatar.userData.box = face;
+      avatar.userData.box = pose;
     }
     mat.map = tex;
     mat.needsUpdate = true;
@@ -943,6 +1029,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   function presentScale(_host: THREE.Object3D) {
     return 1;
   }
+
+  const cameraCardPosition = new THREE.Vector3();
 
   function applyCard(sprite: THREE.Object3D, host: THREE.Object3D) {
     const mesh = sprite as THREE.Mesh;
@@ -968,11 +1056,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (asset && mesh.userData.pose !== pose) {
       const map = stepping ? walkMap : tex?.[face];
       if (map) {
-        if (mesh.userData.box !== face) {
-          const size = frameSize(asset, face);
+        if (mesh.userData.box !== pose) {
+          const size = frameSize(asset, stepping ? "walk" : face);
           mesh.geometry.dispose();
           mesh.geometry = solePlane(size.w, size.h, size.footPad, size.pxH, size.centerPx, size.pxW);
-          mesh.userData.box = face;
+          mesh.userData.box = pose;
         }
         mesh.userData.pose = pose;
         mesh.userData.face = face;
@@ -981,6 +1069,27 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       }
     }
     seatOnGround(mesh);
+    // Within 2m of the camera a bright head can remain clearly visible even
+    // at 12% opacity. Hide it completely; only use a ghost farther away when
+    // an NPC stands directly between the lens and Benji.
+    host.getWorldPosition(cameraCardPosition);
+    const vx = cameraCardPosition.x - camera.position.x;
+    const vz = cameraCardPosition.z - camera.position.z;
+    const cameraDistance = Math.hypot(vx, vz);
+    const px = player.position.x - camera.position.x;
+    const pz = player.position.z - camera.position.z;
+    const playerDistanceSq = px * px + pz * pz;
+    const fraction = playerDistanceSq > 0.01 ? (vx * px + vz * pz) / playerDistanceSq : -1;
+    const sideDistance = playerDistanceSq > 0.01
+      ? Math.abs(vx * pz - vz * px) / Math.sqrt(playerDistanceSq) : Infinity;
+    const opacity = cameraDistance < 2 ? 0
+      : fraction > 0.05 && fraction < 0.96 && sideDistance < 0.72 ? 0.2 : 1;
+    mesh.visible = opacity !== 0;
+    if (mat.opacity !== opacity || mat.depthWrite !== (opacity === 1)) {
+      mat.opacity = opacity;
+      mat.depthWrite = opacity === 1;
+      mat.needsUpdate = true;
+    }
     const s = presentScale(host);
     mesh.scale.set(s, s, 1);
     const turnaround = Boolean(tex?.back && tex?.left && tex?.right);
@@ -1040,11 +1149,18 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return;
     }
     avatar.visible = true;
+    // Wide-angle indoor framing avoids cropping nearby NPCs and shows the
+    // room's actual merchandise, mezzanine and architectural depth.
+    const inside = place === "home" || place === "hq" || place === "haunt";
+    const framing = cameraFraming(camera.aspect, place === "hq" || place === "haunt" ? 54 : place === "home" ? 49 : 42, inside);
+    const desiredFov = framing.fov;
+    const previousFov = camera.fov;
+    camera.fov += (desiredFov - camera.fov) * (1 - Math.exp(-5 * dt));
+    if (camera.fov !== previousFov) camera.updateProjectionMatrix();
     const lookX = Math.sin(camYaw);
     const lookZ = Math.cos(camYaw);
     const talking = place === "hq" && dialogue.startsWith("K Blanco");
-    const inside = place === "home" || place === "hq" || place === "haunt";
-    const dist = camDist ?? (talking ? 2.9 : place === "haunt" ? 2.45 : inside ? 3.05 : 3.4);
+    const dist = camDist ?? (talking ? 2.9 : place === "haunt" ? 2.45 : inside ? 3.05 : 3.4) * framing.distanceScale;
     const height = camHeight ?? (talking ? 1.42 : inside ? 1.5 : 1.32);
     const side = talking ? 1.35 : 0;
     let destX = player.position.x - lookX * dist + lookZ * side;
@@ -1058,12 +1174,26 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     camera.position.x += (destX - camera.position.x) * follow;
     camera.position.y += (destY - camera.position.y) * follow;
     camera.position.z += (destZ - camera.position.z) * follow;
+    // The interpolated position can cross a wall even when the destination is clear.
+    const safe = pullCamera(player.position.x, player.position.z, camera.position.x, camera.position.z,
+      zone.solids, zone.ox, zone.oz);
+    camera.position.x = safe.x;
+    camera.position.z = safe.z;
     const ahead = talking ? 0.28 : 0.72;
     const lookY = player.position.y + (camLookY ?? (talking ? 1.12 : inside ? 1.18 : 1.02));
     camera.lookAt(player.position.x + lookX * ahead, lookY, player.position.z + lookZ * ahead);
   }
 
+  // Earlier real nighttime QA frames blew out white porch/lamp details.
+  // Keep contrast and material texture visible; glow should be warm, not a
+  // screen-wide white flare. Use fixed bounds across day/golden/night.
+  let lightingState = "";
   function applyNight() {
+    // Lighting uniforms change with the mode/place, not every animation frame.
+    // Keep a local street-light budget across every Memphis district.
+    const state = `${place}:${night}:${golden}:${Math.floor(player.position.x / 10)}:${Math.floor(player.position.z / 10)}`;
+    if (state === lightingState) return;
+    lightingState = state;
     const outside = place === "street" || place === "court";
     world.sun.intensity = night ? 0.22 : golden ? 2.35 : outside ? 2.85 : 0.85;
     world.sun.color.set(night ? 0x243044 : golden ? 0xff7a28 : 0xffe0b0);
@@ -1071,8 +1201,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     world.hemi.intensity = night ? 0.42 : golden ? 0.55 : outside ? 0.78 : 0.7;
     world.hemi.color.set(night ? 0x31465f : golden ? 0xffc48a : 0xd4ecff);
     world.hemi.groundColor.set(night ? 0x1a140e : golden ? 0x7a4a28 : 0x6a6840);
-    renderer.toneMappingExposure = night ? 0.98 : golden ? 1.22 : outside ? 1.16 : 1.05;
-    bloom.strength = night ? 0.38 : golden ? 0.28 : 0.14;
+    renderer.toneMappingExposure = night ? 0.90 : golden ? 1.12 : outside ? 1.10 : 1.03;
+    bloom.strength = night ? 0.22 : golden ? 0.17 : 0.11;
     world.scene.background = night ? world.skyNight : golden ? world.skyGolden : world.skyDay;
     const fog = world.scene.fog as THREE.Fog;
     fog.color.setHex(night ? 0x141820 : golden ? 0xf0c090 : 0xc5d4e2);
@@ -1082,13 +1212,49 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const hqNight = world.exterior.getObjectByName("hq-plate-night");
     if (hqDay) hqDay.visible = !night || !hqNight;
     if (hqNight) hqNight.visible = night;
-    for (const lamp of world.lamps) lamp.intensity = night ? 28 : golden ? 10 : 0;
-    for (const lamp of world.courtLights) lamp.intensity = night ? 36 : golden ? 8 : 0;
-    for (const light of world.homeLights) light.intensity = place === "home" ? 18 : 0;
-    for (const light of world.hqLights) light.intensity = place === "hq" ? 26 : 0;
-    for (const light of world.haunt.lights) light.intensity = place === "haunt" ? 18 : 0;
-    for (const mat of world.headlightMats) mat.emissiveIntensity = night ? 3.1 : golden ? 1.4 : 0.35;
-    for (const mat of world.glowMats) mat.emissiveIntensity = night ? 2.2 : golden ? 0.9 : 0.28;
+    const nearby = new Set([...world.lamps]
+      .sort((a, b) => a.position.distanceToSquared(player.position) - b.position.distanceToSquared(player.position))
+      .slice(0, 8));
+    for (const lamp of world.lamps) {
+      lamp.intensity = night ? 14 : golden ? 5 : 0;
+      lamp.visible = outside && (night || golden) && nearby.has(lamp);
+      const diffuser = lamp.userData.bulbMaterial as THREE.MeshStandardMaterial | undefined;
+      const halo = lamp.userData.haloMaterial as THREE.MeshBasicMaterial | undefined;
+      if (diffuser) diffuser.emissiveIntensity = night ? 1.25 : golden ? 0.55 : 0.12;
+      if (halo) {
+        // opacity is a material uniform; marking needsUpdate every frame
+        // would recompile transparent shaders and stall mobile devices.
+        halo.opacity = night ? 0.18 : golden ? 0.07 : 0;
+      }
+    }
+    for (const lamp of world.courtLights) {
+      lamp.intensity = night ? 20 : golden ? 5 : 0;
+      lamp.visible = place === "court" && (night || golden);
+    }
+    for (const light of world.homeLights) {
+      light.intensity = 12;
+      light.visible = place === "home";
+    }
+    for (const light of world.hqLights) {
+      light.intensity = 19;
+      light.visible = place === "hq";
+    }
+    const hauntNearby = new Set([...world.haunt.lights]
+      .sort((a, b) => a.getWorldPosition(new THREE.Vector3()).distanceToSquared(player.position)
+        - b.getWorldPosition(new THREE.Vector3()).distanceToSquared(player.position)).slice(0, 4));
+    for (const light of world.haunt.lights) {
+      light.intensity = 18;
+      light.visible = place === "haunt" && hauntNearby.has(light);
+    }
+    for (const mat of world.headlightMats) mat.emissiveIntensity = night ? 1.7 : golden ? 0.8 : 0.3;
+    for (const mat of world.glowMats) mat.emissiveIntensity = night ? 1.1 : golden ? 0.55 : 0.2;
+    // Color reflected from Beale's venue signs. The decal's opacity is a
+    // uniform; day/night transitions do not allocate geometry or point lights.
+    const beale = world.exterior.getObjectByName("beale-production-nightlife");
+    const pavementGlow = beale?.userData.neonPools as THREE.MeshBasicMaterial[] | undefined;
+    if (pavementGlow) {
+      for (const spill of pavementGlow) spill.opacity = night ? 0.24 : golden ? 0.09 : 0;
+    }
     const tint = night ? 0xb7c7d8 : golden ? 0xffc898 : place === "hq" ? 0xffd2a8 : place === "home" ? 0xffe4c4 : 0xfff3e4;
     for (const mat of world.figureMats) mat.color.set(tint);
     (avatar.material as THREE.MeshBasicMaterial).color.set(tint);
@@ -1102,6 +1268,24 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   camera.lookAt(player.position.x + 1.15, 1.22, player.position.z);
 
   const touchApi = {
+    hauntState() {
+      const house = world.exterior.getObjectByName("haunt-3d-house");
+      const foyer = world.haunt.group.getObjectByName("haunt-3d-foyer");
+      let houseMeshes = 0, foyerMeshes = 0;
+      house?.traverse(node => { if (node instanceof THREE.Mesh) houseMeshes++; });
+      foyer?.traverse(node => { if (node instanceof THREE.Mesh) foyerMeshes++; });
+      return { houseMeshes, foyerMeshes, ticket: hauntTicket, cleared: hauntCleared,
+        activeLights: world.haunt.lights.filter(light => light.visible).length };
+    },
+    ballState() {
+      return { held: ballHeld, charge, taken, position: { x: ball.position.x, y: ball.position.y, z: ball.position.z } };
+    },
+    renderState() {
+      const head = new THREE.Vector3(player.position.x, player.position.y + 1.85, player.position.z).project(camera);
+      const feet = player.position.clone().project(camera);
+      return { width: renderWidth, height: renderHeight, ratio: renderRatio, resizeCount, fov: camera.fov,
+        playerScreen: { headY: (1 - head.y) * renderHeight / 2, feetY: (1 - feet.y) * renderHeight / 2 } };
+    },
     setStick(x: number, y: number) {
       touchX = x;
       touchY = y;
@@ -1220,6 +1404,127 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       api.dialogue = dialogue;
       push(hud());
     },
+    cameraYaw() {
+      return camYaw;
+    },
+    spriteState() {
+      const inspect = (host: THREE.Object3D, mesh: THREE.Mesh, id: string) => {
+        const mat = mesh.material as THREE.MeshBasicMaterial;
+        const image = mat.map?.image as HTMLImageElement | undefined;
+        const position = host.getWorldPosition(new THREE.Vector3());
+        const projected = position.clone().project(camera);
+        const canvasBox = canvas.getBoundingClientRect();
+        mesh.geometry.computeBoundingBox();
+        const box = mesh.geometry.boundingBox!;
+        const corners = [
+          new THREE.Vector3(box.min.x, box.min.y, 0),
+          new THREE.Vector3(box.max.x, box.min.y, 0),
+          new THREE.Vector3(box.min.x, box.max.y, 0),
+          new THREE.Vector3(box.max.x, box.max.y, 0),
+        ].map((point) => mesh.localToWorld(point).project(camera));
+        return {
+          id, x: position.x, y: position.y, z: position.z,
+          heading: host.userData.heading as number | undefined,
+          face: mesh.userData.face as Facing | undefined,
+          pose: mesh.userData.pose as string | undefined,
+          src: image?.currentSrc || image?.src || "",
+          loaded: Boolean(image?.complete && image.naturalWidth),
+          visible: mesh.visible && host.parent?.visible !== false,
+          opacity: mat.opacity,
+          screen: { x: (projected.x + 1) * canvasBox.width / 2,
+            y: (1 - projected.y) * canvasBox.height / 2 },
+          screenBounds: {
+            left: Math.min(...corners.map((p) => (p.x + 1) * canvasBox.width / 2)),
+            right: Math.max(...corners.map((p) => (p.x + 1) * canvasBox.width / 2)),
+            top: Math.min(...corners.map((p) => (1 - p.y) * canvasBox.height / 2)),
+            bottom: Math.max(...corners.map((p) => (1 - p.y) * canvasBox.height / 2)),
+          },
+          views: Object.fromEntries(Object.entries(
+            host.userData.tex ?? (id === "benji" ? textures : {}))
+            .map(([face, texture]) => {
+              const image = (texture as THREE.Texture).image as HTMLImageElement;
+              return [face, { src: image.currentSrc || image.src,
+                loaded: image.complete && image.naturalWidth > 0 }];
+            })),
+        };
+      };
+      const hosts = [...world.billboards, kSprite.parent ?? kSprite];
+      return {
+        player: inspect(player, avatar, "benji"),
+        actors: hosts.map((host) => inspect(host,
+          host.getObjectByName("sprite") as THREE.Mesh,
+          (host.userData.asset as { id: string }).id)),
+      };
+    },
+    courtProduction() {
+      const built = world.exterior.getObjectByName("901-production-environment");
+      const features: string[] = [];
+      built?.traverse((obj) => {
+        if (obj.name === "court-branded-sign" || obj.name === "901-gate-banner" ||
+            obj.name === "901-mural-panel" || obj.name === "901-court-ball-rack") {
+          features.push(obj.name);
+        }
+      });
+      return {
+        built: Boolean(built),
+        features,
+        gateWidth: built?.userData.gateClearWidth as number | undefined,
+        rims: world.hoops.map((h) => ({ ...h })),
+        courtOg: { ...world.courtOg },
+        stage: world.exterior.getObjectByName("901-production-environment")?.userData.productionVersion,
+      };
+    },
+    bealeProduction() {
+      const district = world.exterior.getObjectByName("beale-production-nightlife");
+      const pools = district?.userData.neonPools as THREE.MeshBasicMaterial[] | undefined;
+      return {
+        built: Boolean(district),
+        version: district?.userData.productionVersion as number | undefined,
+        poolCount: pools?.length ?? 0,
+        opacities: pools?.map((mat) => mat.opacity) ?? [],
+        signCount: district?.children.filter((child) => child.type === "Group").length ?? 0,
+      };
+    },
+    vehicleProduction() {
+      const vehicles: THREE.Group[] = [];
+      world.exterior.traverse((object) => {
+        if (object.type === "Group" && object.userData.visualVersion === 3 &&
+            typeof object.userData.kind === "string") vehicles.push(object as THREE.Group);
+      });
+      return {
+        count: vehicles.length,
+        complete: vehicles.filter((v) =>
+          v.getObjectByName("body") && v.getObjectByName("vehicle-contact-shadow")).length,
+        kinds: [...new Set(vehicles.map((v) => v.userData.kind as string))],
+        lampPools: world.lamps.filter((l) => Boolean(l.userData.haloMaterial)).length,
+      };
+    },
+    riverfrontProduction() {
+      const built = world.exterior.getObjectByName("memphis-riverfront-production");
+      return {
+        built: Boolean(built),
+        version: built?.userData.productionVersion as number | undefined,
+        archSpans: built?.userData.bridgeSpanCount as number | undefined,
+        pier: { ...world.districts.pier },
+        bait: { ...world.districts.bait },
+        cooler: Boolean(built?.getObjectByName("river-fishing-cooler")),
+        tackle: Boolean(built?.getObjectByName("river-tackle-box")),
+        ripples: Boolean(built?.getObjectByName("river-water-highlights")),
+      };
+    },
+    charactersNearCamera() {
+      return world.billboards.map((ped) => {
+        const position = ped.getWorldPosition(new THREE.Vector3());
+        const sprite = ped.getObjectByName("sprite") as THREE.Mesh | undefined;
+        const mat = sprite?.material as THREE.MeshBasicMaterial | undefined;
+        return {
+          id: (ped.userData.asset as { id?: string } | undefined)?.id ?? "unknown",
+          distance: Math.hypot(position.x - camera.position.x, position.z - camera.position.z),
+          visible: Boolean(sprite?.visible),
+          opacity: mat?.opacity ?? 1,
+        };
+      });
+    },
     peds() {
       return world.pedestrians.map((ped) => ({
         id: (ped.userData.asset as { id?: string } | undefined)?.id ?? "?",
@@ -1237,7 +1542,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     window.removeEventListener("keydown", kd);
     window.removeEventListener("keyup", ku);
     window.removeEventListener("blur", clearKeys);
+    document.removeEventListener("visibilitychange", onVisibility);
     window.removeEventListener("resize", resize);
+    canvas.removeEventListener("pointerdown", orbitDown);
+    canvas.removeEventListener("pointermove", orbitMove);
+    canvas.removeEventListener("pointerup", orbitEnd);
+    canvas.removeEventListener("pointercancel", orbitEnd);
+    canvas.removeEventListener("lostpointercapture", orbitEnd);
+    bloom.dispose();
+    composer.dispose();
     renderer.dispose();
   };
   activeStop = stop;
@@ -1298,31 +1611,6 @@ function spawnTraffic(world: SliceWorld, lanes: Lane[]): Car[] {
 function yawTo(obj: THREE.Object3D, cam: THREE.Vector3) {
   const pos = obj.getWorldPosition(new THREE.Vector3());
   return Math.atan2(cam.x - pos.x, cam.z - pos.z);
-}
-
-function pullCamera(px: number, pz: number, destX: number, destZ: number, solids: { minX: number; maxX: number; minZ: number; maxZ: number }[], ox: number, oz: number) {
-  const dx = destX - px;
-  const dz = destZ - pz;
-  const len = Math.hypot(dx, dz) || 1;
-  let keep = 0.7;
-  for (let t = 0.7; t <= len; t += 0.18) {
-    const x = px + (dx / len) * t;
-    const z = pz + (dz / len) * t;
-    let blocked = false;
-    for (const solid of solids) {
-      if (x > solid.minX + ox - 0.2 && x < solid.maxX + ox + 0.2 && z > solid.minZ + oz - 0.2 && z < solid.maxZ + oz + 0.2) {
-        blocked = true;
-        break;
-      }
-    }
-    if (blocked) break;
-    keep = t;
-  }
-  return { x: px + (dx / len) * Math.min(keep, len), z: pz + (dz / len) * Math.min(keep, len) };
-}
-
-function gapAhead(lane: Lane, from: number, other: number) {
-  return (other - from + lane.total) % lane.total;
 }
 
 function resolve(pos: THREE.Vector3, radius: number, solids: Solid[], ox: number, oz: number) {

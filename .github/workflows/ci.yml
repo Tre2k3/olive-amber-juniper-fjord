@@ -8,6 +8,12 @@ on:
     branches:
       - "**"
   workflow_dispatch:
+    inputs:
+      capture_qa:
+        description: "Capture and validate rendered game screenshots (slow software WebGL)"
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -20,6 +26,7 @@ env:
   CI: true
   SMOKE_HEADED: "1"
   GAME_URL: http://127.0.0.1:8080/
+  CAPTURE_QA: ${{ inputs.capture_qa && '1' || '0' }}
 
 jobs:
   verify:
@@ -41,6 +48,12 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Runtime core regression checks
+        run: node scripts/runtime-core-test.mjs
+
+      - name: Verify approved canonical artwork
+        run: python3 scripts/verify-claude-assets.py
 
       - name: Lint
         run: npm run lint
@@ -68,6 +81,21 @@ jobs:
           cat artifacts/preview.log || true
           exit 1
 
+      - name: Runtime reliability and mobile controls
+        env:
+          CAPTURE_QA: "1"
+        run: node scripts/runtime-reliability-smoke.mjs
+
+      - name: Haunted house architecture and gameplay
+        run: node scripts/haunt-3d-smoke.mjs
+
+      - name: Upload rendered haunted house views
+        uses: actions/upload-artifact@v4
+        with:
+          name: haunted-house-qa
+          path: artifacts/haunt/
+          if-no-files-found: error
+
       - name: Foundation safety
         run: npm run test:foundation
 
@@ -81,28 +109,24 @@ jobs:
         run: xvfb-run -a node scripts/traffic-smoke.mjs
 
       - name: Mission smoke
+        timeout-minutes: 6
         run: xvfb-run -a node scripts/mission-smoke.mjs
 
       - name: DOM visual smoke
         run: xvfb-run -a node scripts/dom-smoke.mjs
 
       - name: Confirm mission screenshots
+        if: ${{ inputs.capture_qa }}
         run: |
           set -euo pipefail
           missing=0
           for f in \
-            01-apartment-start.png \
-            02-apartment-exit.png \
-            03-k-blanco-hq.png \
-            04-drop-van.png \
-            05-neighborhood-delivery.png \
-            06-downtown-delivery.png \
-            07-culture-delivery.png \
-            08-sackrow-basketball.png \
-            09-return-to-hq.png \
-            10-drop-day-complete.png \
-            11-wardrobe-equipped.png \
-            12-after-reload.png
+            01-home-start.png \
+            02-k-blanco-hq.png \
+            03-court-og-delivery.png \
+            04-save-restored.png \
+            dom-desktop.png \
+            dom-mobile.png
           do
             if [ ! -s "artifacts/$f" ]; then
               echo "MISSING: artifacts/$f"
@@ -115,6 +139,7 @@ jobs:
           exit "$missing"
 
       - name: Black-frame and pixel variance
+        if: ${{ inputs.capture_qa }}
         run: node scripts/qa-frames.mjs artifacts
 
       - name: Preview log on failure

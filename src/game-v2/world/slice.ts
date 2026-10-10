@@ -13,6 +13,8 @@ import { buildDistricts, type DistrictAnchors } from "./districts";
 import { buildHaunt, type HauntWorld } from "./haunt";
 import { buildGoal } from "./kits/hoop";
 import { buildDowntown } from "./kits/city";
+import { buildBoutiqueInterior } from "./kits/boutique";
+import { dress901Court } from "./kits/court-production";
 
 export { carBody };
 
@@ -470,9 +472,9 @@ export function buildSlice(): SliceWorld {
   const talkB = spawn(ped.male02, 3.85, 6.55, exterior);
   talkB.userData.idle = true;
   pair(talkA, talkB);
-  const neighbor = spawn(ped.male03, -31.6, 8.45, exterior);
+  const neighbor = spawn(ped.male03, -29.2, 6.55, exterior);
   neighbor.userData.idle = true;
-  const driveway = spawn(ped.male04, -29.9, 8.35, exterior);
+  const driveway = spawn(ped.male04, -27.5, 6.55, exterior);
   driveway.userData.idle = true;
   pair(neighbor, driveway);
   const porch = spawn(characters.mamaDee, -20.5, 7.72, exterior);
@@ -660,9 +662,27 @@ export function buildSlice(): SliceWorld {
     box(w + 0.18, 0.1, 0.1, x, y - h / 2, z, metal, exterior);
     box(0.1, h, 0.1, x - w / 2, y, z, metal, exterior);
     box(0.1, h, 0.1, x + w / 2, y, z, metal, exterior);
-    box(w - 0.04, h - 0.06, 0.04, x, y, frontZ + 0.04, warm, exterior);
-    box(w - 0.08, h - 0.1, 0.03, x, y, frontZ + 0.12, glassMat, exterior);
-    box(0.045, h - 0.16, 0.05, x, y, z + 0.02, frame, exterior);
+    // A real window display is dimensional: backing, hanging rail, individual
+    // garments, illuminated shoe plinth and glass in front. Never put the
+    // whole reference painting into the storefront as one flat plane.
+    const displayBack = new THREE.MeshStandardMaterial({ color: 0x0c1214, roughness: 0.88 });
+    const displayGreen = new THREE.MeshStandardMaterial({ color: 0x19693d, roughness: 0.82 });
+    const displayIvory = new THREE.MeshStandardMaterial({ color: 0xeee9dd, roughness: 0.86 });
+    box(w - 0.04, h - 0.06, 0.06, x, y, frontZ + 0.035, displayBack, exterior);
+    box(w - 0.2, 0.055, 0.13, x, y + 0.91, frontZ + 0.24, gold, exterior);
+    for (const [index, offset] of [-0.7, 0, 0.7].entries()) {
+      const cx = x + offset * (w / 2.65);
+      const fabric = index === 0 ? displayGreen : index === 1 ? displayIvory : metal;
+      box(0.46, 0.68, 0.095, cx, y + 0.38, frontZ + 0.29, fabric, exterior);
+      box(0.16, 0.27, 0.09, cx - 0.29, y + 0.57, frontZ + 0.29, fabric, exterior);
+      box(0.16, 0.27, 0.09, cx + 0.29, y + 0.57, frontZ + 0.29, fabric, exterior);
+      box(0.5, 0.05, 0.36, cx, y - 0.68, frontZ + 0.27, metal, exterior);
+      box(0.36, 0.09, 0.2, cx, y - 0.57, frontZ + 0.36, displayIvory, exterior);
+      box(0.2, 0.16, 0.17, cx + 0.05, y - 0.44, frontZ + 0.35, fabric, exterior);
+    }
+    box(w - 0.18, 0.04, 0.15, x, y - h / 2 + 0.32, frontZ + 0.31, gold, exterior);
+    box(w - 0.08, h - 0.1, 0.03, x, y, frontZ + 0.43, glassMat, exterior);
+    box(0.045, h - 0.16, 0.08, x, y, frontZ + 0.46, frame, exterior);
     const lamp = new THREE.PointLight(0xffb15a, 0, 7, 2);
     lamp.position.set(x, y, frontZ + 1.4);
     exterior.add(lamp);
@@ -670,6 +690,13 @@ export function buildSlice(): SliceWorld {
   }
   displayBay(hqX - 5.15, 2.55);
   displayBay(hqX + 5.15, 2.55);
+  // Architectural warm-gold cove follows the entire flagship frontage.
+  // These are slim 3D LED elements, not a painted concept-board texture.
+  box(18.1, 0.055, 0.2, hqX, 5.85, frontZ + 0.47, gold, exterior);
+  box(18.1, 0.038, 0.08, hqX, 0.64, frontZ + 0.47, gold, exterior);
+  for (const px of [hqX - 8.45, hqX + 8.45]) {
+    box(0.09, 5.2, 0.12, px, 3.05, frontZ + 0.43, gold, exterior);
+  }
   box(1.7, 0.1, 0.1, hqX, 2.58, frontZ + 0.18, metal, exterior);
   box(0.1, 2.45, 0.1, hqX - 0.8, 1.38, frontZ + 0.18, metal, exterior);
   box(0.1, 2.45, 0.1, hqX + 0.8, 1.38, frontZ + 0.18, metal, exterior);
@@ -696,6 +723,8 @@ export function buildSlice(): SliceWorld {
 
   const courtX = 66;
   const courtZ = -22;
+  // 3D dressing stays outside the authored two-hoop playable zone.
+  dress901Court(exterior, courtX, courtZ);
   const courtMap = courtTexture();
   const courtMat = new THREE.MeshBasicMaterial({ map: courtMap });
   mesh(new THREE.PlaneGeometry(22, 14), courtMat, courtX, 0.02, courtZ, exterior).rotation.x = -Math.PI / 2;
@@ -983,7 +1012,7 @@ export function buildSlice(): SliceWorld {
     backboards: [west.board, east.board],
     courtOg: { x: courtX, z: courtZ + 5.6 },
     wardrobe: { x: -3.5, z: -2.5 },
-    kAnchor: { x: 1.15, z: 1.9 },
+    kAnchor: { x: 1.9, z: 0.1 },
     sun,
     hemi,
     lamps,
@@ -1057,92 +1086,5 @@ function buildHomeInterior(group: THREE.Group, solids: Solid[], glow: THREE.Mesh
 }
 
 function buildHqInterior(group: THREE.Group, solids: Solid[], glow: THREE.MeshStandardMaterial[]) {
-  group.position.set(80, 0, 200);
-  const floorTex = canvasTex((g, w, h) => {
-    g.fillStyle = "#2c2c30";
-    g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 1800; i++) {
-      g.fillStyle = i % 2 ? "#36363b" : "#242428";
-      g.fillRect((i * 29) % w, (i * 17) % h, 10, 6);
-    }
-  }, 256, 256, true);
-  floorTex.repeat.set(4, 3);
-  const floor = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.28, metalness: 0.35 });
-  mesh(new THREE.PlaneGeometry(16, 12), floor, 0, 0.01, 0, group).rotation.x = -Math.PI / 2;
-  box(16, 3.2, 0.16, 0, 1.6, -6, black, group);
-  box(0.16, 3.2, 12, -8, 1.6, 0, black, group);
-  box(0.16, 3.2, 12, 8, 1.6, 0, black, group);
-  box(6, 3.2, 0.16, -5, 1.6, 6, black, group);
-  box(6, 3.2, 0.16, 5, 1.6, 6, black, group);
-  box(16, 0.1, 12, 0, 3.15, 0, new THREE.MeshStandardMaterial({ color: 0x101010, roughness: 0.8 }), group);
-  box(6, 0.08, 0.2, 0, 2.9, 6.05, gold, group);
-  solids.push({ minX: -8.2, maxX: 8.2, minZ: -6.2, maxZ: -5.75 });
-  solids.push({ minX: -8.2, maxX: -7.75, minZ: -6, maxZ: 6.2 });
-  solids.push({ minX: 7.75, maxX: 8.2, minZ: -6, maxZ: 6.2 });
-  solids.push({ minX: -8, maxX: -2.02, minZ: 5.75, maxZ: 6.25 });
-  solids.push({ minX: 2.02, maxX: 8, minZ: 5.75, maxZ: 6.25 });
-  const rack = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.5, metalness: 0.2 });
-  for (const x of [-4.2, -1.4, 1.5]) {
-    box(1.5, 1.7, 0.45, x, 0.9, -2.4, rack, group);
-    solids.push({ minX: x - 0.85, maxX: x + 0.85, minZ: -2.8, maxZ: -2.05 });
-    for (const [dx, color] of [
-      [-0.45, 0x1f7a43],
-      [-0.15, 0xb43322],
-      [0.15, 0x111111],
-      [0.45, 0xf4efe4],
-    ] as const) {
-      box(0.24, 0.7, 0.06, x + dx, 1.2, -2.12, new THREE.MeshStandardMaterial({ color }), group);
-    }
-  }
-  for (let i = 0; i < 4; i++) {
-    box(0.35, 0.16, 0.7, -5.6, 0.2 + i * 0.28, 2.2, rack, group);
-    box(0.28, 0.1, 0.5, -5.6, 0.32 + i * 0.28, 2.2, new THREE.MeshStandardMaterial({ color: i % 2 ? 0xe0b33a : 0xf4efe4 }), group);
-  }
-  box(2.4, 1.05, 0.7, 4.6, 0.55, 1.6, black, group);
-  box(2.4, 0.08, 0.7, 4.6, 1.1, 1.6, gold, group);
-  solids.push({ minX: 3.3, maxX: 5.9, minZ: 1.15, maxZ: 2.05 });
-  box(0.08, 2.3, 2.2, -6.2, 1.15, 0.2, black, group);
-  box(1.8, 2.3, 0.08, -6.9, 1.15, -0.9, black, group);
-  box(1.8, 2.3, 0.08, -6.9, 1.15, 1.3, black, group);
-  const curtain = new THREE.MeshStandardMaterial({ color: 0xe0b33a, roughness: 0.6, side: THREE.DoubleSide });
-  box(0.08, 2.1, 1.1, -6.15, 1.15, 0.2, curtain, group);
-  solids.push({ minX: -7.9, maxX: -6.1, minZ: -1.0, maxZ: 1.4 });
-  const sofa = new THREE.MeshStandardMaterial({ color: 0x1f4d3a, roughness: 0.75 });
-  box(2.2, 0.45, 0.8, -3.4, 0.35, -4.4, sofa, group);
-  box(2.2, 0.55, 0.16, -3.4, 0.7, -4.75, sofa, group);
-  solids.push({ minX: -4.6, maxX: -2.2, minZ: -5.0, maxZ: -3.9 });
-  box(2.6, 2.4, 2.4, 6.2, 1.2, -4.2, new THREE.MeshStandardMaterial({ color: 0x242018, roughness: 0.75 }), group);
-  box(1.4, 0.08, 0.7, 6.2, 0.78, -3.4, wood, group);
-  solids.push({ minX: 4.8, maxX: 7.6, minZ: -5.5, maxZ: -2.9 });
-  box(3.2, 2.2, 0.2, 2.4, 1.1, -5.2, black, group);
-  box(1.4, 1.2, 0.5, 2.4, 0.7, -4.6, wood, group);
-  solids.push({ minX: 0.6, maxX: 4.2, minZ: -5.5, maxZ: -4.2 });
-  const banner = sign("$ACKRELIGIOUS", "SHOWROOM", 5.2, 1.15);
-  banner.plane.position.set(0, 2.45, -5.85);
-  group.add(banner.plane);
-  glow.push(banner.mat);
-  box(2.2, 0.7, 1.05, -0.6, 0.4, -0.5, black, group);
-  box(2.0, 0.08, 0.95, -0.6, 0.78, -0.5, wood, group);
-  solids.push({ minX: -1.8, maxX: 0.6, minZ: -1.1, maxZ: 0.1 });
-  mesh(new THREE.ConeGeometry(0.28, 0.55, 6), leafMat, -6.6, 0.7, 4.2, group);
-  mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.4, 8), black, -6.6, 0.2, 4.2, group);
-  mesh(new THREE.ConeGeometry(0.32, 0.6, 6), leafMat2, 6.4, 0.75, 3.6, group);
-  mesh(new THREE.CylinderGeometry(0.24, 0.28, 0.4, 8), black, 6.4, 0.2, 3.6, group);
-  for (let i = 0; i < 6; i++) {
-    const bulb = new THREE.MeshStandardMaterial({ color: 0xfff1d2, emissive: 0xffd28a, emissiveIntensity: 0.8 });
-    glow.push(bulb);
-    mesh(new THREE.SphereGeometry(0.06, 8, 6), bulb, -4 + i * 1.6, 2.95, 0.2, group);
-  }
-  const kGroup = spawn(characters.kBlanco, 1.15, 1.9, group);
-  kGroup.userData.heading = 0;
-  const k = kGroup;
-  const pack = box(0.28, 0.16, 0.22, 4.6, 1.22, 2.15, gold, group);
-  const light = new THREE.PointLight(0xffe2b0, 0, 20, 2);
-  light.position.set(0, 2.8, 0);
-  const light2 = new THREE.PointLight(0xfff6e0, 0, 10, 2);
-  light2.position.set(4.6, 2.3, 1.4);
-  group.add(light, light2);
-  group.userData.lights = [light, light2];
-  addGround({ minX: 72, maxX: 88, minZ: 194, maxZ: 206, y: 0.01 });
-  return { kSprite: k.getObjectByName("sprite")!, counterPack: pack };
+  return buildBoutiqueInterior(group, solids, glow, (x, z) => spawn(characters.kBlanco, x, z, group));
 }

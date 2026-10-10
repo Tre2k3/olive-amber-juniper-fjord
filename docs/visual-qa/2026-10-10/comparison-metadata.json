@@ -1,0 +1,830 @@
+[
+  {
+    "id": "benji",
+    "actor": {
+      "id": "benji",
+      "x": -24,
+      "y": 0.2,
+      "z": 6.35,
+      "heading": 1.5707963267948966,
+      "face": "front",
+      "pose": "front",
+      "src": "http://127.0.0.1:8080/game-v2/characters/benji/front.png?v=12",
+      "loaded": true,
+      "visible": true,
+      "opacity": 1,
+      "screen": {
+        "x": 640.0000000000009,
+        "y": 669.2673918025005
+      },
+      "screenBounds": {
+        "left": 547.0392435189426,
+        "right": 732.9607564810591,
+        "top": 239.3676567436224,
+        "bottom": 678.0419914280689
+      },
+      "views": {
+        "front": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/benji/front.png?v=12",
+          "loaded": true
+        },
+        "back": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/benji/back.png?v=12",
+          "loaded": true
+        },
+        "left": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/benji/left.png?v=12",
+          "loaded": true
+        },
+        "right": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/benji/right.png?v=12",
+          "loaded": true
+        }
+      }
+    },
+    "camera": {
+      "x": -24,
+      "z": 6.35,
+      "yaw": 0,
+      "facing": "front",
+      "night": false,
+      "dist": 4.2,
+      "height": 1.5
+    }
+  },
+  {
+    "id": "k-blanco",
+    "actor": {
+      "id": "k-blanco",
+      "x": 81.9,
+      "y": 0.045,
+      "z": 200.1,
+      "heading": 0,
+      "face": "front",
+      "pose": "front",
+      "src": "http://127.0.0.1:8080/game-v2/characters/k-blanco/front.png?v=12",
+      "loaded": true,
+      "visible": true,
+      "opacity": 1,
+      "screen": {
+        "x": 918.8696626412886,
+        "y": 549.1697261307905
+      },
+      "screenBounds": {
+        "left": 854.8233873433259,
+        "right": 995.511547659894,
+        "top": 254.22442815620602,
+        "bottom": 559.7037506153212
+      },
+      "views": {
+        "front": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/k-blanco/front.png?v=12",
+          "loaded": true
+        },
+        "back": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/k-blanco/back.png?v=12",
+          "loaded": true
+        },
+        "left": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/k-blanco/left.png?v=12",
+          "loaded": true
+        },
+        "right": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/k-blanco/right.png?v=12",
+          "loaded": true
+        }
+      }
+    },
+    "camera": {
+      "place": "hq",
+      "x": 80,
+      "z": 202.7,
+      "yaw": 3.141592653589793,
+      "facing": "back",
+      "night": false,
+      "dist": 3.05,
+      "height": 1.5
+    }
+  },
+  {
+    "id": "court-og",
+    "actor": {
+      "id": "court-og",
+      "x": 66,
+      "y": 0.09,
+      "z": -16.4,
+      "heading": 2.0594175238500547,
+      "face": "front",
+      "pose": "front",
+      "src": "http://127.0.0.1:8080/game-v2/characters/court-og/front.png?v=12",
+      "loaded": true,
+      "visible": true,
+      "opacity": 1,
+      "screen": {
+        "x": 434.92891167186883,
+        "y": 543.566347176075
+      },
+      "screenBounds": {
+        "left": 345.7175096979099,
+        "right": 511.01281026825177,
+        "top": 180.7251244482988,
+        "bottom": 553.7731879735976
+      },
+      "views": {
+        "front": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/court-og/front.png?v=12",
+          "loaded": true
+        },
+        "back": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/court-og/back.png?v=12",
+          "loaded": true
+        },
+        "left": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/court-og/left.png?v=12",
+          "loaded": true
+        },
+        "right": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/court-og/right.png?v=12",
+          "loaded": true
+        }
+      }
+    },
+    "camera": {
+      "x": 67.63320529274465,
+      "z": -18.52899987593961,
+      "yaw": 5.165167479275442,
+      "facing": "back",
+      "night": false,
+      "dist": 3.4,
+      "height": 1.45
+    }
+  },
+  {
+    "id": "mama-dee",
+    "actor": {
+      "id": "mama-dee",
+      "x": -20.5,
+      "y": 0.14,
+      "z": 7.72,
+      "heading": 1.5423424099707992,
+      "face": "left",
+      "pose": "left",
+      "src": "http://127.0.0.1:8080/game-v2/characters/mama-dee/left.png?v=12",
+      "loaded": true,
+      "visible": true,
+      "opacity": 1,
+      "screen": {
+        "x": 424.36311703232445,
+        "y": 545.578832493757
+      },
+      "screenBounds": {
+        "left": 344.1913791363564,
+        "right": 492.74504935241765,
+        "top": 250.04276274894477,
+        "bottom": 554.3634937365649
+      },
+      "views": {
+        "front": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/mama-dee/front.png?v=12",
+          "loaded": true
+        },
+        "back": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/mama-dee/back.png?v=12",
+          "loaded": true
+        },
+        "left": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/mama-dee/left.png?v=12",
+          "loaded": true
+        },
+        "right": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/mama-dee/right.png?v=12",
+          "loaded": true
+        }
+      }
+    },
+    "camera": {
+      "x": -21.9,
+      "z": 5.8,
+      "yaw": 0,
+      "dist": 4.8,
+      "height": 1.6,
+      "facing": "back",
+      "night": false
+    }
+  },
+  {
+    "id": "nitro",
+    "actor": {
+      "id": "nitro",
+      "x": 48.5,
+      "y": 0.2,
+      "z": 6.7,
+      "heading": 1.589656272234241,
+      "face": "front",
+      "pose": "front",
+      "src": "http://127.0.0.1:8080/game-v2/characters/nitro/front.png?v=12",
+      "loaded": true,
+      "visible": true,
+      "opacity": 1,
+      "screen": {
+        "x": 422.51118653151764,
+        "y": 550.7399008151285
+      },
+      "screenBounds": {
+        "left": 335.1403103046432,
+        "right": 495.5735423179641,
+        "top": 197.61589863015786,
+        "bottom": 561.963165966757
+      },
+      "views": {
+        "front": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/nitro/front.png?v=12",
+          "loaded": true
+        },
+        "back": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/nitro/back.png?v=12",
+          "loaded": true
+        },
+        "left": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/nitro/left.png?v=12",
+          "loaded": true
+        },
+        "right": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/nitro/right.png?v=12",
+          "loaded": true
+        }
+      }
+    },
+    "camera": {
+      "x": 50.899980773090356,
+      "z": 5.499961546950831,
+      "yaw": 4.712405002552688,
+      "facing": "back",
+      "night": false,
+      "dist": 3.4,
+      "height": 1.45
+    }
+  },
+  {
+    "id": "unc-j",
+    "actor": {
+      "id": "unc-j",
+      "x": -6.2,
+      "y": 0.2,
+      "z": -6.55,
+      "heading": 1.4102313498929961,
+      "face": "front",
+      "pose": "front",
+      "src": "http://127.0.0.1:8080/game-v2/characters/unc-j/front.png?v=12",
+      "loaded": true,
+      "visible": true,
+      "opacity": 1,
+      "screen": {
+        "x": 421.6388023452513,
+        "y": 520.5926401501484
+      },
+      "screenBounds": {
+        "left": 329.0300398590888,
+        "right": 500.2726229272905,
+        "top": 159.6874988885673,
+        "bottom": 530.7319139612607
+      },
+      "views": {
+        "front": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/unc-j/front.png?v=12",
+          "loaded": true
+        },
+        "back": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/unc-j/back.png?v=12",
+          "loaded": true
+        },
+        "left": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/unc-j/left.png?v=12",
+          "loaded": true
+        },
+        "right": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/unc-j/right.png?v=12",
+          "loaded": true
+        }
+      }
+    },
+    "camera": {
+      "x": -3.7849985133267237,
+      "z": -7.719516062038424,
+      "yaw": 4.699727081620962,
+      "facing": "back",
+      "night": false,
+      "dist": 3.4,
+      "height": 1.45
+    }
+  },
+  {
+    "id": "strike",
+    "actor": {
+      "id": "strike",
+      "x": 62.4,
+      "y": 0.09,
+      "z": -16.2,
+      "heading": 2.5870151552743286,
+      "face": "front",
+      "pose": "front",
+      "src": "http://127.0.0.1:8080/game-v2/characters/strike/front.png?v=12",
+      "loaded": true,
+      "visible": true,
+      "opacity": 1,
+      "screen": {
+        "x": 428.7508345477218,
+        "y": 547.8915008216571
+      },
+      "screenBounds": {
+        "left": 352.78680713868744,
+        "right": 494.7584485693415,
+        "top": 219.14649418671664,
+        "bottom": 556.9841933734962
+      },
+      "views": {
+        "front": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/strike/front.png?v=12",
+          "loaded": true
+        },
+        "back": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/strike/back.png?v=12",
+          "loaded": true
+        },
+        "left": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/strike/left.png?v=12",
+          "loaded": true
+        },
+        "right": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/strike/right.png?v=12",
+          "loaded": true
+        }
+      }
+    },
+    "camera": {
+      "x": 62.646098409339956,
+      "z": -18.871972225327266,
+      "yaw": 5.72769316605118,
+      "facing": "back",
+      "night": false,
+      "dist": 3.4,
+      "height": 1.45
+    }
+  },
+  {
+    "id": "ped-green-jacket-man",
+    "actor": {
+      "id": "ped-green-jacket-man",
+      "x": -10.816182669207516,
+      "y": 0.2,
+      "z": 6.38,
+      "heading": 1.5708001135643295,
+      "face": "front",
+      "pose": "front",
+      "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/green_jacket_man/front.png?v=12",
+      "loaded": true,
+      "visible": true,
+      "opacity": 1,
+      "screen": {
+        "x": 381.82995071775304,
+        "y": 541.9820127637843
+      },
+      "screenBounds": {
+        "left": 292.09045058877564,
+        "right": 456.82685843233253,
+        "top": 170.1719442539122,
+        "bottom": 552.912036324946
+      },
+      "views": {
+        "front": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/green_jacket_man/front.png?v=12",
+          "loaded": true
+        },
+        "back": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/green_jacket_man/back.png?v=12",
+          "loaded": true
+        },
+        "left": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/green_jacket_man/left.png?v=12",
+          "loaded": true
+        },
+        "right": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/green_jacket_man/right.png?v=12",
+          "loaded": true
+        },
+        "walk": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/green_jacket_man/walk.png?v=12",
+          "loaded": true
+        }
+      }
+    },
+    "camera": {
+      "x": -8.897621831571808,
+      "z": 5.079964922563955,
+      "yaw": 4.7124042315095735,
+      "facing": "back",
+      "night": false,
+      "dist": 3.4,
+      "height": 1.45
+    }
+  },
+  {
+    "id": "ped-orange-woman",
+    "actor": {
+      "id": "ped-orange-woman",
+      "x": 2.4,
+      "y": 0.2,
+      "z": 6.55,
+      "heading": 1.658220901010415,
+      "face": "front",
+      "pose": "front",
+      "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/orange_woman/front.png?v=12",
+      "loaded": true,
+      "visible": true,
+      "opacity": 1,
+      "screen": {
+        "x": 399.50744170624125,
+        "y": 535.6396129223887
+      },
+      "screenBounds": {
+        "left": 327.71696115797613,
+        "right": 459.1202660753912,
+        "top": 203.82324079970556,
+        "bottom": 544.7106925197245
+      },
+      "views": {
+        "front": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/orange_woman/front.png?v=12",
+          "loaded": true
+        },
+        "back": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/orange_woman/back.png?v=12",
+          "loaded": true
+        },
+        "left": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/orange_woman/left.png?v=12",
+          "loaded": true
+        },
+        "right": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/orange_woman/right.png?v=12",
+          "loaded": true
+        },
+        "walk": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/orange_woman/walk.png?v=12",
+          "loaded": true
+        }
+      }
+    },
+    "camera": {
+      "x": 4.578812830857769,
+      "z": 5.055752815599255,
+      "yaw": 4.799075134712487,
+      "facing": "back",
+      "night": false,
+      "dist": 3.4,
+      "height": 1.45
+    }
+  },
+  {
+    "id": "ped-blue-hoodie-boy",
+    "actor": {
+      "id": "ped-blue-hoodie-boy",
+      "x": 3.85,
+      "y": 0.2,
+      "z": 6.55,
+      "heading": 4.799565578151246,
+      "face": "front",
+      "pose": "front",
+      "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/blue_hoodie_boy/front.png?v=12",
+      "loaded": true,
+      "visible": true,
+      "opacity": 1,
+      "screen": {
+        "x": 399.229109141667,
+        "y": 524.7496864764344
+      },
+      "screenBounds": {
+        "left": 325.2534914239962,
+        "right": 461.3180893931917,
+        "top": 209.05921576139542,
+        "bottom": 533.5575783680237
+      },
+      "views": {
+        "back": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/blue_hoodie_boy/back.png?v=12",
+          "loaded": true
+        },
+        "front": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/blue_hoodie_boy/front.png?v=12",
+          "loaded": true
+        },
+        "left": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/blue_hoodie_boy/left.png?v=12",
+          "loaded": true
+        },
+        "right": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/blue_hoodie_boy/right.png?v=12",
+          "loaded": true
+        },
+        "walk": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/blue_hoodie_boy/walk.png?v=12",
+          "loaded": true
+        }
+      }
+    },
+    "camera": {
+      "x": 1.6689688763607196,
+      "z": 8.041007457297507,
+      "yaw": 1.6559963148558479,
+      "facing": "back",
+      "night": false,
+      "dist": 3.4,
+      "height": 1.45
+    }
+  },
+  {
+    "id": "ped-denim-girl",
+    "actor": {
+      "id": "ped-denim-girl",
+      "x": -3.807538113442797,
+      "y": 0.2,
+      "z": 6.38,
+      "heading": 1.5707963489309693,
+      "face": "front",
+      "pose": "front",
+      "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/denim_girl/front.png?v=12",
+      "loaded": true,
+      "visible": true,
+      "opacity": 1,
+      "screen": {
+        "x": 384.27519522019236,
+        "y": 539.5609589908292
+      },
+      "screenBounds": {
+        "left": 300.3906271481305,
+        "right": 452.9200372482692,
+        "top": 196.4069249907487,
+        "bottom": 549.7230744832086
+      },
+      "views": {
+        "front": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/denim_girl/front.png?v=12",
+          "loaded": true
+        },
+        "back": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/denim_girl/back.png?v=12",
+          "loaded": true
+        },
+        "left": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/denim_girl/left.png?v=12",
+          "loaded": true
+        },
+        "right": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/denim_girl/right.png?v=12",
+          "loaded": true
+        },
+        "walk": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/denim_girl/walk.png?v=12",
+          "loaded": true
+        }
+      }
+    },
+    "camera": {
+      "x": -1.8384976237421182,
+      "z": 5.079999808678045,
+      "yaw": 4.71238906356815,
+      "facing": "back",
+      "night": false,
+      "dist": 3.4,
+      "height": 1.45
+    }
+  },
+  {
+    "id": "ped-black-hoodie-man",
+    "actor": {
+      "id": "ped-black-hoodie-man",
+      "x": -29.2,
+      "y": 0.2,
+      "z": 6.55,
+      "heading": 1.6226992895994223,
+      "face": "left",
+      "pose": "left",
+      "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/black_hoodie_man/left.png?v=12",
+      "loaded": true,
+      "visible": true,
+      "opacity": 1,
+      "screen": {
+        "x": 431.53892658595385,
+        "y": 525.3213889777438
+      },
+      "screenBounds": {
+        "left": 351.0688172808549,
+        "right": 499.67116283266546,
+        "top": 200.69252450054645,
+        "bottom": 534.3294179490285
+      },
+      "views": {
+        "front": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/black_hoodie_man/front.png?v=12",
+          "loaded": true
+        },
+        "back": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/black_hoodie_man/back.png?v=12",
+          "loaded": true
+        },
+        "left": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/black_hoodie_man/left.png?v=12",
+          "loaded": true
+        },
+        "right": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/black_hoodie_man/right.png?v=12",
+          "loaded": true
+        },
+        "walk": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/black_hoodie_man/walk.png?v=12",
+          "loaded": true
+        }
+      }
+    },
+    "camera": {
+      "x": -30.4,
+      "z": 4.8,
+      "yaw": 0,
+      "dist": 4.2,
+      "height": 1.6,
+      "facing": "back",
+      "night": false
+    }
+  },
+  {
+    "id": "ped-pink-jacket-girl",
+    "actor": {
+      "id": "ped-pink-jacket-girl",
+      "x": -4.45,
+      "y": 0.2,
+      "z": -6.4,
+      "heading": -0.7017367007158841,
+      "face": "left",
+      "pose": "left",
+      "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/pink_jacket_girl/left.png?v=12",
+      "loaded": true,
+      "visible": true,
+      "opacity": 1,
+      "screen": {
+        "x": 824.7551106428425,
+        "y": 552.6606635017644
+      },
+      "screenBounds": {
+        "left": 772.0087629684703,
+        "right": 888.0883470553708,
+        "top": 239.59020429367666,
+        "bottom": 560.5219460866455
+      },
+      "views": {
+        "front": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/pink_jacket_girl/front.png?v=12",
+          "loaded": true
+        },
+        "back": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/pink_jacket_girl/back.png?v=12",
+          "loaded": true
+        },
+        "left": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/pink_jacket_girl/left.png?v=12",
+          "loaded": true
+        },
+        "right": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/pink_jacket_girl/right.png?v=12",
+          "loaded": true
+        },
+        "walk": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/pink_jacket_girl/walk.png?v=12",
+          "loaded": true
+        }
+      }
+    },
+    "camera": {
+      "x": -2,
+      "z": -5.4,
+      "yaw": -1.5707963267948966,
+      "facing": "back",
+      "night": false,
+      "dist": 3.4,
+      "height": 1.45
+    }
+  },
+  {
+    "id": "ped-bucket-hat-oldman",
+    "actor": {
+      "id": "ped-bucket-hat-oldman",
+      "x": -27.5,
+      "y": 0.2,
+      "z": 6.55,
+      "heading": 4.690867841557767,
+      "face": "right",
+      "pose": "right",
+      "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/bucket_hat_oldman/right.png?v=12",
+      "loaded": true,
+      "visible": true,
+      "opacity": 1,
+      "screen": {
+        "x": 851.808915425235,
+        "y": 509.78471451539616
+      },
+      "screenBounds": {
+        "left": 795.3928565031074,
+        "right": 920.4711951804097,
+        "top": 217.95510302360043,
+        "bottom": 517.5681528442072
+      },
+      "views": {
+        "front": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/bucket_hat_oldman/front.png?v=12",
+          "loaded": true
+        },
+        "back": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/bucket_hat_oldman/back.png?v=12",
+          "loaded": true
+        },
+        "left": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/bucket_hat_oldman/left.png?v=12",
+          "loaded": true
+        },
+        "right": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/bucket_hat_oldman/right.png?v=12",
+          "loaded": true
+        },
+        "walk": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/bucket_hat_oldman/walk.png?v=12",
+          "loaded": true
+        }
+      }
+    },
+    "camera": {
+      "x": -26.2,
+      "z": 4.4,
+      "yaw": 0,
+      "dist": 4.2,
+      "height": 1.6,
+      "facing": "back",
+      "night": false
+    }
+  },
+  {
+    "id": "ped-purple-tracksuit-kid",
+    "actor": {
+      "id": "ped-purple-tracksuit-kid",
+      "x": -8.158152572682207,
+      "y": 0.2,
+      "z": 6.38,
+      "heading": 4.712388980358591,
+      "face": "front",
+      "pose": "front-walk",
+      "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/purple_tracksuit_kid/walk.png?v=12",
+      "loaded": true,
+      "visible": true,
+      "opacity": 1,
+      "screen": {
+        "x": 375.14958367232214,
+        "y": 571.1430227796728
+      },
+      "screenBounds": {
+        "left": 295.15507632991165,
+        "right": 441.29295832696823,
+        "top": 241.42925681938604,
+        "bottom": 581.476425000031
+      },
+      "views": {
+        "front": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/purple_tracksuit_kid/front.png?v=12",
+          "loaded": true
+        },
+        "back": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/purple_tracksuit_kid/back.png?v=12",
+          "loaded": true
+        },
+        "left": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/purple_tracksuit_kid/left.png?v=12",
+          "loaded": true
+        },
+        "right": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/purple_tracksuit_kid/right.png?v=12",
+          "loaded": true
+        },
+        "walk": {
+          "src": "http://127.0.0.1:8080/game-v2/characters/pedestrians/purple_tracksuit_kid/walk.png?v=12",
+          "loaded": true
+        }
+      }
+    },
+    "camera": {
+      "x": -9.931582580481129,
+      "z": 7.679999999551766,
+      "yaw": 7.853981633779599,
+      "facing": "back",
+      "night": false,
+      "dist": 3.4,
+      "height": 1.45
+    }
+  }
+]
