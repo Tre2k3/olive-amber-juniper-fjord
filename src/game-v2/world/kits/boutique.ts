@@ -276,8 +276,9 @@ export function buildBoutiqueInterior(
   const counterPack = box(group, 0.28, 0.16, 0.23, 4.65, 0.98, 2.65, softGold);
   collider(solids, 4.65, 2.65, 1.1, 0.98);
 
-  // The interaction aisle around K Blanco (1.15, 1.9) is deliberately clear.
-  const k = spawnBlanco(1.15, 1.9);
+  // Move K Blanco deeper into the showroom, visible alongside the apparel displays.
+  // The middle aisle stays clear for approach and conversation.
+  const k = spawnBlanco(1.9, 0.1);
   k.userData.heading = 0;
   storePlant(group, -7.15, 4.65);
   storePlant(group, 7.0, 4.65);
