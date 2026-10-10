@@ -1114,6 +1114,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return;
     }
     avatar.visible = true;
+    // Wide-angle indoor framing avoids cropping nearby NPCs and shows the
+    // room's actual merchandise, mezzanine and architectural depth.
+    const desiredFov = place === "hq" ? 54 : place === "home" ? 49 : 42;
+    camera.fov += (desiredFov - camera.fov) * (1 - Math.exp(-5 * dt));
+    if (Math.abs(desiredFov - camera.fov) > 0.005) camera.updateProjectionMatrix();
     const lookX = Math.sin(camYaw);
     const lookZ = Math.cos(camYaw);
     const talking = place === "hq" && dialogue.startsWith("K Blanco");
