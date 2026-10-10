@@ -290,6 +290,12 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   porch.position.set(hx, 5.2, frontZ - 1.4);
   exterior.add(porch);
   lamps.push(porch);
+  for (const x of [hx - 6, hx + 6]) {
+    const facadeLight = new THREE.PointLight(0xffa256, 0, 24, 2);
+    facadeLight.position.set(x, 6.3, frontZ - 2);
+    exterior.add(facadeLight);
+    lamps.push(facadeLight);
+  }
   const ticketGlow = new THREE.PointLight(0xffb45a, 0, 10, 2);
   ticketGlow.position.set(hx - 8.2, 2.4, frontZ - 2.4);
   exterior.add(ticketGlow);
@@ -384,12 +390,18 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   box(8, h, 0.16, 44, h / 2, 8, wall, group);
   solids.push({ minX: 40, maxX: 48, minZ: 7.85, maxZ: 8.15 });
 
-  const door = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.5, 2.3),
-    new THREE.MeshStandardMaterial({ color: 0x8e1a16, emissive: 0xff2a1a, emissiveIntensity: 0.35, roughness: 0.5 }),
-  );
-  door.position.set(4, 1.2, 0.16);
-  group.add(door);
+  const doorWood = hauntSurface("wood");
+  const doorTrim = new THREE.MeshStandardMaterial({ color: 0x827054, roughness: 0.65 });
+  const panel = new THREE.MeshStandardMaterial({ color: 0x35251e, roughness: 0.8 });
+  const hardware = new THREE.MeshStandardMaterial({ color: 0xb79a53, roughness: 0.3, metalness: 0.7 });
+  box(1.6, 2.5, 0.16, 4, 1.32, 0.22, doorWood, group);
+  for (const y of [0.8, 1.85]) box(1.14, 0.72, 0.08, 4, y, 0.34, panel, group);
+  for (const x of [3.1, 4.9]) box(0.15, 2.7, 0.3, x, 1.4, 0.26, doorTrim, group);
+  box(1.95, 0.17, 0.3, 4, 2.72, 0.26, doorTrim, group);
+  box(0.07, 0.2, 0.12, 4.55, 1.3, 0.43, hardware, group);
+  const exitSign = signPlane("EXIT", "#ffcc86", 1.1, 0.28);
+  exitSign.position.set(4, 3, 0.4);
+  group.add(exitSign);
 
   // Faces the boiler door (west). Rim stays at the playable height.
   buildGoal(45.5, 12.2, -1, group);

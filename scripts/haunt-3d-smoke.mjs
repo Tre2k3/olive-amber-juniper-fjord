@@ -21,8 +21,8 @@ try {
     ['house-front-day', { place: 'street', x: -78, z: 1, yaw: 0, dist: 14, height: 6, lookY: 6, night: false }],
     ['house-front-night', { place: 'street', x: -78, z: 1, yaw: 0, dist: 14, height: 6, lookY: 6, night: true }],
     ['house-side', { place: 'street', x: -85, z: 4, yaw: 0.65, dist: 10, height: 5, lookY: 5, golden: true }],
-    ['foyer', { place: 'haunt', x: 4.4, z: 504.6, yaw: Math.PI, dist: 2.6, height: 1.8, lookY: 2.05, night: false, dialogue: '' }],
-    ['library', { place: 'haunt', x: 28, z: 503.8, yaw: Math.PI / 2, dist: 2.5, height: 1.65, lookY: 1.6, night: false, dialogue: '' }],
+    ['foyer', { place: 'haunt', x: 4.4, z: 503.5, yaw: 0, dist: 3.2, height: 1.8, lookY: 2.05, night: false, dialogue: '' }],
+    ['library', { place: 'haunt', x: 28, z: 503.8, yaw: -Math.PI / 2, dist: 2.5, height: 1.65, lookY: 1.6, night: false, dialogue: '' }],
   ]) {
     await set(shot); await frames(8);
     await page.screenshot({ path: `artifacts/haunt/${name}.png`, timeout: 60000 });

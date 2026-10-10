@@ -22,7 +22,7 @@ export function hauntSurface(kind: "stone" | "wood" | "tile") {
     const width = kind === "wood" ? 128 : 32;
     for (let col = -1; col < 256 / width + 1; col++) {
       const x = col * width + (row % 2) * width / 2;
-      const tone = 45 + ((row * 13 + col * 7 + 43) % 28);
+      const tone = (kind === "stone" ? 98 : 45) + ((row * 13 + col * 7 + 43) % 28);
       ctx.fillStyle = kind === "wood" ? `rgb(${tone + 22},${tone + 5},${tone - 8})`
         : kind === "tile" ? (row + col) % 2 ? "#242829" : "#aaa496" : `rgb(${tone + 10},${tone + 7},${tone})`;
       ctx.fillRect(x + 1, row * height + 1, width - 2, height - 2);
