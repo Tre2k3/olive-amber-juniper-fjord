@@ -1,83 +1,67 @@
 #!/usr/bin/env node
+/**
+ * Connected city smoke for the live game-v2 renderer.
+ *
+ * This replaces the historical legacy-world check that waited for the
+ * removed "ENTER MEMPHIS" landing button / __SACK_TRAFFIC__ debug object.
+ * Those were never part of the current shipping game-v2 route.
+ */
+import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-import { captureShot, closeBrowser, createOk, installHardTimeout, launchBrowser, preparePage } from "./smoke-lib.mjs";
+import { chromium } from "playwright";
+import { carOnRoad } from "./v2-live-check.mjs";
 
-const url = process.env.GAME_URL || "http://127.0.0.1:8080/";
-const failures = [];
-const pageErrors = [];
-const ok = createOk(failures);
-const clearHardTimeout = installHardTimeout("Traffic smoke", 60000);
-
-const browser = await launchBrowser(true);
-await mkdir("artifacts", { recursive: true });
-const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-page.setDefaultTimeout(15000);
-page.setDefaultNavigationTimeout(20000);
-page.on("pageerror", (err) => pageErrors.push(String(err?.message || err)));
-await preparePage(page);
+const gameUrl = process.env.GAME_URL || "http://127.0.0.1:8080/";
+const browser = await chromium.launch({
+  headless: true,
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
+  args: ["--no-sandbox", "--disable-dev-shm-usage", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+});
+const issues = [];
+const check = (condition, label, detail) => {
+  assert.ok(condition, label + ": " + JSON.stringify(detail));
+  console.log("PASS: " + label);
+};
 
 try {
-  const resp = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
-  ok((resp?.status() ?? 0) < 400, "production preview returns OK", { status: resp?.status() });
-
-  await page.waitForSelector("button:has-text('ENTER MEMPHIS')", { timeout: 30000 });
-  await page.getByRole("button", { name: /ENTER MEMPHIS/i }).click();
-  await page.waitForFunction(() => window.__gameTest && window.__SACK_TRAFFIC__, { timeout: 25000 });
-  await page.waitForTimeout(2500);
-
-  const initial = await page.evaluate(() => window.__SACK_TRAFFIC__);
-  ok(initial?.cars >= 20, "city has a real traffic population", initial);
-  ok(initial?.lanes >= 10, "cars are constrained to authored road lanes", initial);
-  ok(initial?.signals >= 12, "street intersections have live traffic signals", initial);
-  ok(initial?.turningEnabled === true, "traffic route changes are enabled", initial);
-  ok(initial?.offLaneCars === 0, "traffic starts on legal lanes", initial);
-  ok(initial?.courtTrafficProtected === true, "901 Court has a traffic exclusion zone", initial);
-  ok(initial?.carsOnCourt === 0, "moving cars do not spawn or drive on 901 Court", initial);
-  ok(initial?.carsOnBlockedLane === 0, "court-crossing traffic lanes are rerouted", initial);
-  ok((initial?.markers ?? 0) >= 8, "landmarks and Sackrow have readable world signage", initial);
-  ok((initial?.parkedCars ?? 0) >= 10, "city includes parked vehicles in addition to moving traffic", initial);
-  ok(initial?.vehicle3D === true, "moving traffic uses 3D vehicle rigs instead of flat cross-cards", initial);
-  ok((initial?.vehicleRigCount ?? 0) >= 20, "the visible traffic population has 3D bodies and wheels", initial);
-
-  await page.evaluate(() => window.__gameTest.teleport("downtown"));
-  await page.waitForTimeout(700);
-  await captureShot(page, "artifacts/traffic-street-life.png");
-
-  let maxTurns = initial?.totalTurns ?? 0;
-  let maxStopped = initial?.stoppedAtRed ?? 0;
-  let maxPedPauses = initial?.pedestrianPauses ?? 0;
-  let worstOffLane = initial?.offLaneCars ?? 0;
-  let worstCarsOnCourt = initial?.carsOnCourt ?? 0;
-  let worstBlockedLane = initial?.carsOnBlockedLane ?? 0;
-  for (let i = 0; i < 28; i++) {
-    await page.waitForTimeout(500);
-    const state = await page.evaluate(() => window.__SACK_TRAFFIC__);
-    maxTurns = Math.max(maxTurns, state?.totalTurns ?? 0);
-    maxStopped = Math.max(maxStopped, state?.stoppedAtRed ?? 0);
-    maxPedPauses = Math.max(maxPedPauses, state?.pedestrianPauses ?? 0);
-    worstOffLane = Math.max(worstOffLane, state?.offLaneCars ?? 0);
-    worstCarsOnCourt = Math.max(worstCarsOnCourt, state?.carsOnCourt ?? 0);
-    worstBlockedLane = Math.max(worstBlockedLane, state?.carsOnBlockedLane ?? 0);
-  }
-
-  const final = await page.evaluate(() => window.__SACK_TRAFFIC__);
-  ok(maxTurns > 0, "traffic makes controlled turns instead of looping one straight rail forever", { maxTurns, final });
-  ok(maxStopped > 0, "at least one car obeys a red light during the sample", { maxStopped, final });
-  console.log(`INFO: ambient pedestrian pauses observed: ${maxPedPauses}`);
-  ok(worstOffLane === 0, "route changes keep cars on legal road lanes", { worstOffLane, final });
-  ok(worstCarsOnCourt === 0, "traffic stays off 901 Court for the full sample", { worstCarsOnCourt, final });
-  ok(worstBlockedLane === 0, "no car re-enters a court-crossing lane after turns", { worstBlockedLane, final });
-  ok(pageErrors.length === 0, "traffic pass produces no uncaught page errors", pageErrors);
-} catch (err) {
-  failures.push(err?.stack || String(err));
-  console.error(err);
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  page.on("pageerror", (e) => issues.push(e.message));
+  const response = await page.goto(gameUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
+  check((response?.status() ?? 500) < 400, "Memphis game-v2 route loads", { status: response?.status() });
+  await page.waitForFunction(
+    () => window.__SACK_V2__ && window.__SACK_V2_INPUT__,
+    { timeout: 90000 },
+  );
+  const state = await page.evaluate(() => {
+    const input = window.__SACK_V2_INPUT__;
+    input.setShot({ x: 38, z: -6.35, yaw: 0, facing: "front" });
+    const snap = window.__SACK_V2__;
+    return { cars: snap.cars, pedestrians: input.peds() };
+  });
+  check(state.cars.length >= 8, "authored city traffic exists", { count: state.cars.length });
+  check(state.pedestrians.length >= 8, "illustrated pedestrian population exists",
+    { count: state.pedestrians.length });
+  check(state.cars.every(carOnRoad), "all sampled cars stay on an authored asphalt street", state.cars);
+  // On software WebGL rendering can be slow. Compare a few actual animation
+  // frames rather than expecting multiple seconds to equal many rendered frames.
+  const travel = await page.evaluate(async () => {
+    const before = window.__SACK_V2__.cars.map(({ x, z }) => ({ x, z }));
+    for (let i = 0; i < 22; i++) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+    const cars = window.__SACK_V2__.cars;
+    const moving = cars.filter((p, i) => {
+      const start = before[i];
+      return start && Math.hypot(p.x - start.x, p.z - start.z) > 0.02;
+    }).length;
+    return { moving, cars };
+  });
+  check(travel.moving >= 3, "city traffic advances along lanes", { moving: travel.moving });
+  check(travel.cars.every(carOnRoad), "cars stay on asphalt after advancing", travel.cars);
+  await mkdir("artifacts/traffic", { recursive: true });
+  await page.screenshot({ path: "artifacts/traffic/connected-memphis.png", animations: "disabled" });
+  check(issues.length === 0, "world/traffic produce no uncaught browser errors", issues);
+  console.log("Live game-v2 traffic smoke passed");
 } finally {
-  await closeBrowser(browser);
-  clearHardTimeout();
+  await browser.close();
 }
-
-if (failures.length) {
-  console.error(`\nTraffic smoke failed (${failures.length}): ${failures.join("; ")}`);
-  process.exit(1);
-}
-console.log("\nTraffic smoke passed.");
