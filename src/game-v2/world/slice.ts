@@ -14,6 +14,7 @@ import { buildHaunt, type HauntWorld } from "./haunt";
 import { buildGoal } from "./kits/hoop";
 import { buildDowntown } from "./kits/city";
 import { buildBoutiqueInterior } from "./kits/boutique";
+import { dress901Court } from "./kits/court-production";
 
 export { carBody };
 
@@ -722,6 +723,8 @@ export function buildSlice(): SliceWorld {
 
   const courtX = 66;
   const courtZ = -22;
+  // 3D dressing stays outside the authored two-hoop playable zone.
+  dress901Court(exterior, courtX, courtZ);
   const courtMap = courtTexture();
   const courtMat = new THREE.MeshBasicMaterial({ map: courtMap });
   mesh(new THREE.PlaneGeometry(22, 14), courtMat, courtX, 0.02, courtZ, exterior).rotation.x = -Math.PI / 2;
