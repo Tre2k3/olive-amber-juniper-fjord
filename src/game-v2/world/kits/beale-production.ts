@@ -78,9 +78,10 @@ function bladeSign(
   const outer = box(g, 1.23, 3.15, 0.16, 0, 4.28, 0, metal);
   outer.rotation.y = Math.PI / 2;
   // Plane faces the length of the street, rather than hiding flat against the building.
+  const signMap = signTexture(label, ink, true);
   const material = new THREE.MeshStandardMaterial({
-    map: signTexture(label, ink, true),
-    emissive: 0xffe5ca, emissiveMap: signTexture(label, ink, true),
+    map: signMap,
+    emissive: 0xffe5ca, emissiveMap: signMap,
     emissiveIntensity: 0.52, roughness: 0.41,
     side: THREE.DoubleSide,
   });
@@ -98,9 +99,10 @@ function marquee(parent: THREE.Object3D, x: number, z: number, direction: 1 | -1
   const face = direction * 0.07;
   box(group, width, 0.22, 1.18, 0, 3.45, direction * 0.53, dark);
   box(group, width + 0.22, 0.08, 1.29, 0, 3.57, direction * 0.56, gold);
+  const marqueeMap = signTexture(text, "#fbd6a1");
   const sign = new THREE.MeshStandardMaterial({
-    map: signTexture(text, "#fbd6a1"), emissive: 0xffffff,
-    emissiveMap: signTexture(text, "#fbd6a1"), emissiveIntensity: 0.62,
+    map: marqueeMap, emissive: 0xffffff,
+    emissiveMap: marqueeMap, emissiveIntensity: 0.62,
     roughness: 0.38, side: THREE.DoubleSide,
   });
   glow.push(sign);
@@ -175,12 +177,50 @@ function poster(parent: THREE.Object3D, x: number, z: number, face: 1 | -1,
   if (face < 0) panel.rotation.y = Math.PI;
 }
 
+
+// Low-cost, soft emissive color spill on actual curb, sidewalk and pavement.
+// A small pooled texture is reused; these are illumination decals, never
+// concept-board planes or extra dynamic lights per business.
+let spillMap: THREE.CanvasTexture | null = null;
+function neonSpillMap() {
+  if (spillMap) return spillMap;
+  const tex = canvasTex((ctx, w, h) => {
+    const gradient = ctx.createRadialGradient(w * 0.5, h * 0.5, 1, w * 0.5, h * 0.5, w * 0.5);
+    gradient.addColorStop(0, "rgba(255,255,255,0.88)");
+    gradient.addColorStop(0.2, "rgba(255,255,255,0.55)");
+    gradient.addColorStop(0.6, "rgba(255,255,255,0.12)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, w, h);
+  }, 128, 128);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  spillMap = tex;
+  return tex;
+}
+function neonPool(
+  parent: THREE.Object3D, x: number, z: number, tint: number,
+  pools: THREE.MeshBasicMaterial[], distance = 4.1,
+) {
+  const mat = new THREE.MeshBasicMaterial({
+    color: tint, map: neonSpillMap(), transparent: true, opacity: 0,
+    side: THREE.DoubleSide, depthWrite: false,
+    blending: THREE.AdditiveBlending, toneMapped: false,
+    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+  });
+  const pool = mesh(parent, new THREE.PlaneGeometry(distance, 2.4), mat, x, 0.195, z, false);
+  pool.rotation.x = -Math.PI / 2;
+  pool.renderOrder = 2;
+  pool.name = "beale-neon-pavement-spill";
+  pools.push(mat);
+}
+
 /** Beale's hero storefronts gain real projected signs, frontage and overhead depth. */
 export function dressBealeNightlife(
   parent: THREE.Object3D, glow: THREE.MeshStandardMaterial[],
 ) {
   const group = new THREE.Group();
   group.name = "beale-production-nightlife";
+  const neonPools: THREE.MeshBasicMaterial[] = [];
   // North side building front sits about z=-46; the south side fronts z=-62.
   bladeSign(group, 25.1, -46.8, -1, "BLUES", "#fc3758", glow);
   bladeSign(group, 53.4, -46.8, -1, "BEALE", "#5af2b2", glow);
@@ -199,7 +239,18 @@ export function dressBealeNightlife(
   for (const x of [23.5, 28.2, 49.5, 56.5, 68.5]) {
     sidewalkCafe(group, x, -61.7, (x % 2 > 1 ? 0.12 : -0.1));
   }
-  group.userData.productionVersion = 1;
+  // Pair each prominent venue with a small color spill on its apron.
+  // Asphalt and curbs remain properly textured and fully visible in daylight.
+  for (const [x, z, color] of [
+    [22, -48.6, 0xff556b], [34.0, -48.6, 0xffb66a],
+    [52.2, -48.6, 0x65ffb6], [65.7, -48.6, 0x73bfff],
+    [33.1, -60.5, 0xffbc62], [44.1, -60.5, 0xffd17b],
+    [64.8, -60.5, 0xb887ff],
+  ] as const) {
+    neonPool(group, x, z, color, neonPools);
+  }
+  group.userData.neonPools = neonPools;
+  group.userData.productionVersion = 2;
   group.userData.facingStorefrontCount = 5;
   group.userData.catenaryCount = 5;
   parent.add(group);
