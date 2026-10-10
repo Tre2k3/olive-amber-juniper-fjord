@@ -213,6 +213,13 @@ function dressApproach(exterior: THREE.Object3D, solids: Solid[], glow: THREE.Me
   };
   rail(hx - 4.6, frontZ - 4.6, hx - 1.35, frontZ - 4.6);
   rail(hx + 1.35, frontZ - 4.6, hx + 4.8, frontZ - 4.6);
+  // Staggered queue lanes leave the center ticket-to-door route open.
+  for (const z of [frontZ - 5.75, frontZ - 7.05]) {
+    rail(hx - 8.1, z, hx - 1.35, z);
+    rail(hx + 1.35, z, hx + 8.1, z);
+  }
+  rail(hx - 8.1, frontZ - 7.05, hx - 8.1, frontZ - 4.6);
+  rail(hx + 8.1, frontZ - 7.05, hx + 8.1, frontZ - 4.6);
   for (let i = 0; i < 11; i++) {
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), warm);
     bulb.position.set(hx - 9 + i * 1.8, 4.55, frontZ - 0.45);
@@ -284,6 +291,39 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   plaza.rotation.x = -Math.PI / 2;
   plaza.position.set(hx, 0.045, 6.6);
   exterior.add(plaza);
+  const puddleMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0x171420,
+    metalness: 0.3,
+    roughness: 0.07,
+    clearcoat: 1,
+    clearcoatRoughness: 0.04,
+    transparent: true,
+    opacity: 0.78,
+  });
+  for (const [ox, z, sx, sz] of [
+    [-14, 2.1, 2.6, 0.7], [-9.4, 5.7, 1.7, 0.55], [-4.8, 2.8, 2.2, 0.62],
+    [0, 4.1, 2.8, 0.72], [5.1, 2.2, 1.8, 0.52], [9.7, 5.6, 2.4, 0.65], [14.2, 2.9, 1.9, 0.5],
+  ] as const) {
+    const puddle = new THREE.Mesh(new THREE.CircleGeometry(1, 28), puddleMaterial);
+    puddle.rotation.x = -Math.PI / 2;
+    puddle.scale.set(sx, sz, 1);
+    puddle.position.set(hx + ox, 0.068, z);
+    exterior.add(puddle);
+  }
+  // Narrow emissive planes read as broken lamp reflections across wet paving.
+  for (const [ox, z, color, length] of [
+    [-6, 4.6, 0xff8a3a, 3.6], [0, 3.8, 0xff321c, 4.8], [6, 4.9, 0xffa24a, 3.4],
+    [-10.5, 2.7, 0xff5a24, 2.3], [10.2, 2.8, 0xff6a2a, 2.5],
+  ] as const) {
+    const reflection = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.22, length),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.48, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    reflection.rotation.x = -Math.PI / 2;
+    reflection.rotation.z = ox * 0.012;
+    reflection.position.set(hx + ox, 0.073, z);
+    exterior.add(reflection);
+  }
   addGround({ minX: hx - 20, maxX: hx + 18, minZ: 0.2, maxZ: 12.4, y: 0.06 });
 
   const porch = new THREE.PointLight(0xff3a22, 0, 22, 2);
@@ -315,13 +355,28 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
     }
   }
 
-  const mist = new THREE.Mesh(
-    new THREE.PlaneGeometry(28, 10),
-    new THREE.MeshBasicMaterial({ color: 0x6a3a78, transparent: true, opacity: 0.18, depthWrite: false }),
-  );
-  mist.rotation.x = -Math.PI / 2;
-  mist.position.set(hx, 0.12, 8.2);
-  exterior.add(mist);
+  const fogCanvas = document.createElement("canvas");
+  fogCanvas.width = fogCanvas.height = 128;
+  const fogContext = fogCanvas.getContext("2d")!;
+  const fogGradient = fogContext.createRadialGradient(64, 64, 4, 64, 64, 60);
+  fogGradient.addColorStop(0, "rgba(210,190,220,.72)");
+  fogGradient.addColorStop(0.5, "rgba(145,120,160,.3)");
+  fogGradient.addColorStop(1, "rgba(90,60,110,0)");
+  fogContext.fillStyle = fogGradient;
+  fogContext.fillRect(0, 0, 128, 128);
+  const fogTexture = new THREE.CanvasTexture(fogCanvas);
+  for (let i = 0; i < 13; i++) {
+    const mist = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: fogTexture,
+      color: i % 3 === 0 ? 0xd9c4d8 : 0xa98ba9,
+      transparent: true,
+      opacity: 0.13,
+      depthWrite: false,
+    }));
+    mist.position.set(hx - 15 + (i * 37 % 30), 0.32 + (i % 3) * 0.09, 2.2 + (i * 19 % 8));
+    mist.scale.set(4.8 + (i % 4), 1.15 + (i % 2) * 0.35, 1);
+    exterior.add(mist);
+  }
 
   const group = new THREE.Group();
   group.position.set(OX, 0, OZ);
@@ -528,3 +583,4 @@ function dressRooms(group: THREE.Group, glow: THREE.MeshStandardMaterial[], soli
   box(0.06, 0.02, 5.1, 41.1, 0.11, 12.2, line, group);
   box(0.06, 0.02, 5.1, 46.9, 0.11, 12.2, line, group);
 }
+
