@@ -60,6 +60,17 @@ text = text.replace(
     'portrait: "/game-v2/characters/k-blanco/portrait.png",',
     'portrait: "/game-v2/characters/k-blanco/front.png",',
 )
+
+# The old Benji walk frame was cut from the superseded art pack, not this
+# approved turnaround. Keeping it creates exactly the character-identity pop
+# the user reported. Use the matching canonical standing poses until a genuine
+# matching illustrated walk sequence has been approved.
+old_walk = '      walk: cut("/game-v2/characters/benji/walk.png"),\\n'
+text = text.replace(old_walk, "")
+text = text.replace(
+    "Named cast is cut from the Character Bible photographs\\n * (SackReligious_Character_Bible_AI_Reference_Pack). Not the old\\n * illustrated public/game people.",
+    "Named cast and pedestrians use the user-approved illustrated Claude atlases.\\n * Never substitute photo-human or generic legacy character art.",
+)
 text = text.replace("?v=10", "?v=12")
 registry.write_text(text)
 
