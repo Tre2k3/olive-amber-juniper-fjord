@@ -76,6 +76,13 @@ try {
     Math.abs(court.rims[1].x - 74.7) < 0.02 &&
     Math.abs(court.courtOg.z + 16.4) < 0.02,
     "Court entrance, OG and scoring rim coordinates stay unchanged", court);
+  const river = await page.evaluate(() => window.__SACK_V2_INPUT__.riverfrontProduction());
+  check(river.built && river.version === 1 && river.archSpans === 2 &&
+    river.cooler && river.tackle && river.ripples,
+    "production riverfront bridge, river and fishing detail mount", river);
+  check(river.pier.x === -16 && river.pier.z === -70 &&
+    river.bait.x === -30 && river.bait.z === -55.6,
+    "riverfront retains fishing and bait gameplay anchors", river);
   check(errors.length === 0, "foundation boot has no page errors", errors);
   console.log("foundation smoke passed");
 } finally {
