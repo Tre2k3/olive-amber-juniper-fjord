@@ -21,6 +21,20 @@ try {
     for (let i = 0; i < count; i++) await new Promise(resolve => requestAnimationFrame(resolve));
   }, n);
   const pos = () => page.evaluate(() => ({ x: window.__SACK_V2__.x, z: window.__SACK_V2__.z }));
+  const settleCamera = () => page.evaluate(async () => {
+    let previous, stableFrames = 0;
+    const deadline = performance.now() + 90000;
+    while (performance.now() < deadline) {
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      const state = window.__SACK_V2_INPUT__.renderState();
+      const sample = [state.fov, state.playerScreen.headY, state.playerScreen.feetY];
+      stableFrames = previous && sample.every((value, i) => Math.abs(value - previous[i]) < 0.1)
+        ? stableFrames + 1 : 0;
+      if (stableFrames >= 5) return;
+      previous = sample;
+    }
+    throw new Error('Camera projection did not settle within 90 seconds');
+  });
   await page.evaluate(() => window.__SACK_V2_INPUT__.setShot({ x: -24, z: 6.35, yaw: 0, place: 'street' }));
   await frames(4);
   const first = await page.evaluate(() => window.__SACK_V2_INPUT__.renderState());
@@ -105,13 +119,21 @@ try {
     const state = window.__SACK_V2_INPUT__.renderState();
     return state.fov > 60 && state.playerScreen.feetY - state.playerScreen.headY < state.height * 0.55;
   }, null, { timeout: 90000 });
+  // setShot snaps to its initial camera distance even when FOV has already
+  // reached portrait mode. Wait for the follow camera, not just the FOV.
+  await settleCamera();
   const framed = await page.evaluate(() => window.__SACK_V2_INPUT__.renderState());
+  if (process.env.CAPTURE_QA === '1') {
+    await mkdir('artifacts/runtime', { recursive: true });
+    await page.screenshot({ path: 'artifacts/runtime/mobile-court.png', timeout: 60000 });
+  }
   assert.ok(framed.playerScreen.headY > 0 && framed.playerScreen.feetY < framed.height - 140,
     'Portrait framing must show the full player above the touch controls');
   const prompt = await page.getByTestId('interaction-prompt').boundingBox();
   const score = await page.getByTestId('court-score').boundingBox();
   const shotBox = await shot.boundingBox();
   assert.ok(prompt && score && shotBox);
+  console.log('Portrait geometry:', JSON.stringify({ framed, prompt, score, shotBox }));
   assert.ok(prompt.y + prompt.height <= score.y, 'Prompt must not overlap court score');
   assert.ok(score.y + score.height < framed.playerScreen.headY, 'Court HUD must stay above the player');
   assert.ok(prompt.x >= 0 && prompt.x + prompt.width <= framed.width, 'Prompt must fit the viewport');
@@ -123,7 +145,7 @@ try {
     await mkdir('artifacts/runtime', { recursive: true });
     await page.screenshot({ path: 'artifacts/runtime/mobile-court.png', timeout: 60000 });
     await page.setViewportSize({ width: 390, height: 640 });
-    await frames(30);
+    await settleCamera();
     const compact = await page.evaluate(() => window.__SACK_V2_INPUT__.renderState());
     assert.ok(compact.playerScreen.feetY - compact.playerScreen.headY < compact.height * 0.55,
       'Compact portrait devices must retain space around the player');
