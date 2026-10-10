@@ -29,6 +29,9 @@ jobs:
           fetch-depth: 2
       - name: Check original sprite pack was uploaded
         run: test -s imports/Claude_Canonical_Sprites_Integration.zip
+      - name: Verify approved sprite-pack checksum
+        run: |
+          echo "4be5668e1296e1aab39a2256129466e829c5f9b65019061f7b6625e3cde9c4d0  imports/Claude_Canonical_Sprites_Integration.zip" | sha256sum --check
       - name: Unpack approved reference sprites
         run: |
           mkdir -p "$RUNNER_TEMP/claude-sprites"
