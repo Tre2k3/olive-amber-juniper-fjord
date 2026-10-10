@@ -83,6 +83,15 @@ try {
   check(river.pier.x === -16 && river.pier.z === -70 &&
     river.bait.x === -30 && river.bait.z === -55.6,
     "riverfront retains fishing and bait gameplay anchors", river);
+  // Cars preserve their illustrated identity but now require grounded wheels,
+  // 3D chassis and headlights. Street lamps must have day/night light pools.
+  const visuals = await page.evaluate(() => window.__SACK_V2_INPUT__.vehicleProduction());
+  check(visuals.count >= 8 && visuals.complete === visuals.count,
+    "illustrated car fleet mounts complete grounded 3D support rigs", visuals);
+  check(visuals.kinds.includes("coupe") && visuals.kinds.includes("sedan") &&
+    visuals.kinds.includes("suv") && visuals.kinds.includes("van") &&
+    visuals.lampPools >= 8,
+    "Memphis fleet variants and controlled street illumination present", visuals);
   check(errors.length === 0, "foundation boot has no page errors", errors);
   console.log("foundation smoke passed");
 } finally {
