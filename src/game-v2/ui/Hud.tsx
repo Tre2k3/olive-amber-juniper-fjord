@@ -29,17 +29,17 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
       {state.log && <Log state={state} />}
       {state.dialogue && <Dialogue line={state.dialogue} />}
       {state.charge > 0 && (
-        <div className="absolute bottom-28 left-1/2 h-2 w-40 -translate-x-1/2 overflow-hidden rounded bg-[#0d0d0d] sm:bottom-24">
+        <div data-testid="shot-charge" className="absolute bottom-44 left-1/2 h-2 w-40 -translate-x-1/2 overflow-hidden rounded bg-[#0d0d0d] sm:bottom-24">
           <div className="h-full bg-[#e0b33a]" style={{ width: `${state.charge * 100}%` }} />
         </div>
       )}
       {state.prompt && (
-        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full border border-[#e0b33a] bg-[#0d0d0df2] px-4 py-2 text-sm sm:bottom-8">
+        <div data-testid="interaction-prompt" className="absolute left-3 right-3 top-[12.5rem] rounded-full border border-[#e0b33a] bg-[#0d0d0df2] px-4 py-2 text-center text-sm sm:bottom-8 sm:left-1/2 sm:right-auto sm:top-auto sm:-translate-x-1/2">
           {state.prompt}
         </div>
       )}
       {state.place === "court" && (
-        <div className="absolute bottom-36 left-1/2 -translate-x-1/2 text-xs tracking-widest text-[#e0b33a] sm:bottom-20">
+        <div data-testid="court-score" className="absolute left-1/2 top-[15.5rem] -translate-x-1/2 whitespace-nowrap rounded bg-[#0d0d0dcc] px-2 py-1 text-xs tracking-widest text-[#e0b33a] sm:bottom-20 sm:top-auto">
           {state.made} MADE / {state.taken} TAKEN
         </div>
       )}

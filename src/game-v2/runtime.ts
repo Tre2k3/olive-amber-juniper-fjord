@@ -7,6 +7,7 @@ import type { Facing, HudState, Place, Solid, V2Public } from "./core/types";
 import { productionLanes, sampleLane, gapAhead, type Lane } from "./roads/lanes";
 import { createSaveWriter } from "./core/persistence";
 import { pullCamera } from "./core/camera-collision";
+import { cameraFraming } from "./core/camera-framing";
 import { buildSlice, carBody, type SliceWorld } from "./world/slice";
 import { presentVehicles } from "./world/kits/vehicles";
 import { faceFoliage } from "./world/kits/trees";
@@ -1149,14 +1150,16 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     avatar.visible = true;
     // Wide-angle indoor framing avoids cropping nearby NPCs and shows the
     // room's actual merchandise, mezzanine and architectural depth.
-    const desiredFov = place === "hq" ? 54 : place === "home" ? 49 : 42;
+    const inside = place === "home" || place === "hq" || place === "haunt";
+    const framing = cameraFraming(camera.aspect, place === "hq" ? 54 : place === "home" ? 49 : 42, inside);
+    const desiredFov = framing.fov;
+    const previousFov = camera.fov;
     camera.fov += (desiredFov - camera.fov) * (1 - Math.exp(-5 * dt));
-    if (Math.abs(desiredFov - camera.fov) > 0.005) camera.updateProjectionMatrix();
+    if (camera.fov !== previousFov) camera.updateProjectionMatrix();
     const lookX = Math.sin(camYaw);
     const lookZ = Math.cos(camYaw);
     const talking = place === "hq" && dialogue.startsWith("K Blanco");
-    const inside = place === "home" || place === "hq" || place === "haunt";
-    const dist = camDist ?? (talking ? 2.9 : place === "haunt" ? 2.45 : inside ? 3.05 : 3.4);
+    const dist = camDist ?? (talking ? 2.9 : place === "haunt" ? 2.45 : inside ? 3.05 : 3.4) * framing.distanceScale;
     const height = camHeight ?? (talking ? 1.42 : inside ? 1.5 : 1.32);
     const side = talking ? 1.35 : 0;
     let destX = player.position.x - lookX * dist + lookZ * side;
@@ -1265,7 +1268,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return { held: ballHeld, charge, taken, position: { x: ball.position.x, y: ball.position.y, z: ball.position.z } };
     },
     renderState() {
-      return { width: renderWidth, height: renderHeight, ratio: renderRatio, resizeCount };
+      const head = new THREE.Vector3(player.position.x, player.position.y + 1.85, player.position.z).project(camera);
+      const feet = player.position.clone().project(camera);
+      return { width: renderWidth, height: renderHeight, ratio: renderRatio, resizeCount, fov: camera.fov,
+        playerScreen: { headY: (1 - head.y) * renderHeight / 2, feetY: (1 - feet.y) * renderHeight / 2 } };
     },
     setStick(x: number, y: number) {
       touchX = x;

@@ -8,6 +8,14 @@ async function load(path) {
   return import('data:text/javascript;base64,' + Buffer.from(outputText).toString('base64'));
 }
 const { vehicleFace } = await load('../src/game-v2/core/vehicle-facing.ts');
+const { cameraFraming } = await load('../src/game-v2/core/camera-framing.ts');
+assert.deepEqual(cameraFraming(1280 / 800, 42, false), { fov: 42, distanceScale: 1 });
+assert.deepEqual(cameraFraming(844 / 390, 54, true), { fov: 54, distanceScale: 1 });
+const portrait = cameraFraming(390 / 844, 42, false);
+assert.ok(portrait.fov > 60 && portrait.fov <= 62);
+assert.ok(portrait.distanceScale > 1.2 && portrait.distanceScale <= 1.25);
+assert.equal(cameraFraming(390 / 844, 54, true).distanceScale, 1, 'Interior cameras must retain their wall clearance');
+console.log('PASS: portrait framing widens the view while desktop and indoor distances remain stable');
 for (const sign of [-1, 1]) {
   const side = sign > 0 ? 'left' : 'right';
   assert.equal(vehicleFace(sign * 0.87, 'front'), 'front');
