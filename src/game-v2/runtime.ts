@@ -1302,6 +1302,24 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     cameraYaw() {
       return camYaw;
     },
+    courtProduction() {
+      const built = world.exterior.getObjectByName("901-production-environment");
+      const features: string[] = [];
+      built?.traverse((obj) => {
+        if (obj.name === "court-branded-sign" || obj.name === "901-gate-banner" ||
+            obj.name === "901-mural-panel" || obj.name === "901-court-ball-rack") {
+          features.push(obj.name);
+        }
+      });
+      return {
+        built: Boolean(built),
+        features,
+        gateWidth: built?.userData.gateClearWidth as number | undefined,
+        rims: world.hoops.map((h) => ({ ...h })),
+        courtOg: { ...world.courtOg },
+        stage: world.exterior.getObjectByName("901-production-environment")?.userData.productionVersion,
+      };
+    },
     charactersNearCamera() {
       return world.billboards.map((ped) => {
         const position = ped.getWorldPosition(new THREE.Vector3());
