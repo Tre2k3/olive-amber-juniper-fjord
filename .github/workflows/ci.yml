@@ -91,18 +91,12 @@ jobs:
           set -euo pipefail
           missing=0
           for f in \
-            01-apartment-start.png \
-            02-apartment-exit.png \
-            03-k-blanco-hq.png \
-            04-drop-van.png \
-            05-neighborhood-delivery.png \
-            06-downtown-delivery.png \
-            07-culture-delivery.png \
-            08-sackrow-basketball.png \
-            09-return-to-hq.png \
-            10-drop-day-complete.png \
-            11-wardrobe-equipped.png \
-            12-after-reload.png
+            01-home-start.png \
+            02-k-blanco-hq.png \
+            03-court-og-delivery.png \
+            04-save-restored.png \
+            dom-desktop.png \
+            dom-mobile.png
           do
             if [ ! -s "artifacts/$f" ]; then
               echo "MISSING: artifacts/$f"
