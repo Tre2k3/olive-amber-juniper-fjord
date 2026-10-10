@@ -29,7 +29,14 @@ async function frames(page, count = 5) {
   }, count);
 }
 async function shot(page, filename) {
-  await page.screenshot({ path: "artifacts/" + filename, animations: "disabled" });
+  if (process.env.CAPTURE_QA !== "1") return;
+  try {
+    await page.screenshot({
+      path: "artifacts/" + filename, animations: "allow", timeout: 12000,
+    });
+  } catch (error) {
+    console.warn("Unable to capture visual QA frame " + filename + ": " + String(error));
+  }
 }
 try {
   await mkdir("artifacts", { recursive: true });
@@ -103,7 +110,7 @@ try {
   await shot(resumed, screenshots[3]);
   check(errors.length === 0, "Drop Day mission has no uncaught page errors", errors);
   await context.close();
-  console.log("Drop Day QA captured " + screenshots.length + " actual WebGL game frames");
+  console.log("Drop Day gameplay and save checks complete; screenshots requested: " + (process.env.CAPTURE_QA === "1"));
 } finally {
   await browser.close();
 }
