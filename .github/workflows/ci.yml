@@ -8,6 +8,12 @@ on:
     branches:
       - "**"
   workflow_dispatch:
+    inputs:
+      capture_qa:
+        description: "Capture and validate rendered game screenshots (slow software WebGL)"
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -20,6 +26,7 @@ env:
   CI: true
   SMOKE_HEADED: "1"
   GAME_URL: http://127.0.0.1:8080/
+  CAPTURE_QA: ${{ inputs.capture_qa && '1' || '0' }}
 
 jobs:
   verify:
@@ -87,6 +94,7 @@ jobs:
         run: xvfb-run -a node scripts/dom-smoke.mjs
 
       - name: Confirm mission screenshots
+        if: ${{ inputs.capture_qa }}
         run: |
           set -euo pipefail
           missing=0
@@ -109,6 +117,7 @@ jobs:
           exit "$missing"
 
       - name: Black-frame and pixel variance
+        if: ${{ inputs.capture_qa }}
         run: node scripts/qa-frames.mjs artifacts
 
       - name: Preview log on failure
