@@ -1142,6 +1142,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     camera.lookAt(player.position.x + lookX * ahead, lookY, player.position.z + lookZ * ahead);
   }
 
+  // Earlier real nighttime QA frames blew out white porch/lamp details.
+  // Keep contrast and material texture visible; glow should be warm, not a
+  // screen-wide white flare. Use fixed bounds across day/golden/night.
   function applyNight() {
     const outside = place === "street" || place === "court";
     world.sun.intensity = night ? 0.22 : golden ? 2.35 : outside ? 2.85 : 0.85;
@@ -1150,8 +1153,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     world.hemi.intensity = night ? 0.42 : golden ? 0.55 : outside ? 0.78 : 0.7;
     world.hemi.color.set(night ? 0x31465f : golden ? 0xffc48a : 0xd4ecff);
     world.hemi.groundColor.set(night ? 0x1a140e : golden ? 0x7a4a28 : 0x6a6840);
-    renderer.toneMappingExposure = night ? 0.98 : golden ? 1.22 : outside ? 1.16 : 1.05;
-    bloom.strength = night ? 0.38 : golden ? 0.28 : 0.14;
+    renderer.toneMappingExposure = night ? 0.90 : golden ? 1.12 : outside ? 1.10 : 1.03;
+    bloom.strength = night ? 0.22 : golden ? 0.17 : 0.11;
     world.scene.background = night ? world.skyNight : golden ? world.skyGolden : world.skyDay;
     const fog = world.scene.fog as THREE.Fog;
     fog.color.setHex(night ? 0x141820 : golden ? 0xf0c090 : 0xc5d4e2);
@@ -1162,22 +1165,22 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (hqDay) hqDay.visible = !night || !hqNight;
     if (hqNight) hqNight.visible = night;
     for (const lamp of world.lamps) {
-      lamp.intensity = night ? 28 : golden ? 10 : 0;
+      lamp.intensity = night ? 14 : golden ? 5 : 0;
       const diffuser = lamp.userData.bulbMaterial as THREE.MeshStandardMaterial | undefined;
       const halo = lamp.userData.haloMaterial as THREE.MeshBasicMaterial | undefined;
-      if (diffuser) diffuser.emissiveIntensity = night ? 2.2 : golden ? 0.9 : 0.15;
+      if (diffuser) diffuser.emissiveIntensity = night ? 1.25 : golden ? 0.55 : 0.12;
       if (halo) {
         // opacity is a material uniform; marking needsUpdate every frame
         // would recompile transparent shaders and stall mobile devices.
-        halo.opacity = night ? 0.24 : golden ? 0.10 : 0;
+        halo.opacity = night ? 0.18 : golden ? 0.07 : 0;
       }
     }
-    for (const lamp of world.courtLights) lamp.intensity = night ? 36 : golden ? 8 : 0;
-    for (const light of world.homeLights) light.intensity = place === "home" ? 18 : 0;
-    for (const light of world.hqLights) light.intensity = place === "hq" ? 26 : 0;
+    for (const lamp of world.courtLights) lamp.intensity = night ? 20 : golden ? 5 : 0;
+    for (const light of world.homeLights) light.intensity = place === "home" ? 12 : 0;
+    for (const light of world.hqLights) light.intensity = place === "hq" ? 19 : 0;
     for (const light of world.haunt.lights) light.intensity = place === "haunt" ? 18 : 0;
-    for (const mat of world.headlightMats) mat.emissiveIntensity = night ? 3.1 : golden ? 1.4 : 0.35;
-    for (const mat of world.glowMats) mat.emissiveIntensity = night ? 2.2 : golden ? 0.9 : 0.28;
+    for (const mat of world.headlightMats) mat.emissiveIntensity = night ? 1.7 : golden ? 0.8 : 0.3;
+    for (const mat of world.glowMats) mat.emissiveIntensity = night ? 1.1 : golden ? 0.55 : 0.2;
     // Color reflected from Beale's venue signs. The decal's opacity is a
     // uniform; day/night transitions do not allocate geometry or point lights.
     const beale = world.exterior.getObjectByName("beale-production-nightlife");
