@@ -190,6 +190,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   /** Latest dominant axis so a tie on a diagonal does not flicker. */
   let faceAxis: "side" | "depth" = "depth";
   let camYaw = Math.PI / 2;
+  let outsideYaw = camYaw;
   let camDist: number | null = null;
   let camHeight: number | null = null;
   let camLookY: number | null = null;
@@ -244,7 +245,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   const onKey = (e: KeyboardEvent, down: boolean) => {
     const code = e.code || e.key;
-    if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyN", "KeyE", "KeyM", "ShiftLeft", "ShiftRight"].includes(code) || ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
+    if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyN", "KeyE", "KeyM", "KeyQ", "KeyR", "ShiftLeft", "ShiftRight"].includes(code) || ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
     const names = [code, e.key].filter(Boolean);
     if (down) names.forEach((name) => keys.add(name));
     else names.forEach((name) => keys.delete(name));
@@ -257,6 +258,33 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   window.addEventListener("keydown", kd);
   window.addEventListener("keyup", ku);
   window.addEventListener("blur", clearKeys);
+
+  // Mouse dragging and mobile swipes orbit the view. HUD controls use separate elements.
+  let orbitPointer: number | null = null;
+  let lastOrbitX = 0;
+  const orbitDown = (e: PointerEvent) => {
+    if (orbitPointer !== null || (e.pointerType === "mouse" && e.button !== 0)) return;
+    orbitPointer = e.pointerId;
+    lastOrbitX = e.clientX;
+    canvas.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  };
+  const orbitMove = (e: PointerEvent) => {
+    if (orbitPointer !== e.pointerId) return;
+    camYaw += (e.clientX - lastOrbitX) * 0.008;
+    lastOrbitX = e.clientX;
+    e.preventDefault();
+  };
+  const orbitEnd = (e: PointerEvent) => {
+    if (orbitPointer !== e.pointerId) return;
+    orbitPointer = null;
+    if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+  };
+  canvas.style.touchAction = "none";
+  canvas.addEventListener("pointerdown", orbitDown);
+  canvas.addEventListener("pointermove", orbitMove);
+  canvas.addEventListener("pointerup", orbitEnd);
+  canvas.addEventListener("pointercancel", orbitEnd);
 
   const api: V2Public = { x: player.position.x, y: player.position.y, z: player.position.z, facing, place, cars: [], dollars, respect, mission, carrying, dialogue, pose: facing };
   (window as unknown as { __SACK_V2__?: V2Public }).__SACK_V2__ = api;
@@ -397,6 +425,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   function step(dt: number, hold: boolean, interact: boolean) {
     applyNight();
+    const cameraTurn = (keys.has("KeyR") ? 1 : 0) - (keys.has("KeyQ") ? 1 : 0);
+    camYaw += cameraTurn * 1.75 * dt;
     const busy = locked(city);
     const steer = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) + touchX;
     const sx = steer;
@@ -448,6 +478,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       player.position.z = -17.6;
     }
     separateBodies();
+    // Door openings remain real colliders, not teleport triggers through walls.
+    if (place === "home" && player.position.z >= 203.7 && Math.abs(player.position.x) < 1.35) {
+      leaveInterior("home");
+    } else if (place === "hq" && player.position.z >= 205.65 && Math.abs(player.position.x - 80) < 1.9) {
+      leaveInterior("hq");
+    }
     if (place === "street" || place === "court") {
       if (player.position.x < -104) { player.position.x = -104; glideX = 0; }
       if (player.position.x > 148) { player.position.x = 148; glideX = 0; }
@@ -535,6 +571,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     return { solids: world.solids.street, ox: 0, oz: 0 };
   }
 
+  function leaveInterior(from: "home" | "hq") {
+    const destination = from === "home" ? world.homeOut : world.hqOut;
+    place = "street";
+    player.position.set(destination.x, 0, destination.z);
+    camYaw = outsideYaw;
+    glideX = 0;
+    glideZ = 0;
+  }
+
   function tryEnter() {
     if (city.fish) {
       grant(city.fish.phase === "bite" ? hookFish(city) : pullEarly(city));
@@ -571,19 +616,26 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return;
     }
     if (place === "street" && near(world.homeDoor, 1.4)) {
+      outsideYaw = camYaw;
+      camYaw = Math.PI;
       place = "home";
       player.position.set(world.homeIn.x, 0, 201.2);
+      glideX = 0;
+      glideZ = 0;
       return;
     }
     if (place === "street" && near(world.hqDoor, 1.6)) {
+      outsideYaw = camYaw;
+      camYaw = Math.PI;
       place = "hq";
       player.position.set(80, 0, 201.4);
+      glideX = 0;
+      glideZ = 0;
       mission = metK ? mission : "Talk to K Blanco";
       return;
     }
     if (place === "home" && nearLocal(world.homeIn, 1.3, 0, 200)) {
-      place = "street";
-      player.position.set(world.homeOut.x, 0, world.homeOut.z);
+      leaveInterior("home");
       return;
     }
     if (place === "hq" && nearLocal(world.kAnchor, 2.2, 80, 200)) {
@@ -602,8 +654,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return;
     }
     if (place === "hq" && nearLocal(world.hqIn, 1.4, 80, 200)) {
-      place = "street";
-      player.position.set(world.hqOut.x, 0, world.hqOut.z);
+      leaveInterior("hq");
       return;
     }
     if (place === "street" && near(world.districts.bowlDoor, 2.4)) {
@@ -944,6 +995,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     return 1;
   }
 
+  const cameraCardPosition = new THREE.Vector3();
+
   function applyCard(sprite: THREE.Object3D, host: THREE.Object3D) {
     const mesh = sprite as THREE.Mesh;
     const mat = mesh.material as THREE.MeshBasicMaterial;
@@ -981,6 +1034,27 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       }
     }
     seatOnGround(mesh);
+    // Within 2m of the camera a bright head can remain clearly visible even
+    // at 12% opacity. Hide it completely; only use a ghost farther away when
+    // an NPC stands directly between the lens and Benji.
+    host.getWorldPosition(cameraCardPosition);
+    const vx = cameraCardPosition.x - camera.position.x;
+    const vz = cameraCardPosition.z - camera.position.z;
+    const cameraDistance = Math.hypot(vx, vz);
+    const px = player.position.x - camera.position.x;
+    const pz = player.position.z - camera.position.z;
+    const playerDistanceSq = px * px + pz * pz;
+    const fraction = playerDistanceSq > 0.01 ? (vx * px + vz * pz) / playerDistanceSq : -1;
+    const sideDistance = playerDistanceSq > 0.01
+      ? Math.abs(vx * pz - vz * px) / Math.sqrt(playerDistanceSq) : Infinity;
+    const opacity = cameraDistance < 2 ? 0
+      : fraction > 0.05 && fraction < 0.96 && sideDistance < 0.72 ? 0.2 : 1;
+    mesh.visible = opacity !== 0;
+    if (mat.opacity !== opacity || mat.depthWrite !== (opacity === 1)) {
+      mat.opacity = opacity;
+      mat.depthWrite = opacity === 1;
+      mat.needsUpdate = true;
+    }
     const s = presentScale(host);
     mesh.scale.set(s, s, 1);
     const turnaround = Boolean(tex?.back && tex?.left && tex?.right);
@@ -1220,6 +1294,22 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       api.dialogue = dialogue;
       push(hud());
     },
+    cameraYaw() {
+      return camYaw;
+    },
+    charactersNearCamera() {
+      return world.billboards.map((ped) => {
+        const position = ped.getWorldPosition(new THREE.Vector3());
+        const sprite = ped.getObjectByName("sprite") as THREE.Mesh | undefined;
+        const mat = sprite?.material as THREE.MeshBasicMaterial | undefined;
+        return {
+          id: (ped.userData.asset as { id?: string } | undefined)?.id ?? "unknown",
+          distance: Math.hypot(position.x - camera.position.x, position.z - camera.position.z),
+          visible: Boolean(sprite?.visible),
+          opacity: mat?.opacity ?? 1,
+        };
+      });
+    },
     peds() {
       return world.pedestrians.map((ped) => ({
         id: (ped.userData.asset as { id?: string } | undefined)?.id ?? "?",
@@ -1238,6 +1328,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     window.removeEventListener("keyup", ku);
     window.removeEventListener("blur", clearKeys);
     window.removeEventListener("resize", resize);
+    canvas.removeEventListener("pointerdown", orbitDown);
+    canvas.removeEventListener("pointermove", orbitMove);
+    canvas.removeEventListener("pointerup", orbitEnd);
+    canvas.removeEventListener("pointercancel", orbitEnd);
     renderer.dispose();
   };
   activeStop = stop;

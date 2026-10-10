@@ -31,6 +31,41 @@ try {
   check(block.start.y > 0.05 && block.walked.y < 0.6, "sole stays on a walkable surface", { start: block.start, walked: block.walked });
   check(block.entered === "home", "hero door still enters the house", { entered: block.entered });
   check(block.cars.length >= 4 && block.cars.every(carOnRoad), "avenue and cross-street cars stay on asphalt", block.cars);
+  // The camera is independent from the directional movement contract:
+  // Q/R orbit the view and the same W axis then follows the rotated view.
+  const orbit = await page.evaluate(async () => {
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    const input = window.__SACK_V2_INPUT__;
+    input.setShot({ x: -30, z: 5.6, yaw: Math.PI / 2, facing: "back" });
+    await frame();
+    const start = input.cameraYaw();
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyR", key: "r" }));
+    for (let i = 0; i < 5; i++) await frame();
+    window.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyR", key: "r" }));
+    const afterRight = input.cameraYaw();
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyQ", key: "q" }));
+    for (let i = 0; i < 5; i++) await frame();
+    window.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyQ", key: "q" }));
+    return { start, afterRight, afterLeft: input.cameraYaw() };
+  });
+  check(orbit.afterRight > orbit.start + 0.02 && orbit.afterLeft < orbit.afterRight - 0.02,
+    "Q/R camera orbit responds in both directions", orbit);
+
+  const hqExit = await page.evaluate(async () => {
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    const input = window.__SACK_V2_INPUT__;
+    input.setShot({ place: "hq", x: 80, z: 205.1, yaw: Math.PI, facing: "front" });
+    for (let i = 0; i < 3; i++) await frame();
+    const entered = window.__SACK_V2__.place;
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyS", key: "s" }));
+    for (let i = 0; i < 18; i++) await frame();
+    window.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyS", key: "s" }));
+    for (let i = 0; i < 3; i++) await frame();
+    return { entered, left: window.__SACK_V2__.place,
+      x: window.__SACK_V2__.x, z: window.__SACK_V2__.z };
+  });
+  check(hqExit.entered === "hq" && hqExit.left === "street",
+    "HQ front door exits naturally by walking toward the camera", hqExit);
   check(errors.length === 0, "foundation boot has no page errors", errors);
   console.log("foundation smoke passed");
 } finally {

@@ -3,7 +3,10 @@
 export function carOnRoad(car) {
   const onAvenue = Math.abs(car.z) < 4.35;
   const onCross = car.x > 3.2 && car.x < 13.2 && car.z > -24 && car.z < 20;
-  return onAvenue || onCross;
+  // Beale uses the authored 84m x 8.2m street slab, centered at (42, -54).
+  // Verify the vehicle's center stays on that asphalt, not merely anywhere downtown.
+  const onBeale = car.x >= 0 && car.x <= 84 && car.z >= -58.1 && car.z <= -49.9;
+  return onAvenue || onCross || onBeale;
 }
 
 export async function readHomeBlock(page) {
