@@ -63,10 +63,10 @@ text = text.replace(
 
 # The old Benji walk frame was cut from the superseded art pack, not this
 # approved turnaround. Keeping it creates exactly the character-identity pop
-# the user reported. Use the matching canonical standing poses until a genuine
-# matching illustrated walk sequence has been approved.
+# the user reported. Point the legacy step slot at the approved front image
+# until there is a true matching walk drawing, preserving the TS slot type.
 old_walk = '      walk: cut("/game-v2/characters/benji/walk.png"),\n'
-text = text.replace(old_walk, "")
+text = text.replace(old_walk, '      walk: cut("/game-v2/characters/benji/front.png"),\\n')
 text = text.replace("Named cast is cut from the Character Bible photographs",
                     "Named cast and pedestrians use the user-approved illustrated Claude atlases.")
 text = text.replace(" * (SackReligious_Character_Bible_AI_Reference_Pack). Not the old",
