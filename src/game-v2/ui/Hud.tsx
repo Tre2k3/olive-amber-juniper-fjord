@@ -52,7 +52,7 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
         <Round label="SHOT" onPointerDown={() => action("SpaceDown")} onPointerUp={() => action("SpaceUp")} />
       </div>
       <div className="absolute bottom-3 right-4 hidden text-[11px] tracking-wide text-[#f4efe4aa] sm:block">
-        Arrows or WASD · A left · D right · W away · S toward · E interact · Space shoot · Shift run
+        Arrows / WASD move · Q/R orbit · drag or swipe camera · E interact · Space shoot · Shift run
       </div>
     </div>
   );
