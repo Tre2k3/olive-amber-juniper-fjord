@@ -4,7 +4,9 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import type { Facing, HudState, Place, Solid, V2Public } from "./core/types";
-import { productionLanes, sampleLane, type Lane } from "./roads/lanes";
+import { productionLanes, sampleLane, gapAhead, type Lane } from "./roads/lanes";
+import { createSaveWriter } from "./core/persistence";
+import { pullCamera } from "./core/camera-collision";
 import { buildSlice, carBody, type SliceWorld } from "./world/slice";
 import { presentVehicles } from "./world/kits/vehicles";
 import { faceFoliage } from "./world/kits/trees";
@@ -246,6 +248,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   const onKey = (e: KeyboardEvent, down: boolean) => {
     const code = e.code || e.key;
     if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyN", "KeyE", "KeyM", "KeyQ", "KeyR", "ShiftLeft", "ShiftRight"].includes(code) || ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
+    if (down && e.repeat) return;
     const names = [code, e.key].filter(Boolean);
     if (down) names.forEach((name) => keys.add(name));
     else names.forEach((name) => keys.delete(name));
@@ -254,10 +257,26 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   };
   const kd = (e: KeyboardEvent) => onKey(e, true);
   const ku = (e: KeyboardEvent) => onKey(e, false);
-  const clearKeys = () => keys.clear();
+  const clearKeys = () => {
+    keys.clear();
+    pulses.clear();
+    touchX = touchY = 0;
+    glideX = glideZ = 0;
+    charging = false;
+    interactQueued = interactHeld = false;
+    if (orbitPointer !== null) {
+      const pointer = orbitPointer;
+      orbitPointer = null;
+      if (canvas.hasPointerCapture(pointer)) canvas.releasePointerCapture(pointer);
+    }
+  };
+  const onVisibility = () => {
+    if (document.hidden) clearKeys();
+  };
   window.addEventListener("keydown", kd);
   window.addEventListener("keyup", ku);
   window.addEventListener("blur", clearKeys);
+  document.addEventListener("visibilitychange", onVisibility);
 
   // Mouse dragging and mobile swipes orbit the view. HUD controls use separate elements.
   let orbitPointer: number | null = null;
@@ -285,6 +304,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   canvas.addEventListener("pointermove", orbitMove);
   canvas.addEventListener("pointerup", orbitEnd);
   canvas.addEventListener("pointercancel", orbitEnd);
+  canvas.addEventListener("lostpointercapture", orbitEnd);
 
   const api: V2Public = { x: player.position.x, y: player.position.y, z: player.position.z, facing, place, cars: [], dollars, respect, mission, carrying, dialogue, pose: facing };
   (window as unknown as { __SACK_V2__?: V2Public }).__SACK_V2__ = api;
@@ -293,18 +313,32 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   let last = performance.now();
   let frame = 0;
 
+  let renderWidth = 0;
+  let renderHeight = 0;
+  let renderRatio = 0;
+  let resizeCount = 0;
   const resize = () => {
-    const w = canvas.clientWidth || window.innerWidth;
-    const h = canvas.clientHeight || window.innerHeight;
+    const w = Math.max(1, canvas.clientWidth || window.innerWidth);
+    const h = Math.max(1, canvas.clientHeight || window.innerHeight);
+    const ratio = Math.min(window.devicePixelRatio || 1, 1.75);
+    if (w === renderWidth && h === renderHeight && ratio === renderRatio) return;
+    renderWidth = w;
+    renderHeight = h;
+    resizeCount++;
+    if (ratio !== renderRatio) {
+      renderRatio = ratio;
+      renderer.setPixelRatio(ratio);
+      composer.setPixelRatio(ratio);
+    }
     renderer.setSize(w, h, false);
     composer.setSize(w, h);
-    bloom.setSize(w, h);
     camera.aspect = w / Math.max(1, h);
     camera.updateProjectionMatrix();
   };
   resize();
   window.addEventListener("resize", resize);
 
+  const save = createSaveWriter((value) => localStorage.setItem(SAVE_KEY, value));
   const loop = (now: number) => {
     frame = requestAnimationFrame(loop);
     const dt = Math.min(0.033, (now - last) / 1000);
@@ -329,11 +363,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (hudAcc > 0.12) {
       hudAcc = 0;
       push(hud());
-      localStorage.setItem(SAVE_KEY, JSON.stringify({
+      save({
         dollars, respect, carrying, delivered, mission,
         bait: city.bait, fit: city.fit, fed: city.fed, fished: city.fished, bowled: city.bowled, raced: city.raced,
         bestBowl: city.bestBowl, bestRace: city.bestRace, hauntTicket, hauntCleared,
-      }));
+      });
     }
   };
   frame = requestAnimationFrame(loop);
@@ -526,8 +560,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     updateBall(dt, hold, interact);
     updateTraffic(dt);
     updatePeds(dt);
-    faceAvatar();
     placeCamera(dt);
+    faceAvatar();
     faceFoliage(camera.position);
     composer.render();
 
@@ -807,7 +841,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       ball.position.set(player.position.x, 1.05, player.position.z);
       ballVel.set(0, 0, 0);
       if (hold) charge = Math.min(1, charge + dt / 0.85);
-      else if (charge > 0.02) {
+      if ((!hold || charge >= 1) && charge > 0.02) {
         const dx = world.hoop.x - player.position.x;
         const dz = world.hoop.z - player.position.z;
         const dist = Math.hypot(dx, dz) || 1;
@@ -820,7 +854,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         ballHeld = false;
         taken += 1;
         charge = 0;
-      } else charge = 0;
+      } else if (!hold) charge = 0;
       return;
     }
     ballVel.y -= 12 * dt;
@@ -1136,6 +1170,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     camera.position.x += (destX - camera.position.x) * follow;
     camera.position.y += (destY - camera.position.y) * follow;
     camera.position.z += (destZ - camera.position.z) * follow;
+    // The interpolated position can cross a wall even when the destination is clear.
+    const safe = pullCamera(player.position.x, player.position.z, camera.position.x, camera.position.z,
+      zone.solids, zone.ox, zone.oz);
+    camera.position.x = safe.x;
+    camera.position.z = safe.z;
     const ahead = talking ? 0.28 : 0.72;
     const lookY = player.position.y + (camLookY ?? (talking ? 1.12 : inside ? 1.18 : 1.02));
     camera.lookAt(player.position.x + lookX * ahead, lookY, player.position.z + lookZ * ahead);
@@ -1222,6 +1261,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   camera.lookAt(player.position.x + 1.15, 1.22, player.position.z);
 
   const touchApi = {
+    ballState() {
+      return { held: ballHeld, charge, taken, position: { x: ball.position.x, y: ball.position.y, z: ball.position.z } };
+    },
+    renderState() {
+      return { width: renderWidth, height: renderHeight, ratio: renderRatio, resizeCount };
+    },
     setStick(x: number, y: number) {
       touchX = x;
       touchY = y;
@@ -1478,11 +1523,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     window.removeEventListener("keydown", kd);
     window.removeEventListener("keyup", ku);
     window.removeEventListener("blur", clearKeys);
+    document.removeEventListener("visibilitychange", onVisibility);
     window.removeEventListener("resize", resize);
     canvas.removeEventListener("pointerdown", orbitDown);
     canvas.removeEventListener("pointermove", orbitMove);
     canvas.removeEventListener("pointerup", orbitEnd);
     canvas.removeEventListener("pointercancel", orbitEnd);
+    canvas.removeEventListener("lostpointercapture", orbitEnd);
+    bloom.dispose();
+    composer.dispose();
     renderer.dispose();
   };
   activeStop = stop;
@@ -1543,31 +1592,6 @@ function spawnTraffic(world: SliceWorld, lanes: Lane[]): Car[] {
 function yawTo(obj: THREE.Object3D, cam: THREE.Vector3) {
   const pos = obj.getWorldPosition(new THREE.Vector3());
   return Math.atan2(cam.x - pos.x, cam.z - pos.z);
-}
-
-function pullCamera(px: number, pz: number, destX: number, destZ: number, solids: { minX: number; maxX: number; minZ: number; maxZ: number }[], ox: number, oz: number) {
-  const dx = destX - px;
-  const dz = destZ - pz;
-  const len = Math.hypot(dx, dz) || 1;
-  let keep = 0.7;
-  for (let t = 0.7; t <= len; t += 0.18) {
-    const x = px + (dx / len) * t;
-    const z = pz + (dz / len) * t;
-    let blocked = false;
-    for (const solid of solids) {
-      if (x > solid.minX + ox - 0.2 && x < solid.maxX + ox + 0.2 && z > solid.minZ + oz - 0.2 && z < solid.maxZ + oz + 0.2) {
-        blocked = true;
-        break;
-      }
-    }
-    if (blocked) break;
-    keep = t;
-  }
-  return { x: px + (dx / len) * Math.min(keep, len), z: pz + (dz / len) * Math.min(keep, len) };
-}
-
-function gapAhead(lane: Lane, from: number, other: number) {
-  return (other - from + lane.total) % lane.total;
 }
 
 function resolve(pos: THREE.Vector3, radius: number, solids: Solid[], ox: number, oz: number) {

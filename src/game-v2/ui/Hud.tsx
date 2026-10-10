@@ -143,13 +143,15 @@ function Round({ label, onPointerDown, onPointerUp }: { label: string; onPointer
   return (
     <button
       type="button"
-      className="h-14 w-14 rounded-full border border-[#e0b33a] bg-[#0d0d0de6] text-xs font-semibold"
+      className="h-14 w-14 touch-none rounded-full border border-[#e0b33a] bg-[#0d0d0de6] text-xs font-semibold"
       onPointerDown={(e) => {
         e.preventDefault();
+        e.currentTarget.setPointerCapture(e.pointerId);
         onPointerDown();
       }}
       onPointerUp={onPointerUp}
-      onPointerLeave={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onLostPointerCapture={onPointerUp}
     >
       {label}
     </button>
@@ -159,13 +161,17 @@ function Round({ label, onPointerDown, onPointerUp }: { label: string; onPointer
 function Stick() {
   return (
     <div
-      className="relative h-full w-full rounded-full border border-[#e0b33a88] bg-[#0d0d0d99]"
-      onPointerDown={(e) => moveStick(e)}
+      className="relative h-full w-full touch-none rounded-full border border-[#e0b33a88] bg-[#0d0d0d99]"
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        moveStick(e);
+      }}
       onPointerMove={(e) => {
         if (e.buttons) moveStick(e);
       }}
       onPointerUp={releaseStick}
       onPointerCancel={releaseStick}
+      onLostPointerCapture={releaseStick}
     >
       <div id="sack-v2-knob" className="absolute left-1/2 top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#e0b33a]" />
     </div>

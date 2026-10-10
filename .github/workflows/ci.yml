@@ -49,6 +49,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Runtime core regression checks
+        run: node scripts/runtime-core-test.mjs
+
       - name: Verify approved canonical artwork
         run: python3 scripts/verify-claude-assets.py
 
@@ -77,6 +80,11 @@ jobs:
           echo "Preview did not become ready on port 8080"
           cat artifacts/preview.log || true
           exit 1
+
+      - name: Runtime reliability and mobile controls
+        env:
+          CAPTURE_QA: "1"
+        run: node scripts/runtime-reliability-smoke.mjs
 
       - name: Foundation safety
         run: npm run test:foundation

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { vehicleBounds } from "../../assets/vehicle-bounds";
 import { solePlane } from "../feet";
+import { vehicleFace } from "../../core/vehicle-facing";
 
 export type VehicleKind = "coupe" | "sedan" | "suv" | "van";
 type Face = "front" | "back" | "left" | "right";
@@ -116,8 +117,8 @@ export function presentVehicles(camera: THREE.Vector3) {
     let rel = toCam - g.rotation.y;
     while (rel > Math.PI) rel -= Math.PI * 2;
     while (rel < -Math.PI) rel += Math.PI * 2;
-    const abs = Math.abs(rel);
-    const face: Face = abs < 0.85 ? "front" : abs > 2.15 ? "back" : rel > 0 ? "left" : "right";
+    const face: Face = vehicleFace(rel, rec.card.userData.viewInitialized ? rec.face : undefined);
+    rec.card.userData.viewInitialized = true;
     const side = face === "left" || face === "right";
     if (rec.face !== face) {
       rec.face = face;
@@ -127,7 +128,7 @@ export function presentVehicles(camera: THREE.Vector3) {
     }
     // Lock the card to the car's face. A free billboard turns the 5 m side
     // into a wall that cuts through the sidewalk and anyone standing there.
-    const base = side ? (rel > 0 ? Math.PI / 2 : -Math.PI / 2) : abs > 2.15 ? Math.PI : 0;
+    const base = side ? (face === "left" ? Math.PI / 2 : -Math.PI / 2) : face === "back" ? Math.PI : 0;
     let bias = rel - base;
     while (bias > Math.PI) bias -= Math.PI * 2;
     while (bias < -Math.PI) bias += Math.PI * 2;
