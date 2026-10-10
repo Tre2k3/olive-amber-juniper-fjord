@@ -66,6 +66,16 @@ try {
   });
   check(hqExit.entered === "hq" && hqExit.left === "street",
     "HQ front door exits naturally by walking toward the camera", hqExit);
+  // Court art must not move gameplay hoop centers, gate or Court OG.
+  const court = await page.evaluate(() => window.__SACK_V2_INPUT__.courtProduction());
+  check(court.built && court.stage === 1 && court.features.includes("901-mural-panel") &&
+    court.features.filter((name) => name === "901-court-ball-rack").length === 2,
+    "901 Court production art mounts without replacing playable court", court);
+  check(court.gateWidth >= 2.6 && court.rims.length === 2 &&
+    Math.abs(court.rims[0].x - 57.3) < 0.02 &&
+    Math.abs(court.rims[1].x - 74.7) < 0.02 &&
+    Math.abs(court.courtOg.z + 16.4) < 0.02,
+    "Court entrance, OG and scoring rim coordinates stay unchanged", court);
   check(errors.length === 0, "foundation boot has no page errors", errors);
   console.log("foundation smoke passed");
 } finally {
