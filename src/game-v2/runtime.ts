@@ -1167,8 +1167,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       const halo = lamp.userData.haloMaterial as THREE.MeshBasicMaterial | undefined;
       if (diffuser) diffuser.emissiveIntensity = night ? 2.2 : golden ? 0.9 : 0.15;
       if (halo) {
+        // opacity is a material uniform; marking needsUpdate every frame
+        // would recompile transparent shaders and stall mobile devices.
         halo.opacity = night ? 0.24 : golden ? 0.10 : 0;
-        halo.needsUpdate = true;
       }
     }
     for (const lamp of world.courtLights) lamp.intensity = night ? 36 : golden ? 8 : 0;
