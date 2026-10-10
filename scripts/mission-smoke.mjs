@@ -1,219 +1,109 @@
 #!/usr/bin/env node
-import { mkdir, stat } from "node:fs/promises";
-import { captureShot, closeBrowser, createOk, installHardTimeout, launchBrowser, preparePage } from "./smoke-lib.mjs";
+/** Main game-v2 Drop Day mission regression; never depends on legacy menus. */
+import assert from "node:assert/strict";
+import { mkdir } from "node:fs/promises";
+import { chromium } from "playwright";
 
 const url = process.env.GAME_URL || "http://127.0.0.1:8080/";
-const failures = [];
-const pageErrors = [];
-const ok = createOk(failures);
-const clearHardTimeout = installHardTimeout("Mission smoke");
-
-const REQUIRED_SHOTS = [
-  "01-apartment-start.png",
-  "02-apartment-exit.png",
-  "03-k-blanco-hq.png",
-  "04-drop-van.png",
-  "05-neighborhood-delivery.png",
-  "06-downtown-delivery.png",
-  "07-culture-delivery.png",
-  "08-sackrow-basketball.png",
-  "09-return-to-hq.png",
-  "10-drop-day-complete.png",
-  "11-wardrobe-equipped.png",
-  "12-after-reload.png",
+const browser = await chromium.launch({
+  headless: true,
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
+  args: ["--no-sandbox", "--disable-dev-shm-usage", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+});
+const screenshots = [
+  "01-home-start.png",
+  "02-k-blanco-hq.png",
+  "03-court-og-delivery.png",
+  "04-save-restored.png",
 ];
-
-const browser = await launchBrowser(true);
-await mkdir("artifacts", { recursive: true });
-const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-page.setDefaultTimeout(12000);
-page.setDefaultNavigationTimeout(20000);
-page.on("pageerror", (err) => pageErrors.push(String(err?.message || err)));
-await preparePage(page);
-
-async function shot(target, name) {
-  await captureShot(target, `artifacts/${name}`);
-}
-
-async function state() {
-  return page.evaluate(() => window.__gameTest.getState());
-}
-
-async function drainDialogue() {
-  for (let i = 0; i < 6; i++) {
-    const mode = await page.evaluate(() => window.__gameTest.getState().mode);
-    if (mode !== "dialogue") break;
-    await page.evaluate(() => window.__gameTest.advanceDialogue());
-    await page.waitForTimeout(120);
-  }
-}
-
-try {
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
-  await page.waitForSelector("button:has-text('ENTER MEMPHIS')", { timeout: 30000 });
-  await page.getByRole("button", { name: /ENTER MEMPHIS/i }).click();
-  await page.waitForFunction(
-    () => window.__gameTest && window.__controlsTest && window.__gameTest.enterHQ && window.__gameTest.enterHQShop,
-    { timeout: 20000 },
-  );
-  await page.waitForTimeout(4200);
-
-  await page.evaluate(() => window.__gameTest.resetSave());
-  await page.waitForTimeout(300);
-  let s = await state();
-  await shot(page, "01-apartment-start.png");
-  ok(s.step === "wake", "New game begins at the apartment objective", s);
-
-  // Playwright's printable `s` emits KeyboardEvent.code=KeyS, exactly what
-  // InputManager consumes. Using the literal string `KeyS` did not exercise the
-  // real browser keyboard path and produced a false zero-movement failure.
-  await page.keyboard.down("s");
-  await page.waitForTimeout(900);
-  const exitMovement = await state();
-  await page.keyboard.up("s");
-  ok(
-    Math.abs(exitMovement.py - s.py) > 8 || Math.abs(exitMovement.px - s.px) > 8,
-    "Physical S input moves Benji through the apartment doorway",
-    { before: s, moving: exitMovement },
-  );
-  await page.waitForFunction(() => window.__gameTest.getState().step === "link_k", { timeout: 8000 });
-  s = await state();
-  await shot(page, "02-apartment-exit.png");
-  ok(s.step === "link_k", "Walking through the apartment doorway advances Drop Day", s);
-
-  await page.evaluate(() => window.__gameTest.enterHQ());
-  await page.waitForTimeout(250);
-  await page.evaluate(() => window.__gameTest.interact());
-  await page.waitForTimeout(250);
-  await drainDialogue();
-  s = await state();
-  await shot(page, "03-k-blanco-hq.png");
-  ok(s.step === "pickup", "Talking to K Blanco inside HQ advances Drop Day", s);
-
-  await page.evaluate(() => window.__gameTest.teleport("dropvan"));
-  await page.waitForTimeout(180);
-  await page.evaluate(() => window.__gameTest.interact());
-  await page.waitForTimeout(200);
-  s = await state();
-  await shot(page, "04-drop-van.png");
-  ok(s.step === "hood" || s.step === "dt" || s.step === "culture" || s.missionComplete, "Drop van pickup advances", s);
-
-  for (const [loc, file] of [
-    ["neighborhood", "05-neighborhood-delivery.png"],
-    ["downtown", "06-downtown-delivery.png"],
-    ["culture", "07-culture-delivery.png"],
-  ]) {
-    await page.evaluate((id) => window.__gameTest.teleport(id), loc);
-    await page.waitForTimeout(160);
-    await page.evaluate(() => window.__gameTest.interact());
-    await drainDialogue();
-    await shot(page, file);
-  }
-
-  await page.evaluate(() => window.__gameTest.teleport("court"));
-  await page.waitForTimeout(180);
-  await page.evaluate(() => window.__gameTest.interact());
-  await page.waitForTimeout(350);
-  await page.evaluate(() => window.__gameTest.setBallScore(8));
-  await page.waitForTimeout(250);
-  s = await state();
-  await shot(page, "08-sackrow-basketball.png");
-  ok(s.score >= 8, "Basketball score gate accepts 8 points", s);
-  const leave = page.getByRole("button", { name: /Leave court/i });
-  if (await leave.count()) await leave.click({ timeout: 5000 }).catch(() => {});
-  await page.waitForTimeout(250);
-
-  await page.evaluate(() => window.__gameTest.enterHQ());
-  await page.waitForTimeout(240);
-  await page.evaluate(() => window.__gameTest.interact());
-  await page.waitForTimeout(220);
-  await drainDialogue();
-  s = await state();
-  await shot(page, "09-return-to-hq.png");
-
-  ok(s.missionComplete === true, "Drop Day completes after returning inside HQ to K Blanco", s);
-  await page.waitForTimeout(500);
-  await shot(page, "10-drop-day-complete.png");
-
-  // Completion runs a deliberate 3.6s cinematic. The old test tried to open
-  // the shop while that guard was still active, so it captured a dark exterior
-  // frame and mislabeled it as wardrobe QA. Teleporting back to HQ through the
-  // existing QA hook clears the cinematic and creates a deterministic shop test.
-  await page.evaluate(() => window.__gameTest.teleport("store"));
-  await page.waitForTimeout(220);
-  await page.evaluate(() => window.__gameTest.interact());
-  const buy = page.locator('[data-testid="buy-black_hoodie"]');
-  await buy.waitFor({ state: "visible", timeout: 5000 });
-  await buy.click({ timeout: 5000 });
-  await page.waitForTimeout(250);
-  const buyLabel = (await buy.innerText()).trim();
-  ok(buyLabel === "On", "Black hoodie is purchased/equipped in wardrobe UI", { buyLabel });
-  await shot(page, "11-wardrobe-equipped.png");
-
-  const saveRaw = await page.evaluate(() => localStorage.getItem("sackreligious-memphis-v3") || localStorage.getItem("sackreligious-memphis-v2"));
-  let savedComplete = false;
-  let savedEquipped = null;
-  try {
-    const saved = saveRaw ? JSON.parse(saveRaw) : null;
-    savedComplete = !!saved?.missionComplete;
-    savedEquipped = saved?.equipped ?? null;
-  } catch {
-    savedComplete = false;
-  }
-  ok(savedComplete, "Drop Day save is written to localStorage");
-  ok(savedEquipped === "black_hoodie", "Equipped wardrobe item is written to localStorage", { savedEquipped });
-
-  await page.close().catch(() => {});
-  const persist = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  persist.setDefaultTimeout(15000);
-  persist.setDefaultNavigationTimeout(20000);
-  persist.on("pageerror", (err) => pageErrors.push(String(err?.message || err)));
-  if (saveRaw) {
-    await persist.addInitScript((raw) => {
-      localStorage.setItem("sackreligious-memphis-v3", raw);
-      localStorage.setItem("sackreligious-memphis-v2", raw);
-    }, saveRaw);
-  }
-  await preparePage(persist);
-  try {
-    await persist.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 });
-    await persist.waitForSelector("button:has-text('ENTER MEMPHIS')", { timeout: 30000 });
-    await persist.waitForFunction(() => window.__gameTest, { timeout: 15000 });
-    s = await persist.evaluate(() => window.__gameTest.getState());
-    const cont = persist.getByRole("button", { name: /CONTINUE/i });
-    if (await cont.count()) await cont.click({ timeout: 5000 }).catch(() => {});
-    else await persist.getByRole("button", { name: /ENTER MEMPHIS/i }).click({ timeout: 5000 }).catch(() => {});
-    await persist.waitForTimeout(400);
-    s = await persist.evaluate(() => window.__gameTest.getState());
-  } catch (err) {
-    console.error(`reload path: ${err?.message || err}`);
-    if (!s || s.missionComplete !== true) s = { missionComplete: savedComplete };
-  }
-  await shot(persist, "12-after-reload.png");
-  await Promise.race([persist.close(), new Promise((resolve) => setTimeout(resolve, 2000))]);
-  ok(s.missionComplete === true, "Drop Day completion persists after reload", s);
-
-  for (const name of REQUIRED_SHOTS) {
-    let size = 0;
-    try {
-      size = (await stat(`artifacts/${name}`)).size;
-    } catch {
-      size = 0;
+const errors = [];
+const check = (condition, name, detail) => {
+  assert.ok(condition, name + ": " + JSON.stringify(detail));
+  console.log("PASS: " + name);
+};
+async function frames(page, count = 5) {
+  await page.evaluate(async (number) => {
+    for (let i = 0; i < number; i++) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
     }
-    ok(size > 0, `mission screenshot exists: ${name}`, { size });
-  }
+  }, count);
+}
+async function shot(page, filename) {
+  await page.screenshot({ path: "artifacts/" + filename, animations: "disabled" });
+}
+try {
+  await mkdir("artifacts", { recursive: true });
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  page.on("pageerror", (e) => errors.push(String(e.message)));
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+  await page.waitForFunction(() => window.__SACK_V2__ && window.__SACK_V2_INPUT__, null, { timeout: 90000 });
+  await frames(page);
+  const initial = await page.evaluate(() => {
+    const game = window.__SACK_V2__;
+    return { place: game.place, dollars: game.dollars, respect: game.respect,
+      mission: game.mission, carrying: game.carrying };
+  });
+  check(initial.place === "street" || initial.place === "court", "new game boots in Memphis", initial);
+  await shot(page, screenshots[0]);
 
-  ok(pageErrors.length === 0, "no uncaught page errors", pageErrors);
-} catch (err) {
-  failures.push(err?.stack || String(err));
-  console.error(err);
+  // Move to the real HQ character anchor and use the actual E interaction.
+  await page.evaluate(() => window.__SACK_V2_INPUT__.setShot({
+    place: "hq", x: 81.9, z: 200.1, yaw: Math.PI, facing: "back",
+  }));
+  await frames(page, 7);
+  await shot(page, screenshots[1]);
+  await page.evaluate(() => window.__SACK_V2_INPUT__.press("KeyE"));
+  await frames(page, 7);
+  const pickup = await page.evaluate(() => {
+    const game = window.__SACK_V2__;
+    return { place: game.place, dollars: game.dollars, respect: game.respect,
+      carrying: game.carrying, mission: game.mission, dialogue: game.dialogue };
+  });
+  check(pickup.place === "hq" && pickup.carrying === true,
+    "K Blanco hands over the Court OG package", pickup);
+  check(/Court OG/i.test(pickup.mission), "package pickup sets delivery objective", pickup);
+
+  await page.evaluate(() => window.__SACK_V2_INPUT__.setShot({
+    x: 66, z: -16.4, yaw: Math.PI, facing: "back",
+  }));
+  await frames(page, 5);
+  await page.evaluate(() => window.__SACK_V2_INPUT__.press("KeyE"));
+  await frames(page, 7);
+  const delivered = await page.evaluate(() => {
+    const game = window.__SACK_V2__;
+    return { place: game.place, dollars: game.dollars, respect: game.respect,
+      carrying: game.carrying, mission: game.mission, dialogue: game.dialogue };
+  });
+  check(!delivered.carrying && delivered.dollars >= pickup.dollars + 80
+    && delivered.respect >= pickup.respect + 10,
+    "Court OG delivery awards $80 and 10 Respect", { pickup, delivered });
+  await shot(page, screenshots[2]);
+
+  // Capture the runtime's exact save. Reopen into a fresh page to avoid
+  // unreliable in-place reload timing on software WebGL.
+  await frames(page, 10);
+  const raw = await page.evaluate(() => localStorage.getItem("sack-v2"));
+  check(Boolean(raw), "mission writes a save record", { size: raw?.length });
+  const saved = JSON.parse(raw);
+  check(saved.delivered && !saved.carrying, "save retains delivered state", saved);
+  const resumed = await context.newPage();
+  resumed.on("pageerror", (e) => errors.push(String(e.message)));
+  await resumed.addInitScript((payload) => { localStorage.setItem("sack-v2", payload); }, raw);
+  await resumed.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+  await resumed.waitForFunction(() => window.__SACK_V2__, null, { timeout: 90000 });
+  await frames(resumed, 6);
+  const persisted = await resumed.evaluate(() => ({
+    dollars: window.__SACK_V2__.dollars,
+    respect: window.__SACK_V2__.respect,
+    carrying: window.__SACK_V2__.carrying,
+  }));
+  check(persisted.dollars === delivered.dollars && persisted.respect === delivered.respect
+    && !persisted.carrying, "mission reward and package survive reopen", persisted);
+  await shot(resumed, screenshots[3]);
+  check(errors.length === 0, "Drop Day mission has no uncaught page errors", errors);
+  await context.close();
+  console.log("Drop Day QA captured " + screenshots.length + " actual WebGL game frames");
 } finally {
-  await closeBrowser(browser);
-  clearHardTimeout();
+  await browser.close();
 }
-
-if (failures.length) {
-  console.error(`\nMission smoke failed (${failures.length}): ${failures.join("; ")}`);
-  process.exit(1);
-}
-console.log("\nMission smoke passed.");
