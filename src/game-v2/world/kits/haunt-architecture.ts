@@ -132,7 +132,7 @@ export function buildHauntFoyer(parent: THREE.Object3D, solids: Solid[], glow: T
   const velvet = new THREE.MeshStandardMaterial({ color: 0x571c28, roughness: 0.9 });
   const candle = new THREE.MeshStandardMaterial({ color: 0xffdd9b, emissive: 0xffa43b, emissiveIntensity: 0.9 }); glow.push(candle);
   const plaster = new THREE.MeshStandardMaterial({ color: 0x654940, roughness: 0.94 });
-  const pumpkin = new THREE.MeshStandardMaterial({ color: 0xb84016, emissive: 0x571000, emissiveIntensity: 0.28, roughness: 0.82 });
+  const pumpkin = new THREE.MeshStandardMaterial({ color: 0xd65a18, emissive: 0x4a1100, emissiveIntensity: 0.24, roughness: 0.82 });
   // A modeled staircase and gallery on the left preserve the central walking route.
   for (let i = 0; i < 12; i++) {
     const top = 0.17 + i * 0.2;
@@ -184,7 +184,7 @@ export function buildHauntFoyer(parent: THREE.Object3D, solids: Solid[], glow: T
   }
   block(room, gold, 3.28, 0.13, 0.18, 4.4, 3.66, 7.55);
   const arch = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.075, 7, 28, Math.PI), gold);
-  arch.rotation.z = Math.PI; arch.position.set(4.4, 3.62, 7.53); room.add(arch);
+  arch.position.set(4.4, 3.62, 7.53); room.add(arch);
 
   // Candle sconces, pumpkins and a physical portrait grouping echo the approved
   // foyer reference while keeping the walking route and console collisions clear.
@@ -193,11 +193,18 @@ export function buildHauntFoyer(parent: THREE.Object3D, solids: Solid[], glow: T
     block(room, gold, 0.42, 0.06, 0.24, x, 2.2, 3.75);
     for (const z of [3.58, 3.92]) block(room, candle, 0.075, 0.34, 0.075, x, 2.38, z);
   }
+  const pumpkinGeometry = new THREE.SphereGeometry(1, 18, 12);
   for (const [x, z, scale] of [[3.15, 6.82, 0.34], [6.42, 6.55, 0.26]] as const) {
-    const body = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), pumpkin);
-    body.scale.set(scale * 1.12, scale, scale); body.position.set(x, scale + 0.1, z);
-    body.castShadow = body.receiveShadow = true; room.add(body);
+    for (let lobe = -2; lobe <= 2; lobe++) {
+      const body = new THREE.Mesh(pumpkinGeometry, pumpkin);
+      body.scale.set(scale * 0.72, scale, scale * 0.78);
+      body.position.set(x + lobe * scale * 0.28, scale + 0.1, z + Math.abs(lobe) * scale * 0.025);
+      body.castShadow = body.receiveShadow = true; room.add(body);
+    }
     block(room, wood, 0.07, 0.15, 0.07, x, scale * 2 + 0.12, z);
+    for (const eyeX of [-0.28, 0.28]) block(room, candle, scale * 0.16, scale * 0.13, 0.035,
+      x + eyeX * scale, scale * 1.18, z - scale * 0.79);
+    block(room, candle, scale * 0.42, scale * 0.08, 0.035, x, scale * 0.72, z - scale * 0.8);
   }
   const portrait = new THREE.Group(); portrait.position.set(0.18, 2.45, 5.45); portrait.rotation.y = Math.PI / 2; room.add(portrait);
   block(portrait, gold, 1.35, 1.75, 0.12, 0, 0, 0);
