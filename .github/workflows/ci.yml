@@ -86,6 +86,9 @@ jobs:
           CAPTURE_QA: "1"
         run: node scripts/runtime-reliability-smoke.mjs
 
+      - name: Haunted house architecture and gameplay
+        run: node scripts/haunt-3d-smoke.mjs
+
       - name: Foundation safety
         run: npm run test:foundation
 

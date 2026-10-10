@@ -1238,9 +1238,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       light.intensity = 19;
       light.visible = place === "hq";
     }
+    const hauntNearby = new Set([...world.haunt.lights]
+      .sort((a, b) => a.getWorldPosition(new THREE.Vector3()).distanceToSquared(player.position)
+        - b.getWorldPosition(new THREE.Vector3()).distanceToSquared(player.position)).slice(0, 4));
     for (const light of world.haunt.lights) {
       light.intensity = 18;
-      light.visible = place === "haunt";
+      light.visible = place === "haunt" && hauntNearby.has(light);
     }
     for (const mat of world.headlightMats) mat.emissiveIntensity = night ? 1.7 : golden ? 0.8 : 0.3;
     for (const mat of world.glowMats) mat.emissiveIntensity = night ? 1.1 : golden ? 0.55 : 0.2;
@@ -1264,6 +1267,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   camera.lookAt(player.position.x + 1.15, 1.22, player.position.z);
 
   const touchApi = {
+    hauntState() {
+      const house = world.exterior.getObjectByName("haunt-3d-house");
+      const foyer = world.haunt.group.getObjectByName("haunt-3d-foyer");
+      let houseMeshes = 0, foyerMeshes = 0;
+      house?.traverse(node => { if (node instanceof THREE.Mesh) houseMeshes++; });
+      foyer?.traverse(node => { if (node instanceof THREE.Mesh) foyerMeshes++; });
+      return { houseMeshes, foyerMeshes, ticket: hauntTicket, cleared: hauntCleared,
+        activeLights: world.haunt.lights.filter(light => light.visible).length };
+    },
     ballState() {
       return { held: ballHeld, charge, taken, position: { x: ball.position.x, y: ball.position.y, z: ball.position.z } };
     },

@@ -127,6 +127,8 @@ try {
     const compact = await page.evaluate(() => window.__SACK_V2_INPUT__.renderState());
     assert.ok(compact.playerScreen.feetY - compact.playerScreen.headY < compact.height * 0.55,
       'Compact portrait devices must retain space around the player');
+    const compactScore = await page.getByTestId('court-score').boundingBox();
+    assert.ok(compactScore.y + compactScore.height < compact.playerScreen.headY, 'Compact court HUD must clear the player');
     await page.screenshot({ path: 'artifacts/runtime/mobile-court-compact.png', timeout: 60000 });
     await page.setViewportSize({ width: 1280, height: 800 });
     for (const [name, opts] of [

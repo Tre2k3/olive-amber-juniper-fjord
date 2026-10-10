@@ -1,11 +1,12 @@
 import type { PointerEvent } from "react";
 import type { HudState } from "../core/types";
 import { characters } from "../assets/characters";
+import "./hud.css";
 
 export function Hud({ state, night, action }: { state: HudState; night: () => void; action: (code: string) => void }) {
   return (
-    <div className="pointer-events-none absolute inset-0 text-[#f4efe4]" style={{ fontFamily: "DM Sans, sans-serif" }}>
-      <div className="absolute left-3 top-3 flex max-w-[11.5rem] flex-wrap gap-2 sm:max-w-none">
+    <div className="memphis-hud pointer-events-none absolute inset-0 text-[#f4efe4]" style={{ fontFamily: "DM Sans, sans-serif" }}>
+      <div className="hud-wallet absolute left-3 top-3 flex max-w-[11.5rem] flex-wrap gap-2 sm:max-w-none">
         <Chip label="SACK" value={`$${state.dollars}`} />
         <Chip label="RESPECT" value={String(state.respect)} />
         <Chip label={placeName(state.place)} value={state.night ? "NIGHT" : state.golden ? "GOLDEN" : "DAY"} />
@@ -17,10 +18,10 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
         <div className="text-[10px] tracking-[0.18em] text-[#e0b33a]">MEMPHIS</div>
         <Mini state={state} />
       </div>
-      <div className="absolute left-3 right-[7.5rem] top-[7.15rem] rounded-md bg-[#0d0d0dcc] px-3 py-2 text-center text-sm sm:left-1/2 sm:right-auto sm:top-4 sm:max-w-[70vw] sm:-translate-x-1/2">
+      <div className="hud-mission absolute left-3 right-[7.5rem] top-[7.15rem] rounded-md bg-[#0d0d0dcc] px-3 py-2 text-center text-sm sm:left-1/2 sm:right-auto sm:top-4 sm:max-w-[70vw] sm:-translate-x-1/2">
         {state.mission}
       </div>
-      <div className="absolute left-3 top-[10.6rem] flex gap-1 text-[10px] tracking-[0.14em] sm:left-1/2 sm:top-14 sm:-translate-x-1/2">
+      <div className="hud-marks absolute left-3 top-[10.6rem] flex gap-1 text-[10px] tracking-[0.14em] sm:left-1/2 sm:top-14 sm:-translate-x-1/2">
         <Mark on={state.marks.fish} label="FISH" />
         <Mark on={state.marks.bowl} label="BOWL" />
         <Mark on={state.marks.food} label="EAT" />
@@ -113,7 +114,7 @@ function Dialogue({ line }: { line: string }) {
 
 function Chip({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-[#e0b33a55] bg-[#0d0d0dcc] px-3 py-2">
+    <div className="hud-chip rounded-md border border-[#e0b33a55] bg-[#0d0d0dcc] px-3 py-2">
       <div className="text-[10px] tracking-[0.16em] text-[#e0b33a]">{label}</div>
       <div className="text-lg leading-none">{value}</div>
     </div>
