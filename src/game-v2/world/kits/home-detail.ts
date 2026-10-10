@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { brick, concreteSlab, trim } from "./materials";
+import { brick, concreteSlab } from "./materials";
 
 /**
  * Finishing details for Benji's hero bungalow.
@@ -123,7 +123,7 @@ function chimney(group: THREE.Object3D, x: number, y: number, z: number) {
   beam(group, x, y + 0.07, z, 0.51, 0.035, 0.44, iron);
 }
 
-function entrance(group: THREE.Object3D, x: number, z: number, deckZ: number, porchW: number) {
+function entrance(group: THREE.Object3D, x: number, deckZ: number, porchW: number) {
   // No new collision here: these are thin visual trims on the existing geometry.
   beam(group, x, 0.50, deckZ - 1.16, porchW, 0.07, 0.12, oak);
   beam(group, x, 2.56, deckZ - 1.14, porchW + 0.2, 0.12, 0.12, eaveWhite);
@@ -161,7 +161,7 @@ export function finishHeroBungalow(
     beam(group, x - 0.21 + i * 0.14, 2.96, front - 0.15, 0.035, 0.29, 0.025, iron);
   }
 
-  entrance(group, x, front, deckZ, porchW);
+  entrance(group, x, deckZ, porchW);
   // Main walkway joints read at gameplay scale and meet the current concrete,
   // but don't alter the registered walkable surface at all.
   for (let i = 0; i < 4; i++) {
