@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import type { Solid } from "../core/types";
 import { canvasTex } from "./kits/materials";
 
 /**
@@ -232,7 +233,7 @@ export function riverWaterMaterial() {
   });
   return riverWater;
 }
-export function dressRiverfront(parent: THREE.Object3D) {
+export function dressRiverfront(parent: THREE.Object3D, solids: Solid[]) {
   const scene = new THREE.Group();
   scene.name = "memphis-riverfront-production";
   bridge(scene);
@@ -240,6 +241,9 @@ export function dressRiverfront(parent: THREE.Object3D) {
   // center segment leads to the fishing pier without crossing new railings.
   railSegment(scene, -42.5, -18.8, -66.25);
   railSegment(scene, -13.2, 26.5, -66.25);
+  // Rails prevent walking into the river; the original pier approach remains open.
+  solids.push({ minX: -42.5, maxX: -18.8, minZ: -66.38, maxZ: -66.12 });
+  solids.push({ minX: -13.2, maxX: 26.5, minZ: -66.38, maxZ: -66.12 });
   for (const x of [-37, -26, -4, 8, 21]) {
     lamp(scene, x, -62.15);
   }
@@ -248,6 +252,7 @@ export function dressRiverfront(parent: THREE.Object3D) {
   }
   for (const [x, z, yaw] of [[-36,-63.55,Math.PI],[1,-63.55,Math.PI],[17,-63.55,Math.PI]] as const) {
     bench(scene, x, z, yaw);
+    solids.push({ minX: x - 0.85, maxX: x + 0.85, minZ: z - 0.32, maxZ: z + 0.32 });
   }
   pierProps(scene);
   baitStore(scene);
