@@ -4,6 +4,7 @@ import { brick, canvasTex, concreteSlab, mulch, shingle, siding, soil, trim } fr
 import { mailbox, picketFence } from "./props";
 import { crepeMyrtle, matureTree, ornamental, shrub } from "./trees";
 import { addGround } from "../ground";
+import { finishHeroBungalow } from "./home-detail";
 
 function box(w: number, h: number, d: number, x: number, y: number, z: number, mat: THREE.Material, parent: THREE.Object3D) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
@@ -299,6 +300,7 @@ export function residence(
     const bedWide = new THREE.Mesh(new THREE.BoxGeometry(w * 0.95, 0.08, 1.15), mulch());
     bedWide.position.set(x, 0.05, front - 0.7);
     parent.add(bedWide);
+    finishHeroBungalow(parent, x, z, w, d, wallH, base, rise, porchW);
   }
   if (style === 2) ornamental(x + w * 0.15, front - 2.4, parent);
 
