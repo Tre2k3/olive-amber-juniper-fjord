@@ -182,7 +182,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   let respect = 12;
   let made = 0;
   let taken = 0;
-  let mission = "Walk the block to SackReligious HQ";
+  let mission = "Walk the block to $ackReligious HQ";
   let metK = false;
   let carrying = false;
   let delivered = false;
@@ -406,7 +406,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const live = activityPrompt(city);
     if (live) return live;
     if (place === "street" && near(world.homeDoor, 1.4)) return "E  Enter home";
-    if (place === "street" && near(world.hqDoor, 1.6)) return "E  Enter SackReligious";
+    if (place === "street" && near(world.hqDoor, 1.6)) return "E  Enter $ackReligious";
     if (place === "home" && nearLocal(world.homeIn, 1.3, 0, 200)) return "E  Leave home";
     if (place === "hq" && nearLocal(world.hqIn, 1.4, 80, 200)) return "E  Leave HQ";
     if (place === "hq" && nearLocal(world.kAnchor, 2.2, 80, 200)) return delivered ? "E  Talk to K Blanco" : "E  Talk to K Blanco";

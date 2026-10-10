@@ -49,7 +49,7 @@ function roomSign(title: string, x: number, y: number, z: number, parent: THREE.
   c.height = 128;
   const g = c.getContext("2d")!;
   g.fillStyle = "#14080c";
-  g.fillRect(0, 0, 512, 128);
+  g.fillRect(0, 0, c.width, c.height);
   g.fillStyle = "#ff3a2a";
   g.font = "800 54px sans-serif";
   const fitSize = Math.min(54, 54 * 480 / Math.max(1, g.measureText(title).width));
@@ -232,20 +232,21 @@ function dressApproach(exterior: THREE.Object3D, solids: Solid[], glow: THREE.Me
 function signPlane(title: string, color: string, w: number, h: number) {
   const c = document.createElement("canvas");
   c.width = 512;
-  c.height = 128;
+  c.height = Math.max(32, Math.round(512 * h / w));
   const g = c.getContext("2d")!;
   g.fillStyle = "#12080a";
-  g.fillRect(0, 0, 512, 128);
+  g.fillRect(0, 0, c.width, c.height);
   g.strokeStyle = color;
   g.lineWidth = 8;
-  g.strokeRect(6, 6, 500, 116);
+  g.strokeRect(6, 6, c.width - 12, c.height - 12);
   g.fillStyle = color;
-  g.font = "800 54px sans-serif";
-  const fitSize = Math.min(54, 54 * 480 / Math.max(1, g.measureText(title).width));
+  const fontSize = Math.floor(c.height * 0.58);
+  g.font = `800 ${fontSize}px sans-serif`;
+  const fitSize = Math.min(fontSize, fontSize * 480 / Math.max(1, g.measureText(title).width));
   g.font = `800 ${fitSize}px sans-serif`;
   g.textAlign = "center";
   g.textBaseline = "middle";
-  g.fillText(title, 256, 64);
+  g.fillText(title, c.width / 2, c.height / 2, c.width - 24);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex }));
@@ -274,7 +275,7 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   const frontZ = hz - 6.15;
   buildHauntExterior(exterior, hx, hz, glow);
   streetSolids.push({ minX: hx - 10.2, maxX: hx + 10.2, minZ: frontZ - 0.2, maxZ: hz + 6.2 });
-  const houseSign = signPlane("HAUNTED HOUSE", "#ff5c32", 7.4, 0.42);
+  const houseSign = signPlane("HAUNTED HOUSE", "#ff5c32", 5.8, 0.7);
   houseSign.position.set(hx, 4.25, frontZ - 0.5);
   houseSign.rotation.y = Math.PI;
   exterior.add(houseSign);

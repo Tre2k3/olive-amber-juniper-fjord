@@ -226,8 +226,8 @@ export function buildBoutiqueInterior(
   collider(solids, 5, 6, 6.05, 0.5);
 
   // Brand feature wall and mezzanine overlook.
-  const brand = flagshipLogo(6.8);
-  brand.position.set(0, 2.75, -5.8);
+  const brand = flagshipLogo(5.4);
+  brand.position.set(0, 1.95, -5.8);
   group.add(brand);
   mezzanine(group);
 

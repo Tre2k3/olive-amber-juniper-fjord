@@ -6,7 +6,7 @@ const EMPTY: HudState = {
   place: "street",
   dollars: 240,
   respect: 12,
-  mission: "Walk the block to SackReligious HQ",
+  mission: "Walk the block to $ackReligious HQ",
   prompt: "",
   charge: 0,
   night: false,

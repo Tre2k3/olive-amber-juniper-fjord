@@ -700,6 +700,20 @@ export function buildSlice(): SliceWorld {
   const courtMap = courtTexture();
   const courtMat = new THREE.MeshBasicMaterial({ map: courtMap });
   mesh(new THREE.PlaneGeometry(22, 14), courtMat, courtX, 0.02, courtZ, exterior).rotation.x = -Math.PI / 2;
+  // Cover only the three obsolete wordmarks baked into the legacy floor image.
+  // Keep that source file unchanged and use the same exact flagship silhouette
+  // as the dimensional signs, with no distortion or recreated text.
+  const brandPanel = new THREE.MeshBasicMaterial({ color: 0x111b17 });
+  for (const [offset, width, depth, logoWidth] of [
+    [-1.1, 8, 2.6, 6.8], [5.05, 3.8, 2.2, 3.25], [-5.95, 5, 1.45, 4.15],
+  ] as const) {
+    const panel = mesh(new THREE.PlaneGeometry(width, depth), brandPanel, courtX, 0.028, courtZ + offset, exterior);
+    panel.rotation.x = -Math.PI / 2;
+    const logo = flagshipLogo(logoWidth, 0x75ed9c);
+    logo.position.set(courtX, 0.032, courtZ + offset);
+    logo.rotation.x = -Math.PI / 2;
+    exterior.add(logo);
+  }
   addGround({ minX: courtX - 11, maxX: courtX + 11, minZ: courtZ - 7, maxZ: courtZ + 7, y: 0.06 });
   const fence = chainMat();
   box(22.4, 2.6, 0.08, courtX, 1.3, courtZ - 7.1, fence, exterior);

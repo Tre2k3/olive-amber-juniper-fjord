@@ -38,6 +38,7 @@ try {
     ['hq-flagship-exterior', { place: 'street', x: 24, z: -6.2, yaw: Math.PI, dist: 8, height: 3.8, lookY: 3.5, night: false, dialogue: '' }],
     ['hq-flagship-interior', { place: 'hq', x: 80, z: 203.5, yaw: Math.PI, dist: 4, height: 2, lookY: 2.2, night: false, dialogue: '' }],
     ['court-flagship', { place: 'court', x: 66, z: -24.5, yaw: Math.PI, dist: 7, height: 2.7, lookY: 2, night: false, dialogue: '' }],
+    ['court-floor-flagship', { place: 'court', x: 66, z: -22, yaw: Math.PI, dist: 0.2, height: 21, lookY: 0.06, night: false, dialogue: '' }],
   ]) {
     await set(shot); await frames(8);
     await page.screenshot({ path: `artifacts/haunt/${name}.png`, timeout: 60000 });
@@ -77,6 +78,6 @@ try {
   assert.deepEqual(errors, [], 'House gameplay must have no uncaught errors');
   assert.deepEqual(shaderErrors, [], 'Flagship logo materials must compile without shader errors');
   console.log('PASS: library chair collision and doorway route remain playable');
-  console.log('PASS: exact flagship logo loaded and nine actual house, HQ and court screenshots captured');
+  console.log('PASS: exact flagship logo loaded and ten actual house, HQ and court screenshots captured');
 } finally { await browser.close(); }
 
