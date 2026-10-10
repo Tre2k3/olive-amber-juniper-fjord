@@ -33,7 +33,7 @@ try {
   // Screenshot the current production interior, not a rendered concept board.
   // The QA artifact lets us compare actual WebGL output with the approved HQ target.
   await page.evaluate(() => window.__SACK_V2_INPUT__.setShot({
-    place: "hq", x: 80, z: 201.15, yaw: Math.PI, facing: "back",
+    place: "hq", x: 80, z: 202.7, yaw: Math.PI, facing: "back",
   }));
   await page.evaluate(async () => {
     for (let i = 0; i < 6; i++) {
