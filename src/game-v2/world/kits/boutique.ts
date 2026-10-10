@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { Solid } from "../../core/types";
 import { addGround } from "../ground";
 import { canvasTex, surface } from "./materials";
+import { flagshipLogo } from "./brand";
 
 /**
  * SackReligious flagship: a purpose-built, walkable 3D retail interior.
@@ -42,37 +43,6 @@ function warmStrip(group: THREE.Object3D, w: number, x: number, y: number, z: nu
   box(group, w + 0.08, 0.065, 0.1, x, y, z, brass, false);
   box(group, w, 0.032, 0.12, x, y - 0.046, z + 0.08, softGold, false);
 }
-function insignia(group: THREE.Object3D, x: number, y: number, z: number, width: number) {
-  const crown = new THREE.Group();
-  crown.position.set(x, y, z);
-  crown.scale.setScalar(width);
-  const points = [
-    new THREE.Vector2(-0.5, -0.18), new THREE.Vector2(-0.48, 0.28),
-    new THREE.Vector2(-0.21, 0.02), new THREE.Vector2(0, 0.43),
-    new THREE.Vector2(0.21, 0.02), new THREE.Vector2(0.48, 0.28),
-    new THREE.Vector2(0.5, -0.18),
-  ];
-  const shape = new THREE.Shape(points);
-  const plate = new THREE.Mesh(
-    new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({ color: 0xffc45b, side: THREE.DoubleSide, toneMapped: false }),
-  );
-  crown.add(plate);
-  group.add(crown);
-}
-function emblem(group: THREE.Object3D, text: string, w: number, h: number,
-                x: number, y: number, z: number) {
-  const tex = canvasTex((ctx, tw, th) => {
-    ctx.clearRect(0, 0, tw, th);
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#f4c66f";
-    ctx.shadowColor = "rgba(255,174,36,.75)";
-    ctx.shadowBlur = 14;
-    ctx.font = "italic 900 72px Georgia, serif";
-    ctx.fillText(text, tw / 2, th * 0.58, tw * 0.94);
-  }, 1024, 256);
-  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false });
-  piece(group, new THREE.PlaneGeometry(w, h), mat, x, y, z, false);
-}
 
 function tee(parent: THREE.Object3D, x: number, y: number, z: number,
              mat: THREE.Material, facing: number) {
@@ -85,6 +55,9 @@ function tee(parent: THREE.Object3D, x: number, y: number, z: number,
   left.rotation.z = -0.28;
   right.rotation.z = 0.28;
   box(shirt, 0.15, 0.04, 0.095, 0, 0.01, 0.01, brass, false);
+  const logo = flagshipLogo(0.29, mat === cream ? 0x21211d : 0xf4c66f);
+  logo.position.set(0, -0.25, 0.052);
+  shirt.add(logo);
   parent.add(shirt);
   return shirt;
 }
@@ -253,8 +226,9 @@ export function buildBoutiqueInterior(
   collider(solids, 5, 6, 6.05, 0.5);
 
   // Brand feature wall and mezzanine overlook.
-  insignia(group, 0, 4.22, -5.82, 1.45);
-  emblem(group, "SackReligious", 7.0, 1.5, 0, 2.25, -5.82);
+  const brand = flagshipLogo(6.8);
+  brand.position.set(0, 2.75, -5.8);
+  group.add(brand);
   mezzanine(group);
 
   // Sales area: gold-edged display bays along both side walls.

@@ -1,14 +1,25 @@
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { chromium } from 'playwright';
+assert.equal(createHash('sha256').update(await readFile(new URL('../public/game-v2/brand/flagship-logo.png', import.meta.url))).digest('hex'),
+  '76f17e304922d7a9fe4f56c2d43cb92ac22de5b4deaa6b736230a5e3e3a53cd4', 'Flagship artwork must match the original file');
 const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  const errors = [], requests = [];
+  const errors = [], requests = [], shaderErrors = [];
   page.on('pageerror', e => errors.push(e.message));
+  page.on('console', message => {
+    if (message.type() === 'error' && /WebGLProgram|shader.*error/i.test(message.text())) shaderErrors.push(message.text());
+  });
   page.on('request', r => requests.push(r.url()));
   await page.goto(process.env.GAME_URL || 'http://127.0.0.1:8080/', { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForFunction(() => window.__SACK_V2_INPUT__?.hauntState(), null, { timeout: 90000 });
+  await page.waitForFunction(() => {
+    const brand = window.__SACK_V2_INPUT__?.brandState();
+    return brand && brand.logos >= 8 && brand.loaded === brand.logos;
+  }, null, { timeout: 90000 });
   const frames = count => page.evaluate(async n => {
     for (let i = 0; i < n; i++) await new Promise(r => requestAnimationFrame(r));
   }, count);
@@ -24,6 +35,9 @@ try {
     ['foyer', { place: 'haunt', x: 4.4, z: 503.5, yaw: 0, dist: 4.25, height: 2.35, lookY: 2.18, night: false, dialogue: '' }],
     ['library', { place: 'haunt', x: 29.2, z: 503.8, yaw: -Math.PI / 2, dist: 3.6, height: 2, lookY: 1.5, night: false, dialogue: '' }],
     ['library-hearth', { place: 'haunt', x: 29.1, z: 505.2, yaw: 0, dist: 3.6, height: 1.7, lookY: 1.55, night: false, dialogue: '' }],
+    ['hq-flagship-exterior', { place: 'street', x: 24, z: -6.2, yaw: Math.PI, dist: 8, height: 3.8, lookY: 3.5, night: false, dialogue: '' }],
+    ['hq-flagship-interior', { place: 'hq', x: 80, z: 203.5, yaw: Math.PI, dist: 4, height: 2, lookY: 2.2, night: false, dialogue: '' }],
+    ['court-flagship', { place: 'court', x: 66, z: -24.5, yaw: Math.PI, dist: 7, height: 2.7, lookY: 2, night: false, dialogue: '' }],
   ]) {
     await set(shot); await frames(8);
     await page.screenshot({ path: `artifacts/haunt/${name}.png`, timeout: 60000 });
@@ -61,7 +75,8 @@ try {
   assert.equal(await page.evaluate(() => window.__SACK_V2__.place), 'street', 'House exit returns to the neighborhood');
   console.log('PASS: modeled house, ticket, room doorway, furniture collision, light budget and exit');
   assert.deepEqual(errors, [], 'House gameplay must have no uncaught errors');
+  assert.deepEqual(shaderErrors, [], 'Flagship logo materials must compile without shader errors');
   console.log('PASS: library chair collision and doorway route remain playable');
-  console.log('PASS: six actual rendered house and room screenshots captured');
+  console.log('PASS: exact flagship logo loaded and nine actual house, HQ and court screenshots captured');
 } finally { await browser.close(); }
 

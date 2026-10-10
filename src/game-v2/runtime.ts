@@ -1268,6 +1268,16 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   camera.lookAt(player.position.x + 1.15, 1.22, player.position.z);
 
   const touchApi = {
+    brandState() {
+      let logos = 0, loaded = 0;
+      world.scene.traverse(node => {
+        if (!(node instanceof THREE.Mesh) || node.name !== "flagship-brand-logo") return;
+        logos++;
+        const image = (node.material as THREE.MeshBasicMaterial).map?.image as HTMLImageElement | undefined;
+        if (image?.naturalWidth === 732 && image.naturalHeight === 341) loaded++;
+      });
+      return { logos, loaded };
+    },
     hauntState() {
       const house = world.exterior.getObjectByName("haunt-3d-house");
       const foyer = world.haunt.group.getObjectByName("haunt-3d-foyer");
@@ -1640,3 +1650,4 @@ function dampAngle(current: number, target: number, amount: number) {
   while (delta < -Math.PI) delta += Math.PI * 2;
   return current + delta * amount;
 }
+

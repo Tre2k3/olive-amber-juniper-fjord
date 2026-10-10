@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { Solid } from "../../core/types";
+import { flagshipLogo } from "./brand";
 
 function block(parent: THREE.Object3D, material: THREE.Material, w: number, h: number, d: number, x: number, y: number, z: number) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
@@ -123,10 +124,10 @@ export function buildHauntExterior(parent: THREE.Object3D, hx: number, hz: numbe
     block(house, banner, 2.15, 3.1, 0.11, x, 7.15, -6.46);
     block(house, gold, 2.28, 0.11, 0.16, x, 8.75, -6.5);
     block(house, gold, 2.28, 0.11, 0.16, x, 5.55, -6.5);
-    const slashA = block(house, amber, 0.12, 1.5, 0.08, x - 0.35, 7.1, -6.55);
-    slashA.rotation.z = -0.48;
-    const slashB = block(house, amber, 0.12, 1.5, 0.08, x + 0.35, 7.1, -6.55);
-    slashB.rotation.z = 0.48;
+    const logo = flagshipLogo(1.95);
+    logo.position.set(x, 7.15, -6.53);
+    logo.rotation.y = Math.PI;
+    house.add(logo);
   }
   const medallion = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.13, 8, 36), trim);
   medallion.position.set(0, 7.18, -6.5); house.add(medallion);

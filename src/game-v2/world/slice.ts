@@ -15,6 +15,7 @@ import { buildGoal } from "./kits/hoop";
 import { buildDowntown } from "./kits/city";
 import { buildBoutiqueInterior } from "./kits/boutique";
 import { dress901Court } from "./kits/court-production";
+import { flagshipLogo } from "./kits/brand";
 
 export { carBody };
 
@@ -618,36 +619,7 @@ export function buildSlice(): SliceWorld {
     box(0.62, 6.05, 0.42, px, 3.15, frontZ + 0.12, darkBrick, exterior);
   }
   box(5.5, 2.85, 0.16, hqX, 3.65, frontZ + 0.08, metal, exterior);
-  const brandTex = canvasTex((g, w, h) => {
-    g.clearRect(0, 0, w, h);
-    g.fillStyle = "#e0b33a";
-    const cx = w / 2;
-    const cy = h * 0.22;
-    g.beginPath();
-    g.moveTo(cx - 118, cy + 28);
-    g.lineTo(cx - 136, cy - 18);
-    g.lineTo(cx - 78, cy + 6);
-    g.lineTo(cx, cy - 62);
-    g.lineTo(cx + 78, cy + 6);
-    g.lineTo(cx + 136, cy - 18);
-    g.lineTo(cx + 118, cy + 28);
-    g.closePath();
-    g.fill();
-    g.fillRect(cx - 128, cy + 30, 256, 12);
-    paintLabel(g, "$ACKRELIGIOUS", w / 2, h * 0.58, w * 0.92, "#e0b33a", 86);
-    paintLabel(g, "BOUTIQUE", w / 2, h * 0.8, w * 0.55, "#f4efe4", 42);
-  }, 1024, 512);
-  const brandMat = new THREE.MeshStandardMaterial({
-    map: brandTex,
-    transparent: true,
-    emissive: 0xffe0b0,
-    emissiveMap: brandTex,
-    emissiveIntensity: 0.55,
-    roughness: 0.35,
-    depthWrite: false,
-  });
-  glowMats.push(brandMat);
-  const brand = new THREE.Mesh(new THREE.PlaneGeometry(5.1, 2.55), brandMat);
+  const brand = flagshipLogo(5.1);
   brand.position.set(hqX, 3.7, frontZ + 0.28);
   exterior.add(brand);
   const signLamp = new THREE.PointLight(0xffc56a, 0, 14, 2);
@@ -779,6 +751,13 @@ export function buildSlice(): SliceWorld {
     [courtZ - 7.9, 0, "$ACKRELIGIOUS", "KLOTHING"],
     [courtZ + 7.9, Math.PI, "901 HALLOWEEN", "MEMPHIS"],
   ] as const) {
+    if (title === "$ACKRELIGIOUS") {
+      box(6.4, 1.5, 0.04, courtX, 1.7, bz, black, exterior);
+      const logo = flagshipLogo(3.1, 0x75ed9c);
+      logo.position.set(courtX, 1.7, bz + 0.03);
+      exterior.add(logo);
+      continue;
+    }
     const mat = new THREE.MeshStandardMaterial({ map: bannerTex(title, sub), emissive: 0xffe0b0, emissiveMap: bannerTex(title, sub), emissiveIntensity: 0.25, roughness: 0.5 });
     glowMats.push(mat);
     const board = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 1.5), mat);
@@ -802,7 +781,7 @@ export function buildSlice(): SliceWorld {
       g.font = "800 54px sans-serif";
       g.textAlign = "center";
       g.textBaseline = "middle";
-      g.fillText(title, w / 2, h * 0.42);
+      g.fillText(title === "SACK" ? "" : title, w / 2, h * 0.42);
       g.fillStyle = "#f4efe4";
       g.font = "700 28px sans-serif";
       g.fillText("901 COURT", w / 2, h * 0.68);
@@ -819,6 +798,11 @@ export function buildSlice(): SliceWorld {
     const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 2.3), mat);
     flag.position.set(bx, 4.05, courtZ + 7.45);
     exterior.add(flag);
+    if (title === "SACK") {
+      const logo = flagshipLogo(1.04, 0x75ed9c);
+      logo.position.set(bx, 4.25, courtZ + 7.48);
+      exterior.add(logo);
+    }
     box(0.06, 4.6, 0.06, bx, 2.3, courtZ + 7.45, black, exterior);
   }
   const scoreTex = canvasTex((g, w, h) => {

@@ -3,7 +3,7 @@ import type { Solid } from "../../core/types";
 import { hauntSurface } from "./haunt-architecture";
 
 /** Furnishings inspired by the library reference, built from actual geometry. */
-export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], glow: THREE.MeshStandardMaterial[]) {
+export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], lights: THREE.PointLight[]) {
   const room = new THREE.Group();
   room.name = "haunt-3d-library";
   parent.add(room);
@@ -13,8 +13,7 @@ export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], glow:
   const velvet = new THREE.MeshStandardMaterial({ color: 0x62232b, roughness: 0.95 });
   const paper = new THREE.MeshStandardMaterial({ color: 0xc9b68c, roughness: 0.98 });
   const stone = hauntSurface("stone");
-  const flame = new THREE.MeshStandardMaterial({ color: 0xffb850, emissive: 0xff7a23, emissiveIntensity: 0.7 });
-  glow.push(flame);
+  const flame = new THREE.MeshBasicMaterial({ color: 0xffa23c, transparent: true, opacity: 0.7, depthWrite: false });
   const add = (geometry: THREE.BufferGeometry, material: THREE.Material, x: number, y: number, z: number) => {
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(x, y, z);
@@ -75,7 +74,7 @@ export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], glow:
   block(0.055, 0.055, 5.7, 25.12, 2.66, 3.45, brass);
   for (const z of [1.32, 1.94]) {
     const side = block(0.065, 2.7, 0.065, 25.45, 1.43, z);
-    side.rotation.z = -0.23;
+    side.rotation.z = 0.23;
   }
   for (let i = 0; i < 8; i++) block(0.085, 0.06, 0.7, 25.75 - i * 0.075, 0.3 + i * 0.3, 1.63);
   solids.push({ minX: 25.05, maxX: 25.9, minZ: 1.17, maxZ: 2.1 });
@@ -92,12 +91,18 @@ export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], glow:
     log.rotation.z = Math.PI / 2;
   }
   for (let i = 0; i < 5; i++) {
-    const fire = add(new THREE.ConeGeometry(0.08, 0.3 + i % 2 * 0.12, 7), flame,
-      fx - 0.38 + i * 0.19, 0.5, fz - 0.14);
+    const fire = add(new THREE.SphereGeometry(0.09, 10, 8), flame,
+      fx - 0.32 + i * 0.16, 0.47 + i % 2 * 0.05, fz - 0.14);
+    fire.scale.set(0.85, 1.8 + i % 2 * 0.55, 0.65);
+    fire.rotation.z = (i - 2) * 0.13;
     fire.castShadow = false;
   }
   candle(fx - 0.6, 1.87, fz, 0.22);
   candle(fx + 0.55, 1.87, fz, 0.3);
+  const hearthLight = new THREE.PointLight(0xff8c3b, 0, 7, 2);
+  hearthLight.position.set(fx, 0.8, fz - 0.6);
+  room.add(hearthLight);
+  lights.push(hearthLight);
   solids.push({ minX: fx - 0.88, maxX: fx + 0.88, minZ: fz - 0.58, maxZ: 7.9 });
   // Physical rug border stays flush with the existing floor.
   block(3.6, 0.015, 2.8, 28.3, 0.095, 5.4, velvet);

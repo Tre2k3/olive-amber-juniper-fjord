@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { canvasTex } from "./materials";
+import { flagshipLogo } from "./brand";
 
 /**
  * Architectural dressing for the LIVE two-hoop 901 court.
@@ -144,10 +145,13 @@ function mural(parent: THREE.Object3D, x: number, z: number) {
     const col = -11.4 + i * 0.9;
     box(group, 0.018, 4.1, 0.018, col, 2.15, 0.236, charcoal);
   }
-  const art = labelTexture("901", "MEMPHIS · STREETBALL · SACKRELIGIOUS", "#1b2b29", "#efb94b");
+  const art = labelTexture("901", "", "#1b2b29", "#efb94b");
   const artMat = new THREE.MeshStandardMaterial({ map: art, roughness: 0.84 });
   const panel = part(group, new THREE.PlaneGeometry(12.4, 3.28), artMat, 0, 2.12, 0.24, false);
   panel.name = "901-mural-panel";
+  const logo = flagshipLogo(2.2);
+  logo.position.set(0, 1.05, 0.265);
+  group.add(logo);
   sign(group, -8.7, 2.3, 0.24, 4.1, 2.25, "COURT", "THE HOME OF 901");
   sign(group, 8.7, 2.3, 0.24, 4.1, 2.25, "MEMPHIS", "RESPECT THE GAME");
   parent.add(group);

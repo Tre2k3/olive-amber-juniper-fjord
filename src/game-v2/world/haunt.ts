@@ -4,6 +4,7 @@ import { addGround } from "./ground";
 import { buildGoal } from "./kits/hoop";
 import { buildHauntExterior, buildHauntFoyer, hauntSurface } from "./kits/haunt-architecture";
 import { buildHauntLibrary } from "./kits/haunt-library";
+import { flagshipLogo } from "./kits/brand";
 
 export type HauntWorld = {
   group: THREE.Group;
@@ -273,10 +274,14 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   const frontZ = hz - 6.15;
   buildHauntExterior(exterior, hx, hz, glow);
   streetSolids.push({ minX: hx - 10.2, maxX: hx + 10.2, minZ: frontZ - 0.2, maxZ: hz + 6.2 });
-  const houseSign = signPlane("SACKRELIGIOUS  HAUNTED HOUSE", "#ff5c32", 7.4, 1.2);
-  houseSign.position.set(hx, 5.35, frontZ - 0.5);
+  const houseSign = signPlane("HAUNTED HOUSE", "#ff5c32", 7.4, 0.42);
+  houseSign.position.set(hx, 4.25, frontZ - 0.5);
   houseSign.rotation.y = Math.PI;
   exterior.add(houseSign);
+  const houseBrand = flagshipLogo(3.95, 0xffa064);
+  houseBrand.position.set(hx, 5.38, frontZ - 0.55);
+  houseBrand.rotation.y = Math.PI;
+  exterior.add(houseBrand);
 
   const wetTex = canvasWet();
   const wet = new THREE.MeshStandardMaterial({
@@ -433,7 +438,7 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   }
   addGround({ minX: 0, maxX: 48, minZ: OZ, maxZ: OZ + 16, y: 0.06 });
 
-  dressRooms(group, glow, solids);
+  dressRooms(group, glow, solids, lights);
   buildHauntFoyer(group, solids, glow);
 
   const h = 4.35;
@@ -499,7 +504,7 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   };
 }
 
-function dressRooms(group: THREE.Group, glow: THREE.MeshStandardMaterial[], solids: Solid[]) {
+function dressRooms(group: THREE.Group, glow: THREE.MeshStandardMaterial[], solids: Solid[], lights: THREE.PointLight[]) {
   const wood = new THREE.MeshStandardMaterial({ color: 0x6a4030, roughness: 0.7 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x2a140e, roughness: 0.65 });
   const cloth = new THREE.MeshStandardMaterial({ color: 0x7a1838, roughness: 0.55 });
@@ -527,7 +532,7 @@ function dressRooms(group: THREE.Group, glow: THREE.MeshStandardMaterial[], soli
       box(0.36, 0.44 + (book % 3) * 0.05, 0.105, 24.75, y, z - 0.4 + book * 0.15, spine, group);
     }
   }
-  buildHauntLibrary(group, solids, glow);
+  buildHauntLibrary(group, solids, lights);
 
   for (let i = 0; i < 4; i++) box(0.12, 0.12, 3.6, 33.2 + i * 0.7, 2.55, 3.2, wood, group);
   box(1.6, 0.7, 0.9, 35.2, 0.4, 5.2, wood, group);
