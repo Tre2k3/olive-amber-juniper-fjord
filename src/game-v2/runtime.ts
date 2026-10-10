@@ -1320,6 +1320,19 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         stage: world.exterior.getObjectByName("901-production-environment")?.userData.productionVersion,
       };
     },
+    riverfrontProduction() {
+      const built = world.exterior.getObjectByName("memphis-riverfront-production");
+      return {
+        built: Boolean(built),
+        version: built?.userData.productionVersion as number | undefined,
+        archSpans: built?.userData.bridgeSpanCount as number | undefined,
+        pier: { ...world.districts.pier },
+        bait: { ...world.districts.bait },
+        cooler: Boolean(built?.getObjectByName("river-fishing-cooler")),
+        tackle: Boolean(built?.getObjectByName("river-tackle-box")),
+        ripples: Boolean(built?.getObjectByName("river-water-highlights")),
+      };
+    },
     charactersNearCamera() {
       return world.billboards.map((ped) => {
         const position = ped.getWorldPosition(new THREE.Vector3());
