@@ -105,7 +105,7 @@ export function buildHauntExterior(parent: THREE.Object3D, hx: number, hz: numbe
     for (const dy of [-0.4, 0.4]) block(frame, iron, 1.3, 0.06, 0.15, 0, dy, -0.23);
   };
   for (const x of [-8, -4.2, 4.2, 8]) for (const y of [2.3, 6.8]) window(x, y, -6.09, 0);
-  for (const x of [-10.08, 10.08]) for (const z of [-3.5, 0.6, 4]) for (const y of [2.3, 6.8]) window(x, y, z, x < 0 ? -Math.PI / 2 : Math.PI / 2);
+  for (const x of [-10.08, 10.08]) for (const z of [-3.5, 0.6, 4]) for (const y of [2.3, 6.8]) window(x, y, z, x < 0 ? Math.PI / 2 : -Math.PI / 2);
   // Porch, projecting canopy, columns and iron balustrades have real depth.
   block(house, stone, 11, 0.06, 3.6, 0, 0.03, -7.4);
   block(house, roof, 11.3, 0.28, 3.8, 0, 3.9, -7.3);

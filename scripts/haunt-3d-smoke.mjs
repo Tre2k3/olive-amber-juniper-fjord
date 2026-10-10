@@ -25,10 +25,14 @@ try {
   assert.equal(await page.evaluate(() => window.__SACK_V2__.place), 'haunt', 'Gate enters the actual interior');
   assert.ok((await page.evaluate(() => window.__SACK_V2_INPUT__.hauntState())).activeLights <= 4);
   await set({ place: 'haunt', x: 7.1, z: 503.9, yaw: 0, dialogue: '' });
-  await page.keyboard.down('KeyD'); await frames(18); await page.keyboard.up('KeyD'); await frames(2);
+  await page.keyboard.down('KeyD');
+  await page.waitForFunction(() => window.__SACK_V2__.x > 8.3, null, { timeout: 90000 });
+  await page.keyboard.up('KeyD'); await frames(2);
   assert.ok(await page.evaluate(() => window.__SACK_V2__.x > 8.3), 'Player must walk through the doorway into the stair hall');
   await set({ place: 'haunt', x: 6.2, z: 502, yaw: 0 });
-  await page.keyboard.down('KeyD'); await frames(20); await page.keyboard.up('KeyD'); await frames(2);
+  await page.keyboard.down('KeyD');
+  await page.waitForFunction(() => window.__SACK_V2__.x >= 6.4, null, { timeout: 90000 });
+  await frames(8); await page.keyboard.up('KeyD'); await frames(2);
   assert.ok(await page.evaluate(() => window.__SACK_V2__.x < 6.5), 'Console table must block the player');
   await set({ place: 'haunt', x: 4, z: 501.2, yaw: Math.PI });
   await page.keyboard.press('KeyE'); await frames(3);
