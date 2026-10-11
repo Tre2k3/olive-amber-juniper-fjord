@@ -10,7 +10,7 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
     <div className="memphis-hud pointer-events-none absolute inset-0 text-[#f4efe4]" style={{ fontFamily: "DM Sans, sans-serif" }}>
       {state.veli?.open && <VeliMenu action={action} />}
       {state.foodCourt?.open && <FoodMenu vendor={state.foodCourt.open} action={action} />}
-      {state.veliTv?.near && <div data-testid="veli-tv-controls" className="pointer-events-auto absolute bottom-60 left-3 z-20 max-w-52 rounded-md border border-[#c89a40] bg-[#17140ef2] p-2 sm:bottom-16 sm:left-3">
+      {state.veliTv?.near && <div data-testid="veli-tv-controls" className="pointer-events-auto absolute top-30 left-3 z-20 max-w-52 rounded-md border border-[#c89a40] bg-[#17140ef2] p-2 sm:bottom-16 sm:left-3 sm:top-auto">
         <p className="text-xs text-[#e0b33a]">VELI TV</p>
         <div className="flex gap-2">
           <button type="button" className="min-h-11 whitespace-nowrap px-2 text-sm" onClick={()=>action("VeliTVToggle")}>{state.veliTv.playing ? "Pause music" : "Play music"}</button>
@@ -40,7 +40,7 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
         <Mark on={state.marks.race} label="RACE" />
       </div>}
       {state.log && <Log state={state} />}
-      {state.dialogue && <Dialogue line={state.dialogue} />}
+      {state.dialogue && <Dialogue line={state.dialogue} brother={state.foodCourt?.activeBrother} />}
       {state.charge > 0 && (
         <div data-testid="shot-charge" className={`absolute left-1/2 h-2 w-40 -translate-x-1/2 overflow-hidden rounded bg-[#0d0d0d] ${state.basketball ? "top-72 sm:top-44 sm:left-3 sm:translate-x-0" : "bottom-44 sm:bottom-24"}`}>
           <div className="h-full bg-[#e0b33a]" style={{ width: `${state.charge * 100}%` }} />
@@ -106,9 +106,9 @@ function Log({ state }: { state: HudState }) {
   );
 }
 
-function Dialogue({ line }: { line: string }) {
+function Dialogue({ line, brother = 0 }: { line: string; brother?: number }) {
   const [name, text] = line.includes(" — ") ? line.split(" — ") : ["", line];
-  const portrait = name.startsWith("Brotherz") ? "/game-v2/vendors/food-court/brother-1.png" : name.startsWith("Yungveli") ? "/game-v2/vendors/veli/idle.png" : name.startsWith("Court")
+  const portrait = name.startsWith("Brotherz") ? `/game-v2/vendors/food-court/brother-${brother+1}.png` : name.startsWith("Yungveli") ? "/game-v2/vendors/veli/idle.png" : name.startsWith("Court")
     ? characters.courtOg.views.front.src
     : name.startsWith("K")
       ? characters.kBlanco.portrait

@@ -269,7 +269,7 @@ assert.equal(trucks.left,0);assert.equal(trucks.open,'brothers');
 assert.equal(orderFood(trucks,30,'catch901',0),null,'Cannot order at a different truck');
 assert.equal(orderFood(trucks,30,'brothers',NaN),null);
 assert.equal(orderFood(trucks,30,'brothers',0).dollars,-12);
-assert.equal(trucks.left,3);assert.equal(trucks.open,null);
+assert.equal(trucks.left,4);assert.equal(trucks.open,null);
 assert.equal(orderFood(trucks,30,'brothers',0),null,'No duplicate serving charge');
 console.log('PASS: separate truck menus, insufficient funds, invalid input and duplicate order protection');
 const foodManifest=JSON.parse(await readFile(new URL('../public/game-v2/vendors/food-court/manifest.json',import.meta.url),'utf8'));
@@ -278,3 +278,13 @@ for(const asset of foodManifest.original_assets) {
  assert.equal(createHash('sha256').update(bytes).digest('hex'),asset.sha256);
 }
 console.log('PASS: source Brotherz/901 logos and music clip remain byte-identical');
+
+assert.equal(trucks.activeBrother,0);assert.equal(trucks.nextBrother,1);
+trucks.left=0;trucks.serving=null;trucks.open='brothers';
+assert.equal(orderFood(trucks,0,'brothers',0).dollars,undefined);
+assert.equal(trucks.nextBrother,1,'Rejected orders do not consume a turn');
+orderFood(trucks,30,'brothers',0);
+assert.equal(trucks.activeBrother,1);assert.equal(trucks.nextBrother,0);
+trucks.left=0;trucks.serving=null;trucks.open='catch901';orderFood(trucks,30,'catch901',0);
+assert.equal(trucks.nextBrother,0,'901 orders do not alter Brotherz turns');
+console.log('PASS: brothers alternate only on successful orders; rejected and other-vendor orders preserve turns');

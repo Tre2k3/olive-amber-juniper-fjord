@@ -40,27 +40,51 @@ export function buildFoodCourt(parent: THREE.Object3D) {
     add(2.15,2.05/aspect+.1,.08,0,4.21,-2.58,black);
     const side = new THREE.Mesh(new THREE.PlaneGeometry(2.3,2.3/aspect),signMat);side.position.set(1.73,2,0);side.rotation.y=Math.PI/2;group.add(side);
     const vendors: THREE.Mesh[] = [];
+    const textures: THREE.Texture[][] = [];
     if (id === "brothers") for (let i=0;i<2;i++) {
-      const image=loader.load(`/game-v2/vendors/food-court/brother-${i+1}.png`);image.colorSpace=THREE.SRGBColorSpace;
+      const maps=[`brother-${i+1}.png`,...Array.from({length:4},(_,n)=>`brother-${i+1}-serve-${n+1}.png`)].map(file=>{
+        const texture=loader.load(`/game-v2/vendors/food-court/${file}`);texture.colorSpace=THREE.SRGBColorSpace;return texture;
+      });
+      textures.push(maps);const image=maps[0];
       const actor = new THREE.Mesh(new THREE.PlaneGeometry(512*1.9/460,512*1.9/460),new THREE.MeshBasicMaterial({map:image,transparent:true,alphaTest:.25,toneMapped:false}));
       actor.rotation.y=Math.PI;actor.position.set(i===0?.67:-.67,.8+(487-256)*1.9/460,-2.42);
       actor.name=`brother-wingz-${i+1}`;group.add(actor);vendors.push(actor);
     }
     const tray=new THREE.Group();tray.name=`${id}-order-tray`;tray.visible=false;group.add(tray);
-    const parcel=new THREE.Mesh(new THREE.BoxGeometry(.35,.12,.25),new THREE.MeshStandardMaterial({color:0xf3ead9,roughness:.7}));tray.add(parcel);
-    const lid=new THREE.Mesh(new THREE.BoxGeometry(.37,.025,.27),gold);lid.position.y=.07;tray.add(lid);
-    group.userData.vendors=vendors;
+    const parcel=new THREE.Mesh(new THREE.BoxGeometry(.35,.12,.25),new THREE.MeshBasicMaterial({color:0xeae5dd,toneMapped:false}));tray.add(parcel);
+    const lid=new THREE.Mesh(new THREE.BoxGeometry(.37,.02,.27),new THREE.MeshBasicMaterial({color:0xeae5dd,toneMapped:false}));lid.position.y=.07;tray.add(lid);
+    if(id === "brothers") {
+      const stripe=new THREE.Mesh(new THREE.BoxGeometry(.24,.006,.15),new THREE.MeshBasicMaterial({color:0xe62f2f,toneMapped:false}));stripe.position.y=.083;tray.add(stripe);
+    }
+    group.userData.vendors=vendors;group.userData.textures=textures;group.userData.frames=[0,0];
   }
   return trucks;
 }
-export function animateFoodCourt(trucks:Record<FoodVendor,THREE.Group>, serving:FoodVendor|null,left:number,customer:THREE.Vector3) {
+export function animateFoodCourt(trucks:Record<FoodVendor,THREE.Group>, serving:FoodVendor|null,left:number,customer:THREE.Vector3,activeBrother:number) {
   for(const id of ["brothers","catch901"] as const) {
     const truck=trucks[id],tray=truck.getObjectByName(`${id}-order-tray`)!;
-    const progress=3-left;
-    tray.visible=serving===id&&left>0&&progress>.7&&progress<2.65;
+    const progress=4-left;
+    const isServing=serving===id&&left>0;
+    const frame=!isServing?0:progress<.8?1:progress<1.65?2:progress<2.3?3:4;
+    if(id === "brothers") {
+      const vendors=truck.userData.vendors as THREE.Mesh[];
+      const textures=truck.userData.textures as THREE.Texture[][];
+      const frames=vendors.map((actor,i)=>{
+        const current=i===activeBrother?frame:0;
+        (actor.material as THREE.MeshBasicMaterial).map=textures[i]![current]!;return current;
+      });
+      truck.userData.frames=frames;
+    }
+    // The carton exists in the held artwork until the empty-hand retract key.
+    // Only then transfer the matching 3D carton; never draw two food boxes.
+    const handoffStart=id === "brothers"?2.3:.7;
+    tray.visible=isServing&&progress>=handoffStart&&progress<3.65;
     if(tray.visible) {
-      const p=THREE.MathUtils.clamp((progress-.7)/1.15,0,1);
-      tray.position.set((customer.x-truck.position.x)*p,THREE.MathUtils.lerp(1.6,customer.y+.74,p),THREE.MathUtils.lerp(-2.82,customer.z-truck.position.z,p));
+      const linear=THREE.MathUtils.clamp((progress-handoffStart)/.8,0,1);
+      const p=linear*linear*(3-2*linear);
+      const handX=id === "brothers"?(truck.userData.vendors as THREE.Mesh[])[activeBrother]!.position.x:0;
+      tray.position.set(THREE.MathUtils.lerp(handX,customer.x-truck.position.x,p),
+        THREE.MathUtils.lerp(1.86,customer.y+1.06,p),THREE.MathUtils.lerp(-2.42,customer.z-truck.position.z+.25,p));
     }
   }
 }

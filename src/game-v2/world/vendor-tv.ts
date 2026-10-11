@@ -3,7 +3,7 @@ import * as THREE from "three";
 /** The supplied clip starts only from a real keyboard/pointer interaction. */
 export function createVendorTv(parent: THREE.Group) {
   const group = new THREE.Group(); group.name = "veli-music-tv";
-  group.position.set(2.05, 2.65, -2.95); parent.add(group);
+  group.position.set(1.9, 2.65, -2.95); parent.add(group);
   const shell = new THREE.MeshStandardMaterial({ color: 0x171b1d, roughness: .45 });
   const bezel = new THREE.Mesh(new THREE.BoxGeometry(1.64, .984, .14), shell); group.add(bezel);
   const arm = new THREE.Mesh(new THREE.BoxGeometry(1.3, .08, .12), shell);

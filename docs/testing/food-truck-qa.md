@@ -16,4 +16,9 @@ Built-in imagegen used the original Brotherz logo for identity and existing Veli
 
 `node scripts/food-truck-smoke.mjs` exercises real production-browser video playback/clock advancement/VideoTexture mapping, pause/resume/mute/departure stop, both vendors loaded, separate paid menus and mobile controls. It captures seven screenshots under `artifacts/food-court/`. Production preview supports byte ranges for media. Core tests verify source checksums and invalid/duplicate orders.
 
-Limitations: browser checks confirm decoding/playback and mute state, not acoustic quality on speakers or physical phones. Brotherz currently has front idle sprites and an animated counter tray; dedicated arm handoff poses and customer receiving animation remain. 901 Catch has a modeled kitchen/order window but no unique cook sprite. Truck surfaces, vegetation and busy-city ambience still need concept-art polish.
+Limitations: browser checks confirm decoding/playback and mute state, not acoustic quality on speakers or physical phones. Brotherz has four serving key poses per vendor and alternates paid orders. Smoother in-between arm motion and customer receiving animation remain. 901 Catch has a modeled kitchen/order window but no unique cook sprite. Truck surfaces, vegetation and busy-city ambience still need concept-art polish.
+
+
+## Alternating handoff follow-up
+
+Each brother has a separate edit-chained 2x2 hold/reach/extend/empty-retract sheet. Background/layout correction used flat magenta and generous cell padding; generate2dsprite removes the key and aligns shared-scale frames to soles at y486. Both sheets pass edge-touch rejection. Only the selected brother changes pose. The illustrated carton stays in his hands until the retract key; then a matching cream/red 3D carton transfers across the counter, above its surface, toward Benji. Successful Brotherz orders rotate the server; insufficient funds, duplicate clicks and 901 purchases do not consume a turn. Browser captures hold the actual rendered frame to verify each server and the handoff separately.

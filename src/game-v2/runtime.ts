@@ -467,7 +467,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     animateVeliTruck(veliTruck,veli.serving,player.position);
     if (place !== "street" || !near(VELI_ANCHOR,8)) veliTv.pause();
     if (foodCourt.left>0) { foodCourt.left=Math.max(0,foodCourt.left-dt); if(foodCourt.left===0) foodCourt.serving=null; }
-    animateFoodCourt(foodTrucks,foodCourt.serving,foodCourt.left,player.position);
+    animateFoodCourt(foodTrucks,foodCourt.serving,foodCourt.left,player.position,foodCourt.activeBrother);
     const menuWasOpen = veli.open || Boolean(foodCourt.open);
     if (menuWasOpen) { if(interactEdge) { veli.open=false; foodCourt.open=null; } glideX=glideZ=0; }
     step(dt, hold, interactEdge && !menuWasOpen);
@@ -1548,7 +1548,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       const framing=cameraFraming(camera.aspect,54,false);
       camera.position.lerp(new THREE.Vector3(spec.x-1.2,2.65,24.6-6.1*framing.distanceScale),follow);
       camera.fov+=(framing.fov-camera.fov)*follow;camera.updateProjectionMatrix();
-      camera.lookAt(spec.x-.4,1.85,24.3); facing="back"; return;
+      camera.lookAt(spec.x-.4,2.1,24.3); facing="back"; return;
     }
     if (veli.serving > 0) {
       const follow=1-Math.exp(-5*dt);
@@ -1708,7 +1708,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   const touchApi = {
     foodCourtState() {
       const vendors=(foodTrucks.brothers.userData.vendors as THREE.Mesh[]);
-      return { ...foodCourt, vendors:vendors.length, loaded:vendors.every(v=>Boolean(((v.material as THREE.MeshBasicMaterial).map?.image as HTMLImageElement)?.naturalWidth)) };
+      return { ...foodCourt, vendors:vendors.length, frames:foodTrucks.brothers.userData.frames as number[], box:foodTrucks.brothers.getObjectByName("brothers-order-tray")?.visible,
+        loaded:(foodTrucks.brothers.userData.textures as THREE.Texture[][]).flat().every(t=>Boolean((t.image as HTMLImageElement)?.naturalWidth)) };
     },
     tvState() { return veliTv.state(); },
     veliState() {

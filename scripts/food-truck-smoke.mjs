@@ -34,7 +34,23 @@ try {
  await page.getByTestId('food-order-0').click();await page.getByTestId('food-menu').waitFor({state:'hidden'});
  await page.waitForFunction(()=>window.__SACK_V2_INPUT__.foodCourtState().left>0);
  await frames(2);assert.equal(await page.evaluate(()=>window.__SACK_V2__.dollars),228);
- await page.screenshot({path:`${out}/brothers-wingz-order.png`,timeout:60000});
+ await page.waitForFunction(()=>window.__SACK_V2_INPUT__.foodCourtState().frames[0]===2,null,{polling:'raf',timeout:90000});
+ await page.evaluate(()=>window.__SACK_V2_INPUT__.freezeCapture(true));
+ assert.deepEqual(await page.evaluate(()=>window.__SACK_V2_INPUT__.foodCourtState().frames),[2,0]);
+ await page.screenshot({path:`${out}/brother-1-serving.png`,timeout:60000});
+ await page.evaluate(()=>window.__SACK_V2_INPUT__.freezeCapture(false));
+ await page.waitForFunction(()=>window.__SACK_V2_INPUT__.foodCourtState().box,null,{polling:'raf',timeout:90000});
+ await page.evaluate(()=>window.__SACK_V2_INPUT__.freezeCapture(true));
+ await page.screenshot({path:`${out}/brothers-food-handoff.png`,timeout:60000});
+ await page.evaluate(()=>window.__SACK_V2_INPUT__.freezeCapture(false));
+ await page.waitForFunction(()=>window.__SACK_V2_INPUT__.foodCourtState().left===0,null,{polling:'raf',timeout:90000});
+ await page.keyboard.press('KeyE');await page.getByTestId('food-menu').waitFor();await page.getByTestId('food-order-0').click();
+ await page.waitForFunction(()=>window.__SACK_V2_INPUT__.foodCourtState().frames[1]===2,null,{polling:'raf',timeout:90000});
+ await page.evaluate(()=>window.__SACK_V2_INPUT__.freezeCapture(true));
+ assert.deepEqual(await page.evaluate(()=>window.__SACK_V2_INPUT__.foodCourtState().frames),[0,2]);
+ assert.equal(await page.evaluate(()=>window.__SACK_V2__.dollars),216);
+ await page.screenshot({path:`${out}/brother-2-serving.png`,timeout:60000});
+ await page.evaluate(()=>window.__SACK_V2_INPUT__.freezeCapture(false));
  await set({place:'street',x:78,z:22.4,yaw:0,dist:7.5,height:3,lookY:2.1,dollars:240,dialogue:''});
  await page.screenshot({path:`${out}/901-catch-truck.png`,timeout:60000});
  await page.setViewportSize({width:390,height:844});await frames(3);
@@ -47,5 +63,5 @@ try {
  await page.screenshot({path:`${out}/veli-tv-mobile.png`,timeout:60000});
  await page.getByRole('button',{name:'Pause music',exact:true}).click();
  assert.deepEqual(errors,[]);
- console.log('PASS: original music video renders/advances after interaction, mute/pause/resume, stop on departure, two Brotherz vendors, separate paid orders and mobile controls');
+ console.log('PASS: original music video renders/advances after interaction, mute/pause/resume, stop on departure, two Brotherz vendors alternating held/reach/retract handoffs, separate paid orders and mobile controls');
 } finally {await browser.close();}

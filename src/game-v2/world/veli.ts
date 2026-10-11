@@ -48,8 +48,8 @@ export function buildVeliTruck(parent: THREE.Object3D) {
   const vendor=new THREE.Mesh(new THREE.PlaneGeometry(512*1.9/460,512*1.9/460),mat);
   vendor.name="yungveli";vendor.rotation.y=Math.PI;vendor.position.set(0,.8+(487-256)*1.9/460,-2.46);group.add(vendor);
   const handoff=new THREE.Group();handoff.name="veli-customer-box";group.add(handoff);handoff.visible=false;
-  const food=new THREE.Mesh(new THREE.BoxGeometry(.33,.12,.23),cream);handoff.add(food);
-  const lid=new THREE.Mesh(new THREE.BoxGeometry(.35,.025,.25),gold);lid.position.y=.072;handoff.add(lid);
+  const food=new THREE.Mesh(new THREE.BoxGeometry(.33,.12,.23),new THREE.MeshBasicMaterial({color:0xeae5dd,toneMapped:false}));handoff.add(food);
+  const lid=new THREE.Mesh(new THREE.BoxGeometry(.35,.025,.25),new THREE.MeshBasicMaterial({color:0xd9ba69,toneMapped:false}));lid.position.y=.072;handoff.add(lid);
   group.userData.vendor=vendor;group.userData.textures=textures;group.userData.frame=0;
   return group;
 }

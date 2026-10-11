@@ -26,7 +26,7 @@ export type HudState = {
   taken: number;
   activity?: "race" | "bowl" | "fish";
   veli?: { near: boolean; open: boolean; serving: number; order: string; price: number };
-  foodCourt?: { open: "brothers" | "catch901" | null; serving: "brothers" | "catch901" | null; left: number; order: string; near: boolean };
+  foodCourt?: { open: "brothers" | "catch901" | null; serving: "brothers" | "catch901" | null; left: number; order: string; near: boolean; activeBrother: number; nextBrother: number };
   veliTv?: { near: boolean; playing: boolean; muted: boolean; ready: boolean; error: string };
   basketball?: { mode: "half" | "full"; score: number[]; clock: number; feedback: string; phase: string };
   dialogue: string;

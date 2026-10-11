@@ -19,7 +19,8 @@
     "brother-1": "Left logo man: cropped hair, goatee, gold crown.",
     "brother-2": "Right logo man: long dark hair, thin mustache, gold crown.",
     "method": "Built-in imagegen, logo identity reference and Veli art style; deterministic alpha-preserving foot alignment. Supplemental vendors, not canonical replacements.",
-    "poses": "Front idle only. No dedicated serving arm frames yet."
+    "poses": "Front idle plus four per-brother giving-food keys: hold, reach, extend, empty retract.",
+    "serving": "Alternates after each successful Brotherz purchase. Same cream/red carton passes from active vendor to customer after empty-hand key. No simultaneous held/transferred box."
   },
   "pricing": "Brotherz and 901 Catch use game-economy sample prices, not verified restaurant menus."
 }
