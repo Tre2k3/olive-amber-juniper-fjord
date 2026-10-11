@@ -48,20 +48,44 @@ function roomSign(title: string, x: number, y: number, z: number, parent: THREE.
   c.width = 512;
   c.height = 128;
   const g = c.getContext("2d")!;
-  g.fillStyle = "#14080c";
+  const grain = g.createLinearGradient(0, 0, 0, c.height);
+  grain.addColorStop(0, "#3d291d");
+  grain.addColorStop(0.52, "#1c100d");
+  grain.addColorStop(1, "#4c3020");
+  g.fillStyle = grain;
   g.fillRect(0, 0, c.width, c.height);
-  g.fillStyle = "#ff3a2a";
-  g.font = "800 54px sans-serif";
-  const fitSize = Math.min(54, 54 * 480 / Math.max(1, g.measureText(title).width));
-  g.font = `800 ${fitSize}px sans-serif`;
+  g.strokeStyle = "#b79a5a";
+  g.lineWidth = 7;
+  g.strokeRect(10, 10, 492, 108);
+  g.strokeStyle = "#6e5733";
+  g.lineWidth = 2;
+  g.strokeRect(22, 22, 468, 84);
+  g.fillStyle = "#d5bc79";
+  g.font = "700 43px Georgia, serif";
+  const fitSize = Math.min(43, 43 * 438 / Math.max(1, g.measureText(title).width));
+  g.font = `700 ${fitSize}px Georgia, serif`;
   g.textAlign = "center";
   g.textBaseline = "middle";
-  g.fillText(title, 256, 64);
+  g.fillText(title, 256, 65);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const mat = new THREE.MeshBasicMaterial({ map: tex });
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.55), mat);
-  mesh.position.set(x, y, z);
+  const backing = new THREE.Mesh(
+    new THREE.BoxGeometry(1.72, 0.43, 0.07),
+    new THREE.MeshStandardMaterial({ color: 0x27150f, roughness: 0.68 }),
+  );
+  backing.position.set(x, y, z + 0.035);
+  backing.rotation.y = Math.PI;
+  backing.castShadow = backing.receiveShadow = true;
+  parent.add(backing);
+  const mat = new THREE.MeshStandardMaterial({
+    map: tex,
+    emissive: 0x2e1c0d,
+    emissiveMap: tex,
+    emissiveIntensity: 0.12,
+    roughness: 0.78,
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.58, 0.32), mat);
+  mesh.position.set(x, y, z - 0.006);
   mesh.rotation.y = Math.PI;
   parent.add(mesh);
 }

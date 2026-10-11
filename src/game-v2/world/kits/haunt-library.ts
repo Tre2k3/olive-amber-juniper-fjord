@@ -161,6 +161,24 @@ export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], light
     geometry.translate(0, 0, -d / 2);
     return add(geometry, mat, x, y, z);
   };
+  // Shallow, physical wall treatment adds depth without narrowing the walkable route.
+  // The east wall is split around its doorway, matching the existing solid wall sections.
+  for (const z of [1.4, 6.4]) {
+    block(0.075, 1.52, 2.34, 31.83, 0.86, z);
+    block(0.11, 0.14, 2.48, 31.8, 1.63, z, brass);
+    block(0.12, 0.18, 2.5, 31.79, 3.78, z);
+    for (const panelZ of [z - 0.76, z, z + 0.76]) {
+      const inset = panel(0.58, 1.12, 0.035, 0.045, 31.775, 0.84, panelZ, wood);
+      inset.rotation.y = Math.PI / 2;
+      const inner = panel(0.42, 0.92, 0.02, 0.035, 31.738, 0.84, panelZ, velvet);
+      inner.rotation.y = Math.PI / 2;
+    }
+  }
+  // A modest coffered crown makes the library read as architecture from the gameplay camera.
+  for (const z of [0.45, 7.55]) block(7.25, 0.16, 0.2, 28.15, 3.82, z);
+  for (const x of [24.55, 31.72]) block(0.2, 0.16, 7.1, x, 3.82, 4);
+  for (const x of [26.35, 28.15, 29.95]) block(0.11, 0.1, 7.0, x, 3.73, 4, brass);
+
   const candle = (x: number, y: number, z: number, height: number) => {
     add(new THREE.CylinderGeometry(0.085, 0.13, 0.055, 10), brass, x, y + 0.025, z);
     add(new THREE.CylinderGeometry(0.035, 0.065, 0.13, 8), brass, x, y + 0.115, z);
@@ -244,6 +262,15 @@ export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], light
   }
   const mantelRosette = add(new THREE.TorusGeometry(0.065, 0.018, 6, 12), brass, fx, 1.77, fz - 0.317);
   mantelRosette.scale.x = 1.7;
+  // Layered over-mantel frame and dark aged mirror are real shallow geometry.
+  panel(1.32, 1.08, 0.08, 0.12, fx, 2.55, fz - 0.265, wood);
+  panel(1.05, 0.81, 0.035, 0.1, fx, 2.55, fz - 0.318,
+    new THREE.MeshStandardMaterial({ color: 0x17191a, metalness: 0.28, roughness: 0.3 }));
+  for (const x of [fx - 0.58, fx + 0.58]) {
+    add(new THREE.SphereGeometry(0.055, 8, 6), brass, x, 2.55, fz - 0.36);
+  }
+  const crest = add(new THREE.TorusGeometry(0.19, 0.026, 7, 24), wood, fx, 3.13, fz - 0.3);
+  crest.scale.set(1.6, 0.72, 1);
   const charcoal = new THREE.MeshStandardMaterial({ color: 0x251a13, roughness: 1 });
   const ember = new THREE.MeshBasicMaterial({ color: 0xc9400e });
   for (const x of [fx - 0.28, fx + 0.23]) {
