@@ -7,7 +7,7 @@ export type CourtMatch = {
   score: [number, number]; clock: number; charge: number; time: number;
   ball: CourtPoint; velocity: CourtPoint; phase: "live" | "check" | "finished";
   pause: number; cleared: boolean; feedback: string; shooter: number;
-  points: number; scored: boolean; net: number; actionLeft: number; dunk: number;
+  points: number; scored: boolean; net: number; actionLeft: number; dunk: number; crossStartY: number;
 };
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value));
 export function createCourtMatch(mode: CourtMode): CourtMatch {
@@ -17,7 +17,7 @@ export function createCourtMatch(mode: CourtMode): CourtMatch {
     owner: 0, possession: 0, score: [0, 0], clock: 24, charge: 0, time: 0,
     ball: { x: 64, y: 0.8, z: -24 }, velocity: { x: 0, y: 0, z: 0 },
     phase: "live", pause: 0, cleared: true, feedback: "FIRST TO 21 · WIN BY 2",
-    shooter: -1, points: 2, scored: false, net: -1, actionLeft: 0, dunk: -1 };
+    shooter: -1, points: 2, scored: false, net: -1, actionLeft: 0, dunk: -1, crossStartY: 0.8 };
 }
 export function matchRim(match: CourtMatch, hoops: CourtPoint[], team = match.possession) {
   return hoops[match.mode === "half" ? 0 : team === 0 ? 1 : 0]!;
@@ -74,6 +74,7 @@ export function courtAction(match: CourtMatch, action: "pass" | "cross" | "dunk"
     athlete.action = "pass"; match.feedback = "PASS"; return true;
   }
   if (action === "cross") {
+    match.crossStartY = match.ball.y;
     athlete.dribbleHand = athlete.dribbleHand === 1 ? -1 : 1;
     match.actionLeft = 0.4; athlete.action = "crossover";
     match.feedback = athlete.dribbleHand === -1 ? "CROSSOVER · LEFT HAND" : "CROSSOVER · RIGHT HAND"; return true;
@@ -171,10 +172,13 @@ export function tickCourtMatch(match: CourtMatch, dt: number, hoops: CourtPoint[
     const cross = holder.dribbleHand * (crossing ? Math.cos(match.actionLeft / 0.4 * Math.PI) : 1);
     const dx = rim.x - holder.x, dz = rim.z - holder.z, length = Math.hypot(dx, dz) || 1;
     // Anatomical right/left follows the attacking direction, not the world's X axis.
+    const progress = 1 - match.actionLeft / 0.4;
+    const endHeight = 0.17 + 0.85 * Math.abs(Math.cos((match.time + match.actionLeft) * 7));
+    const bounceHeight = 0.17 + Math.max(0, (progress < 0.5 ? match.crossStartY : endHeight) - 0.17)
+      * Math.cos(progress * Math.PI) ** 2;
     match.ball = { x: holder.x - dz / length * 0.36 * cross, z: holder.z + dx / length * 0.36 * cross,
       y: match.charge > 0 ? 1.15 + match.charge * 0.55 : crossing
-        ? 0.17 + (0.13 + (holder.dribbleHand === -1 ? 1 - match.actionLeft / 0.4 : match.actionLeft / 0.4) * 0.35)
-          * Math.abs(Math.cos(match.actionLeft / 0.4 * Math.PI))
+        ? bounceHeight
         : 0.17 + 0.85 * Math.abs(Math.cos(match.time * 7)) };
   } else {
     const previous = { ...match.ball };
