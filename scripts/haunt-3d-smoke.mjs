@@ -247,6 +247,22 @@ try {
   assert.ok(dunkView.actionScreen.every(p => Math.abs(p.x) < .95 && Math.abs(p.y) < .95 && p.z > -1 && p.z < 1), 'Rear dunk camera retains player, ball and rim'); assert.equal(dunkView.animation.visible, true);
   assert.equal(dunkView.animation.gripVisible, true, 'Dunk must show its gripping fingers over the ball edge');
   await captureAction('artifacts/haunt/basketball-animated-dunk.png');
+  const throughRim = await page.evaluate(async () => {
+    for (let i = 0; i < 120; i++) {
+      const current = window.__SACK_V2_INPUT__.basketballState();
+      if (current?.dunk === 0 && current.scored && current.animation.frame === 2
+          && 1 - current.actionLeft / .85 >= .68) {
+        window.__SACK_V2_INPUT__.freezeCapture(true);
+        return current;
+      }
+      await new Promise(resolve => requestAnimationFrame(resolve));
+    }
+    throw new Error('Dunk never reached the through-rim follow-through');
+  });
+  assert.ok(throughRim.hand[1] < throughRim.rim.y - .15, 'Wrist must enter below the rim plane');
+  assert.ok(Math.hypot(throughRim.hand[0] - throughRim.rim.x, throughRim.hand[2] - throughRim.rim.z) < .1,
+    'Dunk wrist must stay within the hoop opening');
+  await captureAction('artifacts/haunt/basketball-dunk-through-rim.png');
   await page.evaluate(() => window.__SACK_V2_INPUT__.startBasketball('half'));
   await set({ place: 'court', x: 59, z: -22, yaw: Math.PI, ballHeld: true, dialogue: '' }); await frames(2);
   await page.keyboard.press('KeyL'); await frames(8);
@@ -303,6 +319,6 @@ try {
   assert.deepEqual(errors, [], 'House gameplay must have no uncaught errors');
   assert.deepEqual(shaderErrors, [], 'Flagship logo materials must compile without shader errors');
   console.log('PASS: library chair collision and doorway route remain playable');
-  console.log('PASS: exact flagship logo loaded and thirty-four actual house, HQ, court and activity screenshots captured');
+  console.log('PASS: exact flagship logo loaded and thirty-five actual house, HQ, court and activity screenshots captured');
 } finally { await browser.close(); }
 
