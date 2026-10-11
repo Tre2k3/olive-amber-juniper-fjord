@@ -113,7 +113,7 @@ export function buildLibraryBookcases(parent: THREE.Object3D) {
       const bz = z - .4 + book * .15;
       books.setMatrixAt(index, matrix.compose(position.set(24.75, base + h / 2, bz), rotation, size.set(.36, h, .105)));
       books.setColorAt(index, colors[(book + bay) % colors.length]!);
-      pages.setMatrixAt(index, matrix.compose(position.set(24.745, base + h - .013, bz), rotation, size.set(.32, .012, .082)));
+      pages.setMatrixAt(index, matrix.compose(position.set(24.745, base + h + .004, bz), rotation, size.set(.32, .008, .082)));
       for (let band = 0; band < 4; band++) {
         const by = base + (band === 0 ? .065 : band === 1 ? .13 : band === 2 ? h - .13 : h - .065);
         bands.setMatrixAt(index * 4 + band, matrix.compose(position.set(24.938, by, bz), rotation, size.set(.012, .009, .089)));
