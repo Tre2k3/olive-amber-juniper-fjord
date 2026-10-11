@@ -448,12 +448,12 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
     const molding = new THREE.MeshStandardMaterial({ color: 0x67513a, roughness: 0.8 });
     for (const z of [room.z + 0.3, room.z + 7.65]) {
       box(7.4, 0.16, 0.16, room.x + 4, 0.22, z, molding, group);
-      box(7.4, 0.2, 0.24, room.x + 4, 4.12, z, molding, group);
+      box(7.4, 0.2, 0.24, room.x + 4, room.name === "FOYER" ? 6.62 : 4.12, z, molding, group);
     }
     for (const x of [room.x + 0.32, room.x + 7.68]) {
       // Doorways remain open: trim follows only the solid wall sections.
       for (const z of [room.z + 1.4, room.z + 6.4]) box(0.18, 0.15, 2.5, x, 0.2, z, molding, group);
-      box(0.25, 0.2, 7.4, x, 4.12, room.z + 4, molding, group);
+      box(0.25, 0.2, 7.4, x, room.name === "FOYER" ? 6.62 : 4.12, room.z + 4, molding, group);
     }
     roomSign(room.name, room.x + 4, 3.72, room.z + 7.15, group);
     const light = new THREE.PointLight(room.light, 0, 10, 2);
@@ -609,7 +609,7 @@ function dressRooms(group: THREE.Group, glow: THREE.MeshStandardMaterial[], soli
   // Furnishings are physical obstacles, with the central room/door routes kept open.
   for (const [x, z, w, d] of [
     [10.2, 3.3, 1.6, 3.4], [13.4, 5.4, 1, 1], [24.7, 3.5, 0.7, 6.2],
-    [27.2, 4.6, 1.9, 0.9], [35.2, 5.2, 1.7, 1], [2.4, 11.2, 0.8, 0.6],
+    [27.2, 4.9, 1.9, 0.9], [35.2, 5.2, 1.7, 1], [2.4, 11.2, 0.8, 0.6],
     [12, 12.2, 4.5, 1.5], [20, 12, 1.8, 1.8], [26.2, 9.6, 3.7, 0.8],
     [29.4, 13.4, 2.3, 0.9],
   ]) solids.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });

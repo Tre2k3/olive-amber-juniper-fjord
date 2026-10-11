@@ -233,7 +233,8 @@ export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], light
     candle(x, 1.96, 7.08, 0.3);
   }
 
-  // Carved desk panels and separate legs retain the previous collision footprint.
+  // Set the desk back from the door centerline so a full walking radius fits.
+  const deskStart = room.children.length;
   block(1.8, 0.13, 0.8, 27.2, 0.9, 4.6);
   for (const x of [26.45, 27.95]) for (const z of [4.32, 4.88]) block(0.12, 0.72, 0.12, x, 0.46, z);
   block(1.48, 0.32, 0.12, 27.2, 0.69, 4.25);
@@ -256,6 +257,8 @@ export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], light
   const globeRing = add(new THREE.TorusGeometry(0.205, 0.013, 6, 24), brass, 27.78, 1.24, 4.63);
   globeRing.rotation.y = Math.PI / 2;
   add(new THREE.CylinderGeometry(0.1, 0.13, 0.075, 12), iron, 27.78, 1.005, 4.63);
+
+  for (const node of room.children.slice(deskStart)) node.position.z += 0.3;
 
   // Tufted armchair sits outside the east-west doorway corridor.
   const cx = 28.65, cz = 6;
