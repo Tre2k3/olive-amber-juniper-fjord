@@ -191,12 +191,12 @@ export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], light
   const chandelier = new THREE.Group();
   chandelier.name = "library-candle-chandelier";
   room.add(chandelier);
-  const chandelierX = 28.15, chandelierZ = 3.55, ringY = 3.08;
+  const chandelierX = 28.15, chandelierZ = 3.55, ringY = 2.86;
   const canopy = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.13, 0.08, 12), iron);
   canopy.position.set(chandelierX, 3.78, chandelierZ);
   canopy.castShadow = true; chandelier.add(canopy);
-  const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.65, 7), iron);
-  chain.position.set(chandelierX, 3.43, chandelierZ);
+  const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.85, 7), iron);
+  chain.position.set(chandelierX, 3.32, chandelierZ);
   chain.castShadow = true; chandelier.add(chain);
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.035, 7, 32), iron);
   ring.rotation.x = Math.PI / 2;
@@ -217,10 +217,10 @@ export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], light
     const candleZ = chandelierZ + direction.z * 0.62;
     candle(candleX, ringY + 0.01, candleZ, 0.24 + i % 2 * 0.05);
   }
-  const chandelierLight = new THREE.PointLight(0xffb164, 0, 7.5, 2);
+  const chandelierLight = new THREE.PointLight(0xffb164, 0, 6.5, 2);
   chandelierLight.name = "library-chandelier-light";
-  chandelierLight.userData.baseIntensity = 8.5;
-  chandelierLight.position.set(chandelierX, 3.3, chandelierZ);
+  chandelierLight.userData.baseIntensity = 4.5;
+  chandelierLight.position.set(chandelierX, 3.05, chandelierZ);
   room.add(chandelierLight);
   lights.push(chandelierLight);
 
