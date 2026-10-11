@@ -46,12 +46,94 @@ function libraryTextile() {
   return new THREE.MeshStandardMaterial({ map, roughness: 0.98, color: 0xb4a29b });
 }
 
+
+/** Worn wood is a material surface, never a picture of a room. */
+export function libraryWood() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512; canvas.height = 256;
+  const ctx = canvas.getContext("2d")!;
+  for (let row = 0; row < 8; row++) {
+    const tone = 55 + row * 17 % 27;
+    ctx.fillStyle = `rgb(${tone + 30},${tone + 7},${tone - 12})`;
+    ctx.fillRect(0, row * 32, 512, 32);
+    ctx.strokeStyle = "#21120955";
+    ctx.lineWidth = .7;
+    for (let line = 2; line < 31; line += 3) {
+      ctx.beginPath();
+      for (let x = 0; x <= 512; x += 8) {
+        const y = row * 32 + line + Math.sin(x * Math.PI / 128 + row * .7) * 1.3;
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.fillStyle = "#a77c4628"; ctx.fillRect(0, row * 32 + 1, 512, 1);
+  }
+  for (let i = 0; i < 1800; i++) {
+    ctx.fillStyle = i % 3 ? "#d2a66a18" : "#1d100b35";
+    ctx.fillRect(i * 137 % 512, i * 83 % 256, 1 + i % 5, 1);
+  }
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.wrapS = map.wrapT = THREE.RepeatWrapping;
+  const bump = map.clone(); bump.colorSpace = THREE.NoColorSpace; bump.needsUpdate = true;
+  return new THREE.MeshStandardMaterial({ map, bumpMap: bump, bumpScale: .016, roughness: .64 });
+}
+
+/** Dense bindings are instanced: three book draw calls instead of ninety. */
+export function buildLibraryBookcases(parent: THREE.Object3D) {
+  const group = new THREE.Group(); group.name = "library-bound-books"; parent.add(group);
+  const wood = libraryWood();
+  const leather = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .9 });
+  const gilt = new THREE.MeshStandardMaterial({ color: 0xa58b53, metalness: .4, roughness: .62 });
+  const paper = new THREE.MeshStandardMaterial({ color: 0xb4a180, roughness: .98 });
+  const geometry = new THREE.BoxGeometry(1, 1, 1);
+  const books = new THREE.InstancedMesh(geometry, leather, 120);
+  const bands = new THREE.InstancedMesh(geometry, gilt, 480);
+  const pages = new THREE.InstancedMesh(geometry, paper, 120);
+  const matrix = new THREE.Matrix4(), rotation = new THREE.Quaternion();
+  const position = new THREE.Vector3(), size = new THREE.Vector3();
+  const colors = [0x69452c, 0x2d4b46, 0x571e2b, 0x63533b].map(c => new THREE.Color(c));
+  let index = 0;
+  const part = (w: number, h: number, d: number, x: number, y: number, z: number) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wood);
+    mesh.position.set(x, y, z); mesh.castShadow = mesh.receiveShadow = true; group.add(mesh);
+  };
+  for (let bay = 0; bay < 5; bay++) {
+    const z = 1.15 + bay * 1.15;
+    part(.12, 3.4, 1.1, 24.45, 1.8, z);
+    for (const y of [.2, .95, 1.7, 2.5, 3.35]) part(.6, .06, 1.12, 24.7, y, z);
+    for (const dz of [-.54, .54]) {
+      part(.065, 3.35, .055, 24.97, 1.8, z + dz);
+      part(.1, .1, .08, 24.98, 3.36, z + dz);
+    }
+    part(.64, .14, 1.14, 24.7, 3.51, z);
+    part(.67, .035, 1.16, 24.7, 3.6, z);
+    for (let book = 0; book < 6; book++) for (const base of [.23, .98, 1.73, 2.53]) {
+      const h = .5 + (book + bay) % 3 * .075;
+      const bz = z - .4 + book * .15;
+      books.setMatrixAt(index, matrix.compose(position.set(24.75, base + h / 2, bz), rotation, size.set(.36, h, .105)));
+      books.setColorAt(index, colors[(book + bay) % colors.length]!);
+      pages.setMatrixAt(index, matrix.compose(position.set(24.745, base + h - .013, bz), rotation, size.set(.32, .012, .082)));
+      for (let band = 0; band < 4; band++) {
+        const by = base + (band === 0 ? .065 : band === 1 ? .13 : band === 2 ? h - .13 : h - .065);
+        bands.setMatrixAt(index * 4 + band, matrix.compose(position.set(24.938, by, bz), rotation, size.set(.012, .009, .089)));
+      }
+      index++;
+    }
+  }
+  for (const mesh of [books, bands, pages]) {
+    mesh.castShadow = mesh.receiveShadow = true;
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere(); group.add(mesh);
+  }
+}
+
 /** Furnishings inspired by the library reference, built from actual geometry. */
 export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], lights: THREE.PointLight[]) {
   const room = new THREE.Group();
   room.name = "haunt-3d-library";
   parent.add(room);
-  const wood = hauntSurface("wood");
+  const wood = libraryWood();
   const brass = new THREE.MeshStandardMaterial({ color: 0xa58246, metalness: 0.55, roughness: 0.46 });
   const iron = new THREE.MeshStandardMaterial({ color: 0x211c19, metalness: 0.5, roughness: 0.62 });
   const velvet = new THREE.MeshStandardMaterial({ color: 0x62232b, roughness: 0.95 });

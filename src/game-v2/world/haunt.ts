@@ -3,7 +3,7 @@ import type { Solid } from "../core/types";
 import { addGround } from "./ground";
 import { buildGoal } from "./kits/hoop";
 import { buildHauntExterior, buildHauntFoyer, hauntSurface } from "./kits/haunt-architecture";
-import { buildHauntLibrary } from "./kits/haunt-library";
+import { buildHauntLibrary, buildLibraryBookcases } from "./kits/haunt-library";
 import { flagshipLogo } from "./kits/brand";
 
 export type HauntWorld = {
@@ -513,7 +513,6 @@ function dressRooms(group: THREE.Group, glow: THREE.MeshStandardMaterial[], soli
   const metal = new THREE.MeshStandardMaterial({ color: 0x6a746c, roughness: 0.35, metalness: 0.55 });
   const wax = new THREE.MeshStandardMaterial({ color: 0xf2e2b8, emissive: 0xffc56a, emissiveIntensity: 0.7, roughness: 0.5 });
   glow.push(wax);
-  const bookSpines = [0x69452c, 0x2d4b46, 0x571e2b, 0x63533b].map(color => new THREE.MeshStandardMaterial({ color, roughness: 0.95 }));
 
 
   for (let i = 0; i < 5; i++) box(1.5, 0.16, 0.7, 10.2, 0.2 + i * 0.28, 2.2 + i * 0.55, wood, group);
@@ -524,15 +523,7 @@ function dressRooms(group: THREE.Group, glow: THREE.MeshStandardMaterial[], soli
     box(1.3, 0.08, 0.08, 17.2 + (i % 2) * 1.5, 2.45, 1.15 + Math.floor(i / 2) * 2.2, gold, group);
   }
 
-  for (let i = 0; i < 5; i++) {
-    const z = 1.15 + i * 1.15;
-    box(0.12, 2.65, 1.1, 24.45, 1.4, z, dark, group);
-    for (const y of [0.2, 0.95, 1.7, 2.5]) box(0.6, 0.06, 1.12, 24.7, y, z, wood, group);
-    for (let book = 0; book < 6; book++) for (const y of [0.55, 1.3, 2.05]) {
-      const spine = bookSpines[(book + i) % bookSpines.length];
-      box(0.36, 0.44 + (book % 3) * 0.05, 0.105, 24.75, y, z - 0.4 + book * 0.15, spine, group);
-    }
-  }
+  buildLibraryBookcases(group);
   buildHauntLibrary(group, solids, lights);
 
   for (let i = 0; i < 4; i++) box(0.12, 0.12, 3.6, 33.2 + i * 0.7, 2.55, 3.2, wood, group);
