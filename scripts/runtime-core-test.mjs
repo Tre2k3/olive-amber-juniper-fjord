@@ -185,3 +185,27 @@ for (const direction of [-1, 1]) {
   }
 }
 console.log('PASS: staircase heights, bidirectional traversal, side-entry and gallery drop prevention');
+
+const fishing = await load('../src/game-v2/play/city.ts');
+const fishingCity = fishing.freshCity();
+fishing.triggerSpot(fishingCity, 'pier', 240);
+assert.equal(fishingCity.fish.phase, 'wait');
+fishing.triggerSpot(fishingCity, 'pier', 240);
+assert.equal(fishingCity.fish.phase, 'wait', 'An early interaction must not end fishing');
+fishing.tickCity(fishingCity, 4.1, false, 0);
+assert.equal(fishingCity.fish.phase, 'bite');
+assert.equal(fishingCity.fish.left, 3, 'Bare-hook bites leave three seconds to react');
+const caught = fishing.hookFish(fishingCity);
+assert.ok(caught.dollars >= 16);
+assert.equal(fishingCity.fish.phase, 'wait', 'Catch keeps the session going');
+assert.deepEqual(fishing.hookFish(fishingCity), {}, 'Repeated taps cannot claim another catch');
+fishing.tickCity(fishingCity, 4.1, false, 0);
+fishing.tickCity(fishingCity, 3.1, false, 0);
+assert.equal(fishingCity.fish.phase, 'wait', 'Miss keeps the line out');
+fishingCity.bait = 2;
+fishing.tickCity(fishingCity, 4.1, false, 0);
+fishing.hookFish(fishingCity);
+assert.equal(fishingCity.bait, 1, 'Next bite consumes exactly one bait');
+fishing.tickCity(fishingCity, 4.1, false, 0);
+assert.equal(fishingCity.fish.left, 3.5);
+console.log('PASS: forgiving continuous fishing, repeat-tap safety and bait consumption');

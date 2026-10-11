@@ -223,6 +223,18 @@ try {
     }
   };
   assertFishingFrame(fishing);
+  assert.ok(Math.abs(fishing.lineEndY - fishing.waterY) < 0.001, 'Fishing line must enter the river surface');
+  assert.ok(Math.abs(fishing.floatY - fishing.waterY) < 0.06, 'Bobber must float at the water');
+  await page.waitForFunction(() => window.__SACK_V2_INPUT__.activityState().fish?.phase === 'bite',
+    null, { timeout: 90000, polling: 'raf' });
+  const beforeCatch = await page.evaluate(() => window.__SACK_V2__.dollars);
+  await page.keyboard.press('KeyE'); await frames(2);
+  assert.ok(await page.evaluate(n => window.__SACK_V2__.dollars > n, beforeCatch), 'Live E catches a fish');
+  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.activityState())).fish.phase, 'wait',
+    'Catch must leave fishing active');
+  await page.keyboard.press('KeyE'); await frames(2);
+  assert.ok((await page.evaluate(() => window.__SACK_V2_INPUT__.activityState())).fish,
+    'Early tap must keep the line out');
   await page.screenshot({ path: 'artifacts/haunt/fishing-held-rod.png', timeout: 60000 });
   const handView = await page.evaluate(() => window.__SACK_V2_INPUT__.renderState().playerScreen);
   const detailY = Math.max(0, Math.floor(handView.headY - 15));
@@ -235,7 +247,18 @@ try {
   assertFishingFrame(await page.evaluate(() => window.__SACK_V2_INPUT__.activityState()));
   await page.screenshot({ path: 'artifacts/haunt/fishing-mobile.png', timeout: 60000 });
   await page.setViewportSize({ width: 1280, height: 800 });
-  console.log('PASS: automatic fishing camera retains rod tip and bobber on desktop and portrait');
+  await page.waitForFunction(() => window.__SACK_V2_INPUT__.activityState().fish?.phase === 'bite',
+    null, { timeout: 90000, polling: 'raf' });
+  await page.waitForFunction(() => window.__SACK_V2_INPUT__.activityState().fish?.phase === 'wait',
+    null, { timeout: 90000, polling: 'raf' });
+  assert.ok((await page.evaluate(() => window.__SACK_V2_INPUT__.activityState())).rodVisible, 'Miss keeps rod and line active');
+  await page.screenshot({ path: 'artifacts/haunt/fishing-continues.png', timeout: 60000 });
+  await page.keyboard.down('KeyD'); await frames(3); await page.keyboard.up('KeyD');
+  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.activityState())).fish, null,
+    'Movement exits continuous fishing');
+  await frames(2);
+  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.activityState())).lineVisible, false);
+  console.log('PASS: water contact, live catch/miss continuation, early tap, movement exit and fishing camera');
   await set({ place: 'court', x: 61, z: -22, yaw: Math.PI, ballHeld: true, dialogue: '' });
   const beforeMake = (await page.evaluate(() => window.__SACK_V2_INPUT__.ballState())).made;
   await page.evaluate(() => window.__SACK_V2_INPUT__.setCharge(true));

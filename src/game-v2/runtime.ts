@@ -28,7 +28,6 @@ import {
   freshCity,
   hookFish,
   locked,
-  pullEarly,
   tickCity,
   triggerSpot,
   type City,
@@ -117,11 +116,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     new THREE.MeshStandardMaterial({ color: 0xe0b33a, emissive: 0xe0b33a, emissiveIntensity: 0.4 }),
   );
   bobber.visible = false;
-  bobber.position.set(-16, 0.18, -81);
+  bobber.position.set(-16, 0.055, -81);
   world.scene.add(bobber);
   const fishingLineGeometry = new THREE.BufferGeometry();
   fishingLineGeometry.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(9), 3));
-  const fishingLine = new THREE.Line(fishingLineGeometry, new THREE.LineBasicMaterial({ color: 0xc9d4ca, transparent: true, opacity: 0.65 }));
+  const fishingLine = new THREE.Line(fishingLineGeometry, new THREE.LineBasicMaterial({ color: 0xf5ead7, transparent: true, opacity: 0.95 }));
   fishingLine.visible = false;
   fishingLine.frustumCulled = false;
   world.scene.add(fishingLine);
@@ -548,11 +547,16 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     applyNight();
     const cameraTurn = (keys.has("KeyR") ? 1 : 0) - (keys.has("KeyQ") ? 1 : 0);
     camYaw += cameraTurn * 1.75 * dt;
-    const busy = locked(city);
     const steer = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) + touchX;
     const sx = steer;
     const sy = (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0) + touchY;
     const len = Math.hypot(sx, sy);
+    if (city.fish && len > 0.15) {
+      city.fish = null;
+      say("River — Line is in. Come back whenever you want to fish.");
+      glideX = glideZ = 0;
+    }
+    const busy = locked(city);
     const wantsMove = !busy && len > 0.15;
     if (wantsMove) {
       camDist = null;
@@ -650,7 +654,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     }
     rod.visible = Boolean(city.fish);
     bobber.visible = Boolean(city.fish);
-    if (city.fish) bobber.position.y = 0.16 + Math.sin(performance.now() / 180) * 0.04;
+    if (city.fish) bobber.position.y = 0.055 + Math.sin(performance.now() / (city.fish.phase === "bite" ? 85 : 220)) * 0.012;
     presentBowl(dt);
     if (place === "haunt" && !hauntCleared) {
       const room = world.haunt.finalRoom;
@@ -727,7 +731,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   function tryEnter() {
     if (city.fish) {
-      grant(city.fish.phase === "bite" ? hookFish(city) : pullEarly(city));
+      if (city.fish.phase === "bite") grant(hookFish(city));
       return;
     }
     if (city.bowl?.phase === "aim") {
@@ -947,7 +951,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     points.setXYZ(0, rodTip.x, rodTip.y, rodTip.z);
     points.setXYZ(1, (rodTip.x + bobber.position.x) / 2, (rodTip.y + bobber.position.y) / 2 - 0.12,
       (rodTip.z + bobber.position.z) / 2);
-    points.setXYZ(2, bobber.position.x, bobber.position.y, bobber.position.z);
+    // The river surface is y=0.02; the line enters the water beneath the float.
+    points.setXYZ(2, bobber.position.x, 0.02, bobber.position.z);
     points.needsUpdate = true;
   }
 
@@ -1648,6 +1653,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return { bowl: city.bowl ? { ...city.bowl } : null, fish: city.fish ? { ...city.fish } : null,
         avatarVisible: avatar.visible, bowlBall: { x: bowlBall.position.x, y: bowlBall.position.y, z: bowlBall.position.z },
         rodVisible: rod.visible, lineVisible: fishingLine.visible,
+        lineEndY: (fishingLineGeometry.getAttribute("position") as THREE.BufferAttribute).getY(2),
+        floatY: bobber.position.y, waterY: 0.02,
         fishingScreen: { tip: { x: rodScreen.x, y: rodScreen.y }, float: { x: floatScreen.x, y: floatScreen.y } },
         bowlDoor: world.districts.bowlDoor, pier: world.districts.pier };
     },

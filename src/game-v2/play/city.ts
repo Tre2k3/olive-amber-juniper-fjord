@@ -59,8 +59,8 @@ export function freshCity(): City {
 }
 
 export function activityPrompt(city: City): string {
-  if (city.fish?.phase === "wait") return "Line is out. Wait on the bite.";
-  if (city.fish?.phase === "bite") return "BITE — E";
+  if (city.fish?.phase === "wait") return "Line is out. Wait for BITE. Move to stop.";
+  if (city.fish?.phase === "bite") return "BITE — E to catch! Move to stop.";
   if (city.bowl?.phase === "aim") return "Hold Space. A/D aim the pocket. Release to roll.";
   if (city.bowl?.phase === "roll") return "";
   if (city.bowl?.phase === "show") return "";
@@ -70,7 +70,7 @@ export function activityPrompt(city: City): string {
 
 export function activityCharge(city: City): number {
   if (city.bowl?.phase === "aim") return city.bowl.power;
-  if (city.fish?.phase === "bite") return Math.min(1, city.fish.left / 0.9);
+  if (city.fish?.phase === "bite") return Math.min(1, city.fish.left / ((city.fish.baited ? 3.5 : 3) + (city.fit === "river" ? 0.75 : 0)));
   return 0;
 }
 
@@ -90,14 +90,14 @@ export function tickCity(city: City, dt: number, hold: boolean, steer: number): 
   if (city.fish) {
     city.fish.left -= dt;
     if (city.fish.phase === "wait" && city.fish.left <= 0) {
-      const window = (city.fish.baited ? 0.95 : 0.58) + (city.fit === "river" ? 0.35 : 0);
+      const window = (city.fish.baited ? 3.5 : 3) + (city.fit === "river" ? 0.75 : 0);
       city.fish.phase = "bite";
       city.fish.left = window;
       return { dialogue: "River — Fish on. Hit E." };
     }
     if (city.fish.phase === "bite" && city.fish.left <= 0) {
-      city.fish = null;
-      return { dialogue: "River — Missed it. Drop another line." };
+      continueFishing(city);
+      return { dialogue: "River — That one slipped away. Line stays out; wait for the next bite." };
     }
   }
   if (city.bowl?.phase === "aim") {
@@ -176,14 +176,15 @@ export function pullEarly(city: City): PlayEvent {
 }
 
 export function hookFish(city: City): PlayEvent {
-  const baited = city.fish?.baited ?? false;
-  city.fish = null;
+  if (city.fish?.phase !== "bite") return {};
+  const baited = city.fish.baited;
+  continueFishing(city);
   city.fished = true;
   const pay = (baited ? 28 : 16) + Math.floor(Math.random() * (baited ? 18 : 10)) + (city.fit === "river" ? 8 : 0);
   return {
     dollars: pay,
     respect: baited ? 3 : 2,
-    dialogue: `River — In the cooler. $${pay} SackDollars.`,
+    dialogue: `River — In the cooler. ${pay} SackDollars. Keep fishing — the line stays out.`,
     mission: cityMission(city, true) ?? undefined,
   };
 }
@@ -192,12 +193,17 @@ export function locked(city: City) {
   return Boolean(city.fish || city.bowl);
 }
 
-function cast(city: City): PlayEvent & { used: boolean } {
-  if (city.fish?.phase === "bite") return { used: true, ...hookFish(city) };
-  if (city.fish) return { used: true, ...pullEarly(city) };
+function continueFishing(city: City) {
   const baited = city.bait > 0;
   if (baited) city.bait -= 1;
-  city.fish = { phase: "wait", left: 1.35 + Math.random() * 1.15, baited };
+  city.fish = { phase: "wait", left: 2.5 + Math.random() * 1.5, baited };
+}
+
+function cast(city: City): PlayEvent & { used: boolean } {
+  if (city.fish?.phase === "bite") return { used: true, ...hookFish(city) };
+  if (city.fish) return { used: true };
+  continueFishing(city);
+  const baited = city.fish!.baited;
   return { used: true, dialogue: baited ? "River — Bait on. Line's out." : "River — Bare hook. It still bites, just meaner." };
 }
 
