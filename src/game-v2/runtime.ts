@@ -847,7 +847,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (!city.fish) return;
     // Anchor the handle to the billboard's hand side, independently of orbit.
     const yaw = avatar.rotation.y;
-    rod.position.set(Math.cos(yaw) * 0.26, 0.64, -Math.sin(yaw) * 0.26);
+    // Side-view hands sit near the silhouette center; front/back hands are wider.
+    const handSide = facing === "right" ? -0.04 : facing === "left" ? 0.04 : 0.26;
+    rod.position.set(Math.cos(yaw) * handSide, 0.64, -Math.sin(yaw) * handSide);
     const handX = player.position.x + rod.position.x, handZ = player.position.z + rod.position.z;
     const dx = bobber.position.x - handX, dz = bobber.position.z - handZ;
     rodDirection.set(dx, Math.hypot(dx, dz) * 0.55, dz).normalize();
