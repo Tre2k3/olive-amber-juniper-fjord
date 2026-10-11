@@ -135,6 +135,11 @@ try {
   };
   assertFishingFrame(fishing);
   await page.screenshot({ path: 'artifacts/haunt/fishing-held-rod.png', timeout: 60000 });
+  const handView = await page.evaluate(() => window.__SACK_V2_INPUT__.renderState().playerScreen);
+  const detailY = Math.max(0, Math.floor(handView.headY - 15));
+  await page.screenshot({ path: 'artifacts/haunt/fishing-hand-detail.png', timeout: 60000,
+    clip: { x: Math.max(0, Math.floor(handView.feetX - 80)), y: detailY, width: 240,
+      height: Math.min(800 - detailY, Math.ceil(handView.feetY - handView.headY + 30)) } });
   await page.setViewportSize({ width: 390, height: 844 });
   await set({ place: 'street', x: pier.x, z: pier.z, yaw: Math.PI, dialogue: '' });
   await page.keyboard.press('KeyE'); await frames(20);
@@ -147,7 +152,7 @@ try {
   assert.deepEqual(errors, [], 'House gameplay must have no uncaught errors');
   assert.deepEqual(shaderErrors, [], 'Flagship logo materials must compile without shader errors');
   console.log('PASS: library chair collision and doorway route remain playable');
-  console.log('PASS: exact flagship logo loaded and fifteen actual house, HQ, court and activity screenshots captured');
+  console.log('PASS: exact flagship logo loaded and sixteen actual house, HQ, court and activity screenshots captured');
 } finally { await browser.close(); }
 
 

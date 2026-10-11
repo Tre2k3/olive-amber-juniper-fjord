@@ -101,9 +101,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.18, 8),
     new THREE.MeshStandardMaterial({ color: 0x9c7951, roughness: 0.9 }));
   grip.position.y = 0.035; rod.add(grip);
-  const reel = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.055, 12),
-    new THREE.MeshStandardMaterial({ color: 0x7b8585, metalness: 0.65, roughness: 0.4 }));
-  reel.rotation.z = Math.PI / 2; reel.position.set(0.05, 0.05, 0); rod.add(reel);
+  const reel = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.03, 12),
+    new THREE.MeshStandardMaterial({ color: 0xb4c2bd, metalness: 0.2, roughness: 0.6 }));
+  reel.rotation.z = Math.PI / 2; reel.position.set(0.028, -0.035, 0); rod.add(reel);
   rod.visible = false;
   player.add(rod);
   const bobber = new THREE.Mesh(
@@ -847,8 +847,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (!city.fish) return;
     // Anchor the handle to the billboard's hand side, independently of orbit.
     const yaw = avatar.rotation.y;
-    // Side-view hands sit near the silhouette center; front/back hands are wider.
-    const handSide = facing === "right" ? -0.04 : facing === "left" ? 0.04 : 0.26;
+    // Use the forward hand in side views so the shaft clears the torso and
+    // the rear hand stays empty. The reel belongs beneath this same grip.
+    const handSide = facing === "right" ? 0.13 : facing === "left" ? -0.13 : 0.26;
     rod.position.set(Math.cos(yaw) * handSide, 0.64, -Math.sin(yaw) * handSide);
     const handX = player.position.x + rod.position.x, handZ = player.position.z + rod.position.z;
     const dx = bobber.position.x - handX, dz = bobber.position.z - handZ;
