@@ -18,6 +18,7 @@ import { presentVehicles } from "./world/kits/vehicles";
 import { faceFoliage } from "./world/kits/trees";
 import { buildVeliTruck, animateVeliTruck, VELI_ANCHOR } from "./world/veli";
 import { freshVeli, veliOrder } from "./play/veli";
+import { createFoodReceiver } from "./world/food-receiver";
 import { createVendorTv } from "./world/vendor-tv";
 import { buildFoodCourt, animateFoodCourt } from "./world/food-court";
 import { FOOD_VENDORS, freshFoodCourt, orderFood, type FoodVendor } from "./play/food-court";
@@ -107,6 +108,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   carried.visible = false;
   player.add(carried);
   world.scene.add(player);
+  const foodReceiver=createFoodReceiver(player);
 
   const kSprite = world.kSprite;
 
@@ -468,6 +470,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (place !== "street" || !near(VELI_ANCHOR,8)) veliTv.pause();
     if (foodCourt.left>0) { foodCourt.left=Math.max(0,foodCourt.left-dt); if(foodCourt.left===0) foodCourt.serving=null; }
     animateFoodCourt(foodTrucks,foodCourt.serving,foodCourt.left,player.position,foodCourt.activeBrother);
+    const serving=veli.serving>0?veli.serving:foodCourt.left;
+    const vendor=veli.serving>0?veliTruck:foodCourt.serving?foodTrucks[foodCourt.serving]:null;
+    if(vendor) vendor.userData.receiverBrother=foodCourt.activeBrother;
+    foodReceiver.control(dt,serving,vendor?.getObjectByName(veli.serving>0?"veli-customer-box":`${foodCourt.serving}-order-tray`)??null,vendor?.position.x??62,place==="street"&&city.fit==="default"&&(veli.serving>0||foodCourt.serving==="brothers"||foodReceiver.active));
     const menuWasOpen = veli.open || Boolean(foodCourt.open);
     if (menuWasOpen) { if(interactEdge) { veli.open=false; foodCourt.open=null; } glideX=glideZ=0; }
     step(dt, hold, interactEdge && !menuWasOpen);
@@ -597,7 +603,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       say("River — Line is in. Come back whenever you want to fish.");
       glideX = glideZ = 0;
     }
-    const busy = locked(city) || veli.open || veli.serving > 0 || Boolean(foodCourt.open) || foodCourt.left>0;
+    const busy = foodReceiver.active || locked(city) || veli.open || veli.serving > 0 || Boolean(foodCourt.open) || foodCourt.left>0;
     const wantsMove = !busy && len > 0.15;
     if (wantsMove) {
       camDist = null;
@@ -708,6 +714,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     updatePeds(dt);
     placeCamera(dt);
     faceAvatar();
+    foodReceiver.update(camera);
+    if(foodReceiver.active) avatar.visible=false;
     presentFishing();
     animateRiverfront(performance.now() / 1000);
     faceFoliage(camera.position);
@@ -812,6 +820,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   }
 
   function tryEnter() {
+    if (foodReceiver.active) return;
     if (veli.serving > 0 || foodCourt.left>0) return;
     const foodVendor=nearFoodVendor();
     if(place === "street" && foodVendor) { foodCourt.open=foodVendor; touchX=touchY=0; keys.clear(); glideX=glideZ=0; return; }
@@ -1543,6 +1552,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       facing = Math.abs(side) > Math.abs(depth) ? side > 0 ? "right" : "left" : depth > 0 ? "back" : "front";
       return;
     }
+    if (foodReceiver.active) {
+      const follow=1-Math.exp(-5*dt),scale=cameraFraming(camera.aspect,54,false).distanceScale;
+      camera.position.lerp(new THREE.Vector3(player.position.x+4.8*scale,3,player.position.z-4.8*scale),follow);
+      camera.fov+=(54-camera.fov)*follow;camera.updateProjectionMatrix();
+      camera.lookAt(foodReceiver.x,1.65,23.8);facing="left";return;
+    }
     if (foodCourt.left>0 && foodCourt.serving) {
       const spec=FOOD_VENDORS[foodCourt.serving], follow=1-Math.exp(-5*dt);
       const framing=cameraFraming(camera.aspect,54,false);
@@ -1711,6 +1726,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return { ...foodCourt, vendors:vendors.length, frames:foodTrucks.brothers.userData.frames as number[], box:foodTrucks.brothers.getObjectByName("brothers-order-tray")?.visible,
         loaded:(foodTrucks.brothers.userData.textures as THREE.Texture[][]).flat().every(t=>Boolean((t.image as HTMLImageElement)?.naturalWidth)) };
     },
+    receiverState() { return foodReceiver.state(); },
     tvState() { return veliTv.state(); },
     veliState() {
       const frames=veliTruck.userData.textures as THREE.Texture[];
@@ -1878,7 +1894,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         golden = false;
       }
       if (opts.facing) facing = opts.facing;
-      veli.open=false; veli.serving=0; foodCourt.open=null; foodCourt.serving=null; foodCourt.left=0;
+      foodReceiver.reset(); veli.open=false; veli.serving=0; foodCourt.open=null; foodCourt.serving=null; foodCourt.left=0;
       city.fish = null;
       city.bowl = null;
       city.race = null; circuit.group.visible = false; player.visible = true; raceOverview = false;
@@ -2091,6 +2107,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     canvas.removeEventListener("pointerup", orbitEnd);
     canvas.removeEventListener("pointercancel", orbitEnd);
     canvas.removeEventListener("lostpointercapture", orbitEnd);
+    foodReceiver.dispose();
     veliTv.dispose();
     courtAnimation.dispose();
     bloom.dispose();

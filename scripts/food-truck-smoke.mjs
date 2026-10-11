@@ -11,7 +11,7 @@ try {
  const page=await browser.newPage({viewport:{width:1280,height:800}});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(url.href,{waitUntil:'domcontentloaded',timeout:60000});
- await page.waitForFunction(()=>window.__SACK_V2_INPUT__?.foodCourtState().loaded,null,{timeout:90000});
+ await page.waitForFunction(()=>window.__SACK_V2_INPUT__?.receiverState().loaded&&window.__SACK_V2_INPUT__?.foodCourtState().loaded,null,{timeout:90000});
  const frames=n=>page.evaluate(async count=>{for(let i=0;i<count;i++)await new Promise(r=>requestAnimationFrame(r));},n);
  const set=async opts=>{await page.evaluate(o=>window.__SACK_V2_INPUT__.setShot(o),opts);await frames(12);};
  assert.equal((await page.evaluate(()=>window.__SACK_V2_INPUT__.tvState())).playing,false,'Music must not autoplay');
@@ -43,7 +43,11 @@ try {
  await page.evaluate(()=>window.__SACK_V2_INPUT__.freezeCapture(true));
  await page.screenshot({path:`${out}/brothers-food-handoff.png`,timeout:60000});
  await page.evaluate(()=>window.__SACK_V2_INPUT__.freezeCapture(false));
- await page.waitForFunction(()=>window.__SACK_V2_INPUT__.foodCourtState().left===0,null,{polling:'raf',timeout:90000});
+ await page.waitForFunction(()=>window.__SACK_V2_INPUT__.receiverState().holding,null,{polling:'raf',timeout:90000});
+ await page.evaluate(()=>window.__SACK_V2_INPUT__.freezeCapture(true));
+ await page.screenshot({path:`${out}/benji-receiving.png`,timeout:60000});
+ await page.evaluate(()=>window.__SACK_V2_INPUT__.freezeCapture(false));
+ await page.waitForFunction(()=>window.__SACK_V2_INPUT__.foodCourtState().left===0&&!window.__SACK_V2_INPUT__.receiverState().active,null,{polling:'raf',timeout:90000});
  await page.keyboard.press('KeyE');await page.getByTestId('food-menu').waitFor();await page.getByTestId('food-order-0').click();
  await page.waitForFunction(()=>window.__SACK_V2_INPUT__.foodCourtState().frames[1]===2,null,{polling:'raf',timeout:90000});
  await page.evaluate(()=>window.__SACK_V2_INPUT__.freezeCapture(true));
