@@ -1267,12 +1267,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const rear = attackX * viewX + attackZ * viewZ < -0.55 * Math.hypot(attackX, attackZ) * Math.hypot(viewX, viewZ);
     const animated = courtAnimation.update(courtMatch, rim.x >= player.position.x ? 1 : -1, yawTo(avatar, camera.position), rear);
     avatar.visible = !animated;
+    // Keep the reach pose at the rim through release; only the ball detaches.
+    if (animated && courtMatch?.dunk === 0 && courtAnimation.state().frame === 2) {
+      const target = new THREE.Vector3(rim.x, rim.y + .13, rim.z);
+      courtAnimation.alignGrip(target, actionHand);
+    }
     if (animated && courtMatch?.owner === 0 && (courtMatch.charge > 0 || ((courtMatch.dunk >= 0 || courtMatch.layup >= 0) && !courtMatch.scored))) {
       if (courtMatch.dunk === 0 || courtMatch.layup === 0) {
-        if (courtMatch.dunk === 0 && courtAnimation.state().frame === 2) {
-          const target = new THREE.Vector3(rim.x, rim.y + .13, rim.z);
-          courtAnimation.alignGrip(target, actionHand);
-        }
         courtAnimation.gripWorld(actionHand);
       } else courtAnimation.handWorld(actionHand);
       ball.position.copy(actionHand);
