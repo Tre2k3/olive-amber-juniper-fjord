@@ -187,6 +187,52 @@ export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], light
     light.scale.set(0.7, 2, 0.7); light.castShadow = false;
   };
 
+  // Suspended iron-and-brass chandelier: actual geometry, not a ceiling image.
+  const chandelier = new THREE.Group();
+  chandelier.name = "library-candle-chandelier";
+  room.add(chandelier);
+  const chandelierX = 28.15, chandelierZ = 3.55, ringY = 3.08;
+  const canopy = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.13, 0.08, 12), iron);
+  canopy.position.set(chandelierX, 3.78, chandelierZ);
+  canopy.castShadow = true; chandelier.add(canopy);
+  const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.65, 7), iron);
+  chain.position.set(chandelierX, 3.43, chandelierZ);
+  chain.castShadow = true; chandelier.add(chain);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.035, 7, 32), iron);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.set(chandelierX, ringY, chandelierZ);
+  ring.castShadow = true; chandelier.add(ring);
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 0.16, 10), brass);
+  hub.position.set(chandelierX, ringY, chandelierZ);
+  hub.castShadow = true; chandelier.add(hub);
+  const up = new THREE.Vector3(0, 1, 0);
+  for (let i = 0; i < 6; i++) {
+    const angle = i * Math.PI / 3;
+    const direction = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.026, 0.58, 7), brass);
+    arm.quaternion.setFromUnitVectors(up, direction);
+    arm.position.set(chandelierX + direction.x * 0.29, ringY, chandelierZ + direction.z * 0.29);
+    arm.castShadow = true; chandelier.add(arm);
+    const candleX = chandelierX + direction.x * 0.62;
+    const candleZ = chandelierZ + direction.z * 0.62;
+    candle(candleX, ringY + 0.01, candleZ, 0.24 + i % 2 * 0.05);
+  }
+  const chandelierLight = new THREE.PointLight(0xffb164, 0, 7.5, 2);
+  chandelierLight.name = "library-chandelier-light";
+  chandelierLight.userData.baseIntensity = 8.5;
+  chandelierLight.position.set(chandelierX, 3.3, chandelierZ);
+  room.add(chandelierLight);
+  lights.push(chandelierLight);
+
+  // Paired hearth sconces brighten the fireplace silhouette without adding lights.
+  for (const x of [29.05, 31.85]) {
+    const plate = panel(0.25, 0.5, 0.045, 0.09, x, 2.08, 7.28, wood);
+    plate.castShadow = true;
+    const bracket = add(new THREE.TorusGeometry(0.12, 0.018, 6, 16), brass, x, 1.96, 7.18);
+    bracket.rotation.x = Math.PI / 2;
+    candle(x, 1.96, 7.08, 0.3);
+  }
+
   // Carved desk panels and separate legs retain the previous collision footprint.
   block(1.8, 0.13, 0.8, 27.2, 0.9, 4.6);
   for (const x of [26.45, 27.95]) for (const z of [4.32, 4.88]) block(0.12, 0.72, 0.12, x, 0.46, z);
