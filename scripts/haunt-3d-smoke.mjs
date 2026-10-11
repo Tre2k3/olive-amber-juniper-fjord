@@ -125,16 +125,29 @@ try {
   await page.keyboard.up('KeyD');
   const pier = await page.evaluate(() => window.__SACK_V2_INPUT__.activityState().pier);
   await set({ place: 'street', x: pier.x, z: pier.z, yaw: Math.PI, dialogue: '' });
-  await page.keyboard.press('KeyE'); await frames(4);
+  await page.keyboard.press('KeyE'); await frames(20);
   const fishing = await page.evaluate(() => window.__SACK_V2_INPUT__.activityState());
   assert.ok(fishing.fish && fishing.rodVisible && fishing.lineVisible, 'Fishing must show the held rod and a line to the bobber');
+  const assertFishingFrame = (state) => {
+    for (const point of [state.fishingScreen.tip, state.fishingScreen.float]) {
+      assert.ok(Math.abs(point.x) < 0.95 && Math.abs(point.y) < 0.95, 'Fishing camera must retain both rod tip and bobber');
+    }
+  };
+  assertFishingFrame(fishing);
   await page.screenshot({ path: 'artifacts/haunt/fishing-held-rod.png', timeout: 60000 });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await set({ place: 'street', x: pier.x, z: pier.z, yaw: Math.PI, dialogue: '' });
+  await page.keyboard.press('KeyE'); await frames(20);
+  assertFishingFrame(await page.evaluate(() => window.__SACK_V2_INPUT__.activityState()));
+  await page.screenshot({ path: 'artifacts/haunt/fishing-mobile.png', timeout: 60000 });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  console.log('PASS: automatic fishing camera retains rod tip and bobber on desktop and portrait');
   console.log('PASS: bowling held/release presentation and moving basketball dribble');
   console.log('PASS: modeled house, ticket, room doorway, furniture collision, light budget and exit');
   assert.deepEqual(errors, [], 'House gameplay must have no uncaught errors');
   assert.deepEqual(shaderErrors, [], 'Flagship logo materials must compile without shader errors');
   console.log('PASS: library chair collision and doorway route remain playable');
-  console.log('PASS: exact flagship logo loaded and fourteen actual house, HQ, court and activity screenshots captured');
+  console.log('PASS: exact flagship logo loaded and fifteen actual house, HQ, court and activity screenshots captured');
 } finally { await browser.close(); }
 
 

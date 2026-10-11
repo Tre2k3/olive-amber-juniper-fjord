@@ -1188,6 +1188,33 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   }
 
   function placeCamera(dt: number) {
+    if (city.fish) {
+      // Frame the fisherman and float from the side instead of hiding the
+      // rod behind the back cutout. Resume the user's orbit after fishing.
+      const dx = bobber.position.x - player.position.x;
+      const dz = bobber.position.z - player.position.z;
+      const range = Math.max(1, Math.hypot(dx, dz));
+      const alongX = dx / range, alongZ = dz / range;
+      const framing = cameraFraming(camera.aspect, 54, false);
+      const scale = framing.distanceScale;
+      const follow = 1 - Math.exp(-4 * dt);
+      const destination = new THREE.Vector3(
+        player.position.x + (-alongZ * 6 - alongX * 5) * scale,
+        player.position.y + 4.2 * scale,
+        player.position.z + (alongX * 6 - alongZ * 5) * scale);
+      camera.position.lerp(destination, follow);
+      camera.fov += (framing.fov - camera.fov) * follow;
+      camera.updateProjectionMatrix();
+      camera.lookAt(player.position.x + dx * 0.38, player.position.y + 0.45,
+        player.position.z + dz * 0.38);
+      // Choose the supplied directional view using the actual activity camera.
+      const toX = player.position.x - camera.position.x;
+      const toZ = player.position.z - camera.position.z;
+      const side = dx * -toZ + dz * toX;
+      const depth = dx * toX + dz * toZ;
+      facing = Math.abs(side) > Math.abs(depth) ? side > 0 ? "right" : "left" : depth > 0 ? "back" : "front";
+      return;
+    }
     if (city.bowl) {
       const bowl = city.bowl;
       avatar.visible = true;
@@ -1345,9 +1372,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return { held: ballHeld, charge, taken, position: { x: ball.position.x, y: ball.position.y, z: ball.position.z } };
     },
     activityState() {
+      const rodScreen = rodTip.clone().project(camera);
+      const floatScreen = bobber.position.clone().project(camera);
       return { bowl: city.bowl ? { ...city.bowl } : null, fish: city.fish ? { ...city.fish } : null,
         avatarVisible: avatar.visible, bowlBall: { x: bowlBall.position.x, y: bowlBall.position.y, z: bowlBall.position.z },
         rodVisible: rod.visible, lineVisible: fishingLine.visible,
+        fishingScreen: { tip: { x: rodScreen.x, y: rodScreen.y }, float: { x: floatScreen.x, y: floatScreen.y } },
         bowlDoor: world.districts.bowlDoor, pier: world.districts.pier };
     },
     renderState() {
