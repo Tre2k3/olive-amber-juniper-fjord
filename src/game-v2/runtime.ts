@@ -7,6 +7,7 @@ import type { Facing, HudState, Place, Solid, V2Public } from "./core/types";
 import { productionLanes, sampleLane, gapAhead, type Lane } from "./roads/lanes";
 import { createSaveWriter } from "./core/persistence";
 import { pullCamera } from "./core/camera-collision";
+import { canWalkHaunt, hauntFloorAt } from "./core/haunt-navigation";
 import { cameraFraming } from "./core/camera-framing";
 import { BALL_GRAVITY, rimCrossing, shotVelocity } from "./core/basketball";
 import { createCourtMatch, courtAction, matchRim, tickCourtMatch, type CourtMatch, type CourtMode } from "./core/basketball-match";
@@ -586,8 +587,24 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       glideX = 0;
       glideZ = 0;
     }
-    player.position.x += glideX * dt;
-    player.position.z += glideZ * dt;
+    if (place === "haunt") {
+      // Substeps prevent sprinting across multiple risers or thin rail collisions.
+      const count = Math.max(1, Math.ceil(Math.hypot(glideX, glideZ) * dt / 0.09));
+      const dx = glideX * dt / count, dz = glideZ * dt / count;
+      for (let i = 0; i < count; i++) {
+        const x = player.position.x, z = player.position.z;
+        player.position.x += dx; player.position.z += dz;
+        const zone = collisionZone();
+        resolve(player.position, 0.34, zone.solids, zone.ox, zone.oz);
+        if (!canWalkHaunt(x, z - 500, player.position.x, player.position.z - 500)) {
+          player.position.x = x; player.position.z = z;
+        }
+        player.position.y = hauntFloorAt(player.position.x, player.position.z - 500) + 0.03;
+      }
+    } else {
+      player.position.x += glideX * dt;
+      player.position.z += glideZ * dt;
+    }
     travel += Math.hypot(glideX, glideZ) * dt;
     player.userData.life = ((player.userData.life as number) ?? 0) + dt;
     if (place === "court" && ballHeld && hold) facing = faceAlong(world.hoop.x - player.position.x, world.hoop.z - player.position.z);
@@ -692,7 +709,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   function collisionZone(): { solids: Solid[]; ox: number; oz: number } {
     if (place === "home") return { solids: world.solids.home, ox: 0, oz: 200 };
     if (place === "hq") return { solids: world.solids.hq, ox: 80, oz: 200 };
-    if (place === "haunt") return { solids: world.solids.haunt, ox: 0, oz: 500 };
+    if (place === "haunt") return {
+      solids: world.solids.haunt.filter(s => player.position.y + 1.8 >= (s.minY ?? -Infinity)
+        && player.position.y <= (s.maxY ?? Infinity)), ox: 0, oz: 500,
+    };
     return { solids: world.solids.street, ox: 0, oz: 0 };
   }
 
@@ -1254,6 +1274,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   function faceAvatar() {
     const debug = Boolean((window as Window & { __SACK_CHARACTER_DEBUG__?: boolean }).__SACK_CHARACTER_DEBUG__);
     plantFeet(player);
+    if (place === "haunt") player.position.y = hauntFloorAt(player.position.x, player.position.z - 500) + 0.03;
     const playerMark = player.getObjectByName("foot-debug");
     if (playerMark) playerMark.visible = debug;
     applyBenji(facing);
@@ -1455,7 +1476,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     let destX = player.position.x - lookX * dist + lookZ * side;
     let destZ = player.position.z - lookZ * dist - lookX * side;
     const zone = collisionZone();
-    const pulled = pullCamera(player.position.x, player.position.z, destX, destZ, zone.solids, zone.ox, zone.oz);
+    const pulled = pullCamera(player.position.x, player.position.z, destX, destZ, zone.solids.filter(s => s.cameraBlock !== false), zone.ox, zone.oz);
     destX = pulled.x;
     destZ = pulled.z;
     const destY = player.position.y + height;
@@ -1465,7 +1486,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     camera.position.z += (destZ - camera.position.z) * follow;
     // The interpolated position can cross a wall even when the destination is clear.
     const safe = pullCamera(player.position.x, player.position.z, camera.position.x, camera.position.z,
-      zone.solids, zone.ox, zone.oz);
+      zone.solids.filter(s => s.cameraBlock !== false), zone.ox, zone.oz);
     camera.position.x = safe.x;
     camera.position.z = safe.z;
     const ahead = talking ? 0.28 : 0.72;
@@ -1580,7 +1601,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       let houseMeshes = 0, foyerMeshes = 0;
       house?.traverse(node => { if (node instanceof THREE.Mesh) houseMeshes++; });
       foyer?.traverse(node => { if (node instanceof THREE.Mesh) foyerMeshes++; });
-      return { houseMeshes, foyerMeshes, ticket: hauntTicket, cleared: hauntCleared,
+      return { houseMeshes, foyerMeshes, floorY: hauntFloorAt(player.position.x, player.position.z - 500), gallery: Boolean(world.haunt.group.getObjectByName("haunt-walkable-gallery")), ticket: hauntTicket, cleared: hauntCleared,
         activeLights: world.haunt.lights.filter(light => light.visible).length,
         hearth: { flameHeight: fire?.scale.y ?? 0, intensity: hearth?.intensity ?? 0 } };
     },
@@ -1721,10 +1742,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         const dist = camDist ?? (inside ? 3.05 : 3.05);
         const height = camHeight ?? (inside ? 1.5 : 1.42);
         plantFeet(player);
+    if (place === "haunt") player.position.y = hauntFloorAt(player.position.x, player.position.z - 500) + 0.03;
         let camX = player.position.x - lookX * dist;
         let camZ = player.position.z - lookZ * dist;
         const zone = collisionZone();
-        const pulled = pullCamera(player.position.x, player.position.z, camX, camZ, zone.solids, zone.ox, zone.oz);
+        const pulled = pullCamera(player.position.x, player.position.z, camX, camZ, zone.solids.filter(s => s.cameraBlock !== false), zone.ox, zone.oz);
         camX = pulled.x;
         camZ = pulled.z;
         camera.position.set(camX, player.position.y + height, camZ);

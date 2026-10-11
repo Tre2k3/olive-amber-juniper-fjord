@@ -170,3 +170,18 @@ assert.equal(layup.score[0], 2); assert.ok(layupNet);
 const uncleared = createCourtMatch('half'); uncleared.players[0].x = 59; uncleared.players[0].z = -22; uncleared.cleared = false;
 assert.equal(courtAction(uncleared, 'layup', rims), false, 'Half-court clearance applies to layups');
 console.log('PASS: close-range layup holds then releases, swept rim scoring, net reaction and arc clearance');
+
+const { hauntFloorAt, canWalkHaunt } = await load('../src/game-v2/core/haunt-navigation.ts');
+assert.equal(hauntFloorAt(1.6, 1.2), 0.08);
+assert.ok(Math.abs(hauntFloorAt(1.6, 6) - 2.48) < 1e-9);
+assert.equal(canWalkHaunt(3, 3, 1.6, 3), false, 'High steps cannot be mounted sideways');
+assert.equal(canWalkHaunt(3, 6, 3, 5), false, 'Gallery front cannot be walked off');
+for (const direction of [-1, 1]) {
+  let z = direction > 0 ? 1.2 : 6.6;
+  for (let i = 0; i < 68; i++) {
+    const next = z + direction * 0.08;
+    assert.equal(canWalkHaunt(1.6, z, 1.6, next), true, 'Substepped movement must traverse all risers both ways');
+    z = next;
+  }
+}
+console.log('PASS: staircase heights, bidirectional traversal, side-entry and gallery drop prevention');

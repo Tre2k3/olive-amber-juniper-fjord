@@ -7,6 +7,10 @@ export type Solid = {
   maxX: number;
   minZ: number;
   maxZ: number;
+  /** Optional vertical limits for gallery guards and upstairs furnishings. */
+  minY?: number;
+  maxY?: number;
+  cameraBlock?: boolean;
 };
 
 export type HudState = {

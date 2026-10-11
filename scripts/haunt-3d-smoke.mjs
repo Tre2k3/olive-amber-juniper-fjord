@@ -69,6 +69,41 @@ try {
       console.log('PASS: animated hearth stays below five intensity and within four active house lights');
     }
   }
+  // Use real keyboard movement to climb, cross the gallery, and return downstairs.
+  await set({ place: 'haunt', x: 1.6, z: 501.2, yaw: 0, dialogue: '' });
+  await page.keyboard.down('KeyW');
+  await page.waitForFunction(() => window.__SACK_V2__.z > 505.9 && window.__SACK_V2__.y > 2.5,
+    null, { timeout: 90000 });
+  await page.keyboard.up('KeyW'); await frames(12);
+  assert.ok(Math.abs(await page.evaluate(() => window.__SACK_V2__.y) - 2.51) < 0.001,
+    'Benji soles must reach the physical gallery top');
+  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.hauntState())).gallery, true);
+  await page.screenshot({ path: 'artifacts/haunt/stairs-climbed.png', timeout: 60000 });
+  await page.keyboard.down('KeyW'); await frames(12); await page.keyboard.up('KeyW'); await frames(2);
+  assert.ok(await page.evaluate(() => window.__SACK_V2__.z < 506.76), 'Rear gallery guard must stop walking off upstairs');
+  await set({ place: 'haunt', x: 3, z: 506, yaw: 0, dialogue: '' });
+  await page.keyboard.down('KeyA');
+  await page.waitForFunction(() => window.__SACK_V2__.x > 3.2, null, { timeout: 90000 });
+  await frames(8); await page.keyboard.up('KeyA'); await frames(3);
+  assert.ok(await page.evaluate(() => window.__SACK_V2__.x < 3.32), 'Upstairs console must block Benji at its own height');
+  await page.screenshot({ path: 'artifacts/haunt/upstairs-gallery.png', timeout: 60000 });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await set({ place: 'haunt', x: 2.8, z: 506, yaw: Math.PI / 2, dialogue: '' }); await frames(12);
+  await page.screenshot({ path: 'artifacts/haunt/upstairs-gallery-mobile.png', timeout: 60000 });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await set({ place: 'haunt', x: 1.6, z: 505.85, yaw: 0, dialogue: '' });
+  await page.keyboard.down('KeyS');
+  await page.waitForFunction(() => window.__SACK_V2__.z < 501.4, null, { timeout: 90000 });
+  await page.keyboard.up('KeyS'); await frames(3);
+  assert.ok(Math.abs(await page.evaluate(() => window.__SACK_V2__.y) - 0.11) < 0.001, 'Descending stairs returns soles to the foyer floor');
+  await page.screenshot({ path: 'artifacts/haunt/stairs-descended.png', timeout: 60000 });
+  await set({ place: 'haunt', x: 3, z: 503, yaw: 0, dialogue: '' });
+  await page.keyboard.down('KeyD');
+  await page.waitForFunction(() => window.__SACK_V2__.x < 2.7, null, { timeout: 90000 });
+  await frames(10); await page.keyboard.up('KeyD'); await frames(2);
+  assert.ok(await page.evaluate(() => window.__SACK_V2__.x >= 2.375 && window.__SACK_V2__.y < 0.2),
+    'Entering stairs sideways must not teleport Benji onto a high tread');
+  console.log('PASS: real stair ascent/descent, gallery guards, upstairs console, portrait camera and no side teleport');
   await set({ place: 'street', x: -88.6, z: 4.35, dollars: 240, yaw: 0 });
   await page.keyboard.press('KeyE'); await frames(3);
   assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.hauntState())).ticket, true);

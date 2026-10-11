@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { Solid } from "../../core/types";
+import { HAUNT_STAIRS } from "../../core/haunt-navigation";
 
 function block(parent: THREE.Object3D, material: THREE.Material, w: number, h: number, d: number, x: number, y: number, z: number) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
@@ -222,18 +223,56 @@ export function buildHauntFoyer(parent: THREE.Object3D, solids: Solid[], glow: T
   const candle = new THREE.MeshStandardMaterial({ color: 0xffdd9b, emissive: 0xffa43b, emissiveIntensity: 0.9 }); glow.push(candle);
   const plaster = new THREE.MeshStandardMaterial({ color: 0x654940, roughness: 0.94 });
   const pumpkin = new THREE.MeshStandardMaterial({ color: 0xd65a18, emissive: 0x4a1100, emissiveIntensity: 0.24, roughness: 0.82 });
-  // A modeled staircase and gallery on the left preserve the central walking route.
-  for (let i = 0; i < 12; i++) {
-    const top = 0.17 + i * 0.2;
-    block(room, wood, 1.55, top, 0.31, 1.6, top / 2 + 0.08, 1.8 + i * 0.31);
-    block(room, velvet, 0.85, 0.025, 0.3, 1.6, top + 0.09, 1.8 + i * 0.31);
-    block(room, iron, 0.045, 0.8, 0.045, 2.39, top + 0.5, 1.8 + i * 0.31);
+  // Every tread shares its dimensions with the walking controller.
+  const stairs = HAUNT_STAIRS;
+  const landingY = stairs.floorY + stairs.steps * stairs.rise;
+  for (let i = 0; i < stairs.steps; i++) {
+    const top = stairs.floorY + (i + 1) * stairs.rise;
+    const z = stairs.startZ + (i + 0.5) * stairs.run;
+    block(room, wood, 1.55, top - stairs.floorY, stairs.run, 1.6, (top + stairs.floorY) / 2, z);
+    block(room, velvet, 0.85, 0.018, stairs.run - 0.015, 1.6, top + 0.009, z);
+    for (const x of [0.8, 2.4]) {
+      block(room, iron, 0.045, 0.8, 0.045, x, top + 0.4, z);
+      solids.push({ minX: x - 0.025, maxX: x + 0.025, minZ: z - stairs.run / 2,
+        maxZ: z + stairs.run / 2, minY: top - 0.15, maxY: top + 0.85, cameraBlock: false });
+    }
   }
-  const rail = block(room, gold, 0.07, 0.07, 4.4, 2.39, 2.08, 3.45); rail.rotation.x = -0.57;
-  block(room, wood, 2.6, 0.16, 1.7, 1.65, 2.65, 6.2);
-  solids.push({ minX: 0.72, maxX: 2.55, minZ: 1.55, maxZ: 7.1 });
-  for (let i = 0; i < 10; i++) block(room, iron, 0.045, 0.85, 0.045, 0.4 + i * 0.27, 3.15, 5.35);
-  block(room, gold, 2.6, 0.07, 0.07, 1.65, 3.61, 5.35);
+  for (const x of [0.8, 2.4]) {
+    const rail = block(room, gold, 0.07, 0.07, 4.28, x, 2.18, 3.505);
+    rail.rotation.x = -Math.atan2(2.2, 3.41);
+  }
+  const l = stairs.landing;
+  const gallery = block(room, wood, l.maxX - l.minX, 0.16, l.maxZ - l.minZ,
+    (l.minX + l.maxX) / 2, landingY - 0.08, (l.minZ + l.maxZ) / 2);
+  gallery.name = "haunt-walkable-gallery";
+  const guard = (x1: number, z1: number, x2: number, z2: number) => {
+    const length = Math.hypot(x2 - x1, z2 - z1);
+    const count = Math.ceil(length / 0.24);
+    for (let i = 0; i <= count; i++) {
+      block(room, iron, 0.045, 0.94, 0.045, x1 + (x2 - x1) * i / count,
+        landingY + 0.47, z1 + (z2 - z1) * i / count);
+    }
+    const rail = block(room, gold, length, 0.07, 0.07, (x1 + x2) / 2,
+      landingY + 0.97, (z1 + z2) / 2);
+    rail.rotation.y = -Math.atan2(z2 - z1, x2 - x1);
+    solids.push({ minX: Math.min(x1, x2) - 0.025, maxX: Math.max(x1, x2) + 0.025,
+      minZ: Math.min(z1, z2) - 0.025, maxZ: Math.max(z1, z2) + 0.025,
+      minY: landingY - 0.1, maxY: landingY + 1.05, cameraBlock: false });
+  };
+  // A real opening at the stair head, with guarded edges everywhere else.
+  guard(l.minX, l.minZ, stairs.minX, l.minZ);
+  guard(stairs.maxX, l.minZ, l.maxX, l.minZ);
+  guard(l.maxX, l.minZ, l.maxX, l.maxZ);
+  guard(l.minX, l.maxZ, l.maxX, l.maxZ);
+  guard(l.minX, l.minZ, l.minX, l.maxZ);
+  // Upstairs console, wax candles and framed portrait, all physical meshes.
+  block(room, wood, 0.62, 0.68, 0.48, 4.02, landingY + 0.34, 6.55);
+  block(room, gold, 0.7, 0.08, 0.54, 4.02, landingY + 0.72, 6.55);
+  block(room, candle, 0.07, 0.28, 0.07, 4.1, landingY + 0.9, 6.55);
+  block(room, gold, 0.55, 0.8, 0.07, 3.88, landingY + 1.25, 6.74);
+  block(room, plaster, 0.42, 0.65, 0.04, 3.88, landingY + 1.25, 6.69);
+  solids.push({ minX: 3.65, maxX: 4.39, minZ: 6.25, maxZ: 6.83,
+    minY: landingY, maxY: landingY + 1.68 });
   const rug = new THREE.Mesh(new THREE.CircleGeometry(1.32, 48), velvet);
   rug.rotation.x = -Math.PI / 2; rug.position.set(4.4, 0.095, 4.5); room.add(rug);
   const rim = new THREE.Mesh(new THREE.TorusGeometry(1.16, 0.025, 6, 48), gold);

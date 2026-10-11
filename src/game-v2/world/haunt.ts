@@ -477,7 +477,14 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   solids.push({ minX: -0.2, maxX: 0.2, minZ: 0, maxZ: 16 });
   solids.push({ minX: 39.85, maxX: 40.15, minZ: 0, maxZ: 7.9 });
   solids.push({ minX: 47.8, maxX: 48.2, minZ: 8, maxZ: 16 });
-  box(48, 0.16, 16.2, 24, 4.42, 8, trim, group);
+  // The foyer is double-height; the gallery must not intersect the old low roof.
+  box(40, 0.16, 16.2, 28, 4.42, 8, trim, group);
+  box(8, 0.16, 8.2, 4, 4.42, 12, trim, group);
+  box(8, 0.16, 8, 4, 6.82, 4, trim, group);
+  box(8, 2.4, 0.2, 4, 5.55, 0, wall, group);
+  box(0.2, 2.4, 8, 0, 5.55, 4, wall, group);
+  box(0.16, 2.4, 8, 8, 5.55, 4, wall, group);
+  box(8, 2.4, 0.16, 4, 5.55, 8, wall, group);
 
   for (const x of [8, 16, 24, 32]) {
     box(0.16, h, 2.6, x, h / 2, 1.4, wall, group);
