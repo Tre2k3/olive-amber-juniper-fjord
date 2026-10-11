@@ -2,6 +2,45 @@ import * as THREE from "three";
 import type { Solid } from "../../core/types";
 import { hauntSurface } from "./haunt-architecture";
 
+// Small repeatable textile, drawn once; it never includes room or character art.
+function libraryTextile() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512; canvas.height = 384;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#54212a"; ctx.fillRect(0, 0, 512, 384);
+  ctx.strokeStyle = "#aa8354";
+  for (const inset of [12, 19, 42, 48]) {
+    ctx.lineWidth = inset === 42 ? 4 : 1.5;
+    ctx.strokeRect(inset, inset, 512 - inset * 2, 384 - inset * 2);
+  }
+  const leaf = (x: number, y: number, size: number) => {
+    ctx.beginPath(); ctx.moveTo(x, y - size);
+    ctx.quadraticCurveTo(x + size, y, x, y + size);
+    ctx.quadraticCurveTo(x - size, y, x, y - size); ctx.stroke();
+  };
+  ctx.lineWidth = 1.5;
+  for (let x = 32; x < 490; x += 22) { leaf(x, 31, 7); leaf(x, 353, 7); }
+  for (let y = 62; y < 330; y += 22) { leaf(31, y, 7); leaf(481, y, 7); }
+  for (let x = 76; x < 460; x += 40) for (let y = 72; y < 330; y += 40) {
+    leaf(x, y, 9); ctx.fillStyle = "#9a6849"; ctx.fillRect(x - 1, y - 1, 2, 2);
+  }
+  ctx.fillStyle = "#372729";
+  ctx.beginPath(); ctx.ellipse(256, 192, 87, 112, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  for (let i = 0; i < 12; i++) {
+    const a = i * Math.PI / 6;
+    leaf(256 + Math.cos(a) * 45, 192 + Math.sin(a) * 67, 16);
+  }
+  leaf(256, 192, 35);
+  // Deterministic faded fibers soften the design without per-frame work.
+  for (let i = 0; i < 2400; i++) {
+    ctx.fillStyle = i % 2 ? "#e3bc8020" : "#160f1428";
+    ctx.fillRect((i * 137) % 512, (i * 83) % 384, 1, 2);
+  }
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.MeshStandardMaterial({ map, roughness: 0.98, color: 0xb4a29b });
+}
+
 /** Furnishings inspired by the library reference, built from actual geometry. */
 export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], lights: THREE.PointLight[]) {
   const room = new THREE.Group();
@@ -23,6 +62,18 @@ export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], light
   };
   const block = (w: number, h: number, d: number, x: number, y: number, z: number, mat: THREE.Material = wood) =>
     add(new THREE.BoxGeometry(w, h, d), mat, x, y, z);
+  const panel = (w: number, h: number, d: number, radius: number, x: number, y: number, z: number, mat: THREE.Material) => {
+    const shape = new THREE.Shape();
+    const l = -w / 2, r = w / 2, b = -h / 2, t = h / 2;
+    shape.moveTo(l + radius, b); shape.lineTo(r - radius, b);
+    shape.quadraticCurveTo(r, b, r, b + radius); shape.lineTo(r, t - radius);
+    shape.quadraticCurveTo(r, t, r - radius, t); shape.lineTo(l + radius, t);
+    shape.quadraticCurveTo(l, t, l, t - radius); shape.lineTo(l, b + radius);
+    shape.quadraticCurveTo(l, b, l + radius, b);
+    const geometry = new THREE.ExtrudeGeometry(shape, { depth: d, bevelEnabled: false, curveSegments: 4, steps: 1 });
+    geometry.translate(0, 0, -d / 2);
+    return add(geometry, mat, x, y, z);
+  };
   const candle = (x: number, y: number, z: number, height: number) => {
     add(new THREE.CylinderGeometry(0.085, 0.13, 0.055, 10), brass, x, y + 0.025, z);
     add(new THREE.CylinderGeometry(0.035, 0.065, 0.13, 8), brass, x, y + 0.115, z);
@@ -59,15 +110,25 @@ export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], light
   const cx = 28.65, cz = 6;
   for (const x of [cx - 0.38, cx + 0.38]) for (const z of [cz - 0.33, cz + 0.33]) block(0.095, 0.42, 0.095, x, 0.28, z);
   block(0.98, 0.15, 0.9, cx, 0.55, cz);
-  block(0.82, 0.17, 0.76, cx, 0.69, cz, velvet);
-  block(0.92, 1.2, 0.12, cx, 1.18, cz + 0.34);
-  block(0.77, 0.99, 0.16, cx, 1.22, cz + 0.25, velvet);
+  const seat = panel(0.82, 0.76, 0.17, 0.12, cx, 0.69, cz, velvet);
+  seat.rotation.x = -Math.PI / 2;
+  panel(0.92, 1.2, 0.12, 0.2, cx, 1.18, cz + 0.34, wood);
+  panel(0.77, 0.99, 0.16, 0.18, cx, 1.22, cz + 0.25, velvet);
+  const crown = add(new THREE.TorusGeometry(0.21, 0.025, 6, 24), wood, cx, 1.75, cz + 0.34);
+  crown.scale.set(1.55, 0.65, 1);
+  add(new THREE.SphereGeometry(0.055, 8, 6), brass, cx, 1.89, cz + 0.34);
   for (const x of [cx - 0.48, cx + 0.48]) {
     block(0.12, 0.54, 0.12, x, 0.77, cz - 0.28);
     block(0.15, 0.13, 0.8, x, 1.05, cz);
   }
-  for (const x of [cx - 0.22, cx, cx + 0.22]) for (const y of [1.03, 1.38])
+  for (const x of [cx - 0.22, cx, cx + 0.22]) for (const y of [0.98, 1.23, 1.48])
     add(new THREE.SphereGeometry(0.025, 6, 4), brass, x, y, cz + 0.16);
+  // Upholstery nail trim follows the inset, rather than extending the collider.
+  const nails = new THREE.InstancedMesh(new THREE.SphereGeometry(0.012, 4, 3), brass, 20);
+  let nailIndex = 0;
+  for (const x of [cx - 0.33, cx + 0.33]) for (let i = 0; i < 10; i++)
+    nails.setMatrixAt(nailIndex++, new THREE.Matrix4().makeTranslation(x, 0.83 + i * 0.075, cz + 0.16));
+  nails.receiveShadow = true; room.add(nails);
   solids.push({ minX: cx - 0.56, maxX: cx + 0.56, minZ: cz - 0.5, maxZ: cz + 0.48 });
 
   // Shelf ladder and brass rail create depth against the existing bookcases.
@@ -86,6 +147,14 @@ export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], light
   for (const x of [fx - 0.69, fx + 0.69]) block(0.25, 1.5, 0.45, x, 0.97, fz, stone);
   block(1.76, 0.2, 0.62, fx, 1.76, fz, wood);
   block(1.43, 0.16, 0.35, fx, 1.52, fz, stone);
+  block(1.83, 0.055, 0.67, fx, 1.89, fz, wood);
+  for (const x of [fx - 0.69, fx + 0.69]) {
+    block(0.28, 0.08, 0.48, x, 0.27, fz, stone);
+    block(0.29, 0.08, 0.48, x, 1.6, fz, stone);
+    for (let i = 0; i < 3; i++) block(0.012, 1.1, 0.015, x - 0.065 + i * 0.065, 0.98, fz - 0.234, brass);
+  }
+  const mantelRosette = add(new THREE.TorusGeometry(0.065, 0.018, 6, 12), brass, fx, 1.77, fz - 0.317);
+  mantelRosette.scale.x = 1.7;
   for (const x of [fx - 0.33, fx + 0.23]) {
     const log = add(new THREE.CylinderGeometry(0.065, 0.065, 0.65, 8), iron, x, 0.36, fz - 0.04);
     log.rotation.z = Math.PI / 2;
@@ -105,7 +174,9 @@ export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], light
   lights.push(hearthLight);
   solids.push({ minX: fx - 0.88, maxX: fx + 0.88, minZ: fz - 0.58, maxZ: 7.9 });
   // Physical rug border stays flush with the existing floor.
-  block(3.6, 0.015, 2.8, 28.3, 0.095, 5.4, velvet);
+  const rug = add(new THREE.PlaneGeometry(3.6, 2.8), libraryTextile(), 28.3, 0.104, 5.4);
+  rug.rotation.x = -Math.PI / 2;
+  rug.castShadow = false;
   for (const z of [4.08, 6.72]) block(3.45, 0.008, 0.025, 28.3, 0.107, z, brass);
   for (const x of [26.62, 29.98]) block(0.025, 0.008, 2.6, x, 0.107, 5.4, brass);
 }
