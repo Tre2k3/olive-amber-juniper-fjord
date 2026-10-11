@@ -30,18 +30,18 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
       {state.log && <Log state={state} />}
       {state.dialogue && <Dialogue line={state.dialogue} />}
       {state.charge > 0 && (
-        <div data-testid="shot-charge" className="absolute bottom-44 left-1/2 h-2 w-40 -translate-x-1/2 overflow-hidden rounded bg-[#0d0d0d] sm:bottom-24">
+        <div data-testid="shot-charge" className={`absolute left-1/2 h-2 w-40 -translate-x-1/2 overflow-hidden rounded bg-[#0d0d0d] ${state.basketball ? "top-72 sm:top-44 sm:left-3 sm:translate-x-0" : "bottom-44 sm:bottom-24"}`}>
           <div className="h-full bg-[#e0b33a]" style={{ width: `${state.charge * 100}%` }} />
           <div className="absolute inset-y-0 border-x border-[#071018] bg-[#49e97599]" style={{ left: "63.5%", width: "13%" }} />
         </div>
       )}
       {state.prompt && (
-        <div data-testid="interaction-prompt" className="absolute left-3 right-3 top-[12.5rem] rounded-full border border-[#e0b33a] bg-[#0d0d0df2] px-4 py-2 text-center text-sm sm:bottom-8 sm:left-1/2 sm:right-auto sm:top-auto sm:-translate-x-1/2">
+        <div data-testid="interaction-prompt" className={`absolute left-3 right-3 top-[12.5rem] rounded-full border border-[#e0b33a] bg-[#0d0d0df2] px-4 py-2 text-center text-sm sm:right-auto ${state.basketball ? "sm:top-32 sm:left-3 sm:translate-x-0" : "sm:bottom-8 sm:top-auto sm:left-1/2 sm:-translate-x-1/2"}`}>
           {state.prompt}
         </div>
       )}
       {state.place === "court" && (
-        <div data-testid="court-score" className="absolute left-1/2 top-[15.5rem] -translate-x-1/2 whitespace-nowrap rounded bg-[#0d0d0dcc] px-2 py-1 text-xs tracking-widest text-[#e0b33a] sm:bottom-20 sm:top-auto">
+        <div data-testid="court-score" className={`absolute left-1/2 top-[15.5rem] -translate-x-1/2 whitespace-nowrap rounded bg-[#0d0d0dcc] px-2 py-1 text-xs tracking-widest text-[#e0b33a] ${state.basketball ? "sm:top-24 sm:left-3 sm:translate-x-0" : "sm:bottom-20 sm:top-auto"}`}>
           {state.basketball ? `GREEN ${state.basketball.score[0]} — ${state.basketball.score[1]} GOLD · ${state.basketball.clock}s` : `${state.made} MADE / ${state.taken} TAKEN`}
         </div>
       )}
@@ -198,4 +198,3 @@ function moveStick(e: PointerEvent<HTMLDivElement>) {
 function releaseStick() {
   (window as unknown as { __SACK_V2_INPUT__?: { setStick: (x: number, y: number) => void } }).__SACK_V2_INPUT__?.setStick(0, 0);
 }
-

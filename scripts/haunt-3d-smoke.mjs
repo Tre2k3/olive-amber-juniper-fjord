@@ -209,8 +209,19 @@ try {
     assert.ok(match.players.every(p => p.x >= 55.5 && p.x <= 76.5 && p.z >= -28.5 && p.z <= -15.5));
     await page.screenshot({ path: `artifacts/haunt/basketball-2v2-${mode}.png`, timeout: 60000 });
   }
+  const assertMatchHudClear = async () => {
+    const view = await page.evaluate(() => {
+      const player = window.__SACK_V2_INPUT__.renderState().playerScreen;
+      return { player, overlays: ['court-score', 'interaction-prompt', 'shot-charge'].flatMap(id => {
+        const node = document.querySelector(`[data-testid="${id}"]`);
+        return node ? [{ id, bottom: node.getBoundingClientRect().bottom }] : [];
+      }) };
+    });
+    assert.ok(view.overlays.every(o => o.bottom < view.player.headY), 'Match HUD must sit above the action body');
+  };
   await page.evaluate(() => window.__SACK_V2_INPUT__.setCharge(true)); await frames(12);
   assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState())).animation.action, 'shoot-back');
+  await assertMatchHudClear();
   await page.screenshot({ path: 'artifacts/haunt/basketball-animated-gather.png', timeout: 60000 });
   await page.evaluate(() => window.__SACK_V2_INPUT__.setCharge(false)); await frames(2);
   assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState())).animation.action, 'shoot-back');
@@ -233,6 +244,7 @@ try {
   await frames(6);
   crossView = await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState());
   assert.equal(crossView.animation.action, 'cross-back');
+  await assertMatchHudClear();
   await page.screenshot({ path: 'artifacts/haunt/basketball-crossover-receive.png', timeout: 60000 });
   await frames(8);
   crossView = await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState());
@@ -252,7 +264,8 @@ try {
   await page.setViewportSize({ width: 390, height: 844 }); await frames(20);
   await page.screenshot({ path: 'artifacts/haunt/basketball-2v2-mobile.png', timeout: 60000 });
   await page.getByRole('button', { name: 'PASS', exact: true }).click(); await frames(3);
-  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState())).feedback, 'PASS');
+  // Live defenders can intercept before this snapshot, replacing the feedback.
+  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState())).players[0].action, 'pass');
   await page.getByRole('button', { name: 'EXIT', exact: true }).click(); await frames(2);
   assert.equal(await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState()), null);
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -265,5 +278,3 @@ try {
   console.log('PASS: library chair collision and doorway route remain playable');
   console.log('PASS: exact flagship logo loaded and thirty-two actual house, HQ, court and activity screenshots captured');
 } finally { await browser.close(); }
-
-
