@@ -253,7 +253,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (code === "Escape") {
       endCourtMatch(); return true;
     }
-    const action = code === "KeyF" ? "pass" : code === "KeyC" ? "cross" : code === "KeyV" ? "dunk" : code === "KeyE" ? "steal" : null;
+    const action = code === "KeyF" ? "pass" : code === "KeyC" ? "cross" : code === "KeyV" ? "dunk" : code === "KeyL" ? "layup" : code === "KeyE" ? "steal" : null;
     if (action) { courtAction(courtMatch, action, world.hoops); return true; }
     return false;
   }
@@ -1267,8 +1267,18 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const rear = attackX * viewX + attackZ * viewZ < -0.55 * Math.hypot(attackX, attackZ) * Math.hypot(viewX, viewZ);
     const animated = courtAnimation.update(courtMatch, rim.x >= player.position.x ? 1 : -1, yawTo(avatar, camera.position), rear);
     avatar.visible = !animated;
-    if (animated && courtMatch?.owner === 0 && (courtMatch.charge > 0 || (courtMatch.dunk >= 0 && !courtMatch.scored))) {
-      courtAnimation.handWorld(actionHand); ball.position.copy(actionHand);
+    if (animated && courtMatch?.owner === 0 && (courtMatch.charge > 0 || ((courtMatch.dunk >= 0 || courtMatch.layup >= 0) && !courtMatch.scored))) {
+      if (courtMatch.dunk === 0 || courtMatch.layup === 0) {
+        if (courtMatch.dunk === 0 && courtAnimation.state().frame === 2) {
+          const target = new THREE.Vector3(rim.x, rim.y + .13, rim.z);
+          courtAnimation.alignGrip(target, actionHand);
+        }
+        courtAnimation.gripWorld(actionHand);
+      } else courtAnimation.handWorld(actionHand);
+      ball.position.copy(actionHand);
+      // The physical release begins at the rendered hand, preventing a jump
+      // back to a different generic release origin.
+      courtMatch.ball = { x: actionHand.x, y: actionHand.y, z: actionHand.z };
     }
     avatar.scale.set(presentScale(player), presentScale(player), 1);
     for (const board of world.billboards) {
@@ -1302,7 +1312,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (courtMatch) {
       const rim = matchRim(courtMatch, world.hoops);
       const athlete = courtMatch.players[0]!;
-      const actionView = courtMatch.charge > 0 || courtMatch.dunk === 0
+      const actionView = courtMatch.charge > 0 || courtMatch.dunk === 0 || courtMatch.layup === 0
         || (courtMatch.shooter === 0 && athlete.action === "shoot" && courtMatch.actionLeft > 0)
         || (courtMatch.owner === 0 && (athlete.action === "crossover" || athlete.dribbleHand === -1));
       if (actionView) {
@@ -1336,7 +1346,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       const follow = 1 - Math.exp(-5 * dt);
       camera.position.lerp(destination, follow); camera.fov += (fov - camera.fov) * follow;
       camera.updateProjectionMatrix(); camera.lookAt(focusX, 1, focusZ);
-      if (courtMatch.charge > 0 || courtMatch.dunk >= 0) facing = faceAlong(rim.x - player.position.x, rim.z - player.position.z);
+      if (courtMatch.charge > 0 || courtMatch.dunk >= 0 || courtMatch.layup >= 0) facing = faceAlong(rim.x - player.position.x, rim.z - player.position.z);
       avatar.visible = !courtAnimation.mesh.visible; shotCameraActive = false; return;
     }
     shotCameraActive = place === "court" && (charge > 0 || shotCameraLeft > 0);
@@ -1957,4 +1967,5 @@ function dampAngle(current: number, target: number, amount: number) {
   while (delta < -Math.PI) delta += Math.PI * 2;
   return current + delta * amount;
 }
+
 

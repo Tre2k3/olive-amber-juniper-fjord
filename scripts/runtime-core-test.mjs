@@ -150,3 +150,23 @@ for (const mode of ['half', 'full']) {
 }
 console.log('PASS: complete half/full AI games terminate at 21 with a two-point lead');
 
+
+
+const layup = createCourtMatch('half');
+assert.equal(courtAction(layup, 'layup', rims), false, 'Layup requires close range');
+layup.players[0].x = 59; layup.players[0].z = -22;
+layup.players[2].x = 65; layup.players[3].x = 66;
+assert.equal(courtAction(layup, 'layup', rims), true);
+for (let i = 0; i < 30; i++) tickCourtMatch(layup, 1/60, rims, layup.players[0], false);
+assert.equal(layup.owner, 0, 'Ball remains held during takeoff');
+assert.equal(layup.score[0], 0, 'Layup must not award points before a rim crossing');
+for (let i = 0; i < 12; i++) tickCourtMatch(layup, 1/60, rims, layup.players[0], false);
+assert.equal(layup.owner, -1, 'Palm releases into a live flight');
+let layupNet = false;
+for (let i = 0; i < 90; i++) {
+  tickCourtMatch(layup, 1/60, rims, layup.players[0], false); layupNet ||= layup.net === 0;
+}
+assert.equal(layup.score[0], 2); assert.ok(layupNet);
+const uncleared = createCourtMatch('half'); uncleared.players[0].x = 59; uncleared.players[0].z = -22; uncleared.cleared = false;
+assert.equal(courtAction(uncleared, 'layup', rims), false, 'Half-court clearance applies to layups');
+console.log('PASS: close-range layup holds then releases, swept rim scoring, net reaction and arc clearance');
