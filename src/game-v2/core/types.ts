@@ -24,6 +24,8 @@ export type HudState = {
   golden: boolean;
   made: number;
   taken: number;
+  activity?: "race" | "bowl" | "fish";
+  veli?: { open: boolean; serving: number; order: string; price: number };
   basketball?: { mode: "half" | "full"; score: number[]; clock: number; feedback: string; phase: string };
   dialogue: string;
   carrying: boolean;

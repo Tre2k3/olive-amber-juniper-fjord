@@ -972,6 +972,13 @@ export function buildSlice(): SliceWorld {
       { x: beat.b, z: beat.zb },
     ], beat.speed);
   }
+  // New routes stay on existing walks; crossings retain the traffic-yield check.
+  for (const [who,x,z,a,b,za,zb] of [
+    [3,-23,6.35,-46,-18,6.35,6.35], [5,-5,-6.35,-10,20,-6.35,-6.35],
+    [6,22,6.35,16,42,6.35,6.35], [7,-20.6,-49,-20.6,-20.6,-42,-59],
+    [4,-28,-62.8,-36,-22,-62.8,-62.8], [1,-2,-62.8,-6,6,-62.8,-62.8],
+    [2,84,-10.2,79,100,-10.2,-10.2], [7,80,21,79,82,21,21],
+  ]) pace(cast[who!]!,x!,z!,[{x:a!,z:za!},{x:b!,z:zb!}],.65+(who!%4)*.1);
   const cornerA = spawnCourtActor(characters.pedestrian.female04, 40.4, -48.2, exterior);
   const cornerB = spawnCourtActor(characters.pedestrian.male03, 41.3, -48.55, exterior);
   cornerA.userData.idle = true;

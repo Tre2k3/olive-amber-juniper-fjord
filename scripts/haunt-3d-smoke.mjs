@@ -136,6 +136,63 @@ try {
   await set({ place: 'haunt', x: 4, z: 501.2, yaw: Math.PI });
   await page.keyboard.press('KeyE'); await frames(3);
   assert.equal(await page.evaluate(() => window.__SACK_V2__.place), 'street', 'House exit returns to the neighborhood');
+  // Original supplied menu, paid orders and actual rendered serving frames.
+  await set({place:'street',x:62,z:22.4,yaw:0,dist:5.8,height:2.5,lookY:1.8,dollars:240,dialogue:''});
+  await page.waitForFunction(()=>window.__SACK_V2_INPUT__.veliState().loaded,null,{timeout:90000});
+  await frames(12);
+  await page.screenshot({path:'artifacts/haunt/veli-truck.png',timeout:60000});
+  await page.keyboard.press('KeyE');
+  await page.getByTestId('veli-menu').waitFor({timeout:60000});
+  assert.equal(await page.getByTestId('veli-order-0').textContent().then(x=>x.trim()),'10pc party wing combo · $15');
+  await page.screenshot({path:'artifacts/haunt/veli-menu.png',timeout:60000});
+  await page.getByTestId('veli-order-0').click();
+  await page.waitForFunction(()=>window.__SACK_V2_INPUT__.veliState().frame===2,null,{polling:'raf',timeout:90000});
+  await page.evaluate(()=>window.__SACK_V2_INPUT__.freezeCapture(true));
+  assert.equal(await page.evaluate(()=>window.__SACK_V2__.dollars),225);
+  assert.equal((await page.evaluate(()=>window.__SACK_V2_INPUT__.veliState())).price,15);
+  await page.screenshot({path:'artifacts/haunt/veli-serving.png',timeout:60000});
+  await page.evaluate(()=>window.__SACK_V2_INPUT__.freezeCapture(false));
+  await page.waitForFunction(()=>window.__SACK_V2_INPUT__.veliState().box,null,{polling:'raf',timeout:90000});
+  await page.evaluate(()=>window.__SACK_V2_INPUT__.freezeCapture(true));
+  await page.screenshot({path:'artifacts/haunt/veli-handoff.png',timeout:60000});
+  await page.evaluate(()=>window.__SACK_V2_INPUT__.freezeCapture(false));
+  await page.waitForFunction(()=>window.__SACK_V2_INPUT__.veliState().serving===0,null,{polling:'raf',timeout:90000});
+  await page.setViewportSize({width:390,height:844});
+  await set({place:'street',x:62,z:22.4,yaw:0,dist:5.8,height:2.5,lookY:1.8,dollars:240,dialogue:''});
+  await page.getByRole('button',{name:'E',exact:true}).click();
+  await page.getByTestId('veli-menu').waitFor({timeout:60000});
+  await page.screenshot({path:'artifacts/haunt/veli-menu-mobile.png',timeout:60000});
+  await page.getByRole('button',{name:'Close',exact:true}).click();
+  assert.equal(await page.getByTestId('veli-menu').count(),0);
+  await page.setViewportSize({width:1280,height:800});
+  // Race requires throttle and steering; no walking finish trigger.
+  await set({place:'street',x:-40,z:-36,yaw:Math.PI,dialogue:''});
+  await page.keyboard.press('KeyE');await frames(12);
+  assert.equal((await page.evaluate(()=>window.__SACK_V2_INPUT__.raceState())).phase,'countdown');
+  await page.waitForFunction(()=>window.__SACK_V2_INPUT__.raceState()?.phase==='running',null,{polling:'raf',timeout:90000});
+  await page.evaluate(()=>window.__SACK_V2_INPUT__.raceOverview(true));await frames(2);
+  await page.screenshot({path:'artifacts/haunt/race-circuit.png',timeout:60000});
+  await page.evaluate(()=>window.__SACK_V2_INPUT__.raceOverview(false));
+  await page.keyboard.down('KeyW');await frames(35);
+  let race=await page.evaluate(()=>window.__SACK_V2_INPUT__.raceState());
+  assert.ok(race.speed>4&&race.x>-31.5);
+  await page.screenshot({path:'artifacts/haunt/race-driving.png',timeout:60000});
+  const yawBefore=race.yaw;
+  await page.keyboard.down('KeyA');await page.keyboard.down('Space');await frames(12);
+  await page.keyboard.up('KeyA');await page.keyboard.up('Space');
+  race=await page.evaluate(()=>window.__SACK_V2_INPUT__.raceState());assert.ok(race.yaw>yawBefore,'A turns racing nose left');
+  await page.keyboard.up('KeyW');await page.keyboard.down('KeyS');await frames(12);await page.keyboard.up('KeyS');
+  assert.ok((await page.evaluate(()=>window.__SACK_V2_INPUT__.raceState())).speed<race.speed);
+  await page.keyboard.press('KeyE');await frames(3);
+  assert.equal(await page.evaluate(()=>window.__SACK_V2_INPUT__.raceState()),null);
+  // Moving translucent apparitions are geometry inside the real house.
+  await set({place:'haunt',x:20,z:504,yaw:Math.PI/2,dist:3.2,height:1.8,lookY:1.7,dialogue:''});await frames(12);
+  const ghostBefore=await page.evaluate(()=>window.__SACK_V2_INPUT__.atmosphereState());
+  assert.equal(ghostBefore.ghosts.length,2);assert.equal(ghostBefore.cars,18);assert.ok(ghostBefore.crowds>=26);
+  await page.screenshot({path:'artifacts/haunt/haunt-apparition.png',timeout:60000});await frames(10);
+  const ghostAfter=await page.evaluate(()=>window.__SACK_V2_INPUT__.atmosphereState());
+  assert.notDeepEqual(ghostAfter.ghosts,ghostBefore.ghosts);
+  console.log('PASS: Veli paid menu, serving, handoff/mobile; race throttle/steer/brake/exit; moving haunt geometry and busier city');
   // Real interaction enters bowling: Benji remains visible and the ball starts
   // at hand height, then lowers into a rolling release with activity framing.
   const door = await page.evaluate(() => window.__SACK_V2_INPUT__.activityState().bowlDoor);

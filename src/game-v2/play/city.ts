@@ -1,3 +1,4 @@
+import { createRace, type Race } from "./racing";
 export type Fit = "default" | "court" | "river" | "night";
 
 export type Spot = "wardrobe" | "bowl" | "pier" | "bait" | "meet" | "truck" | "mama" | "unc" | "nitro" | "strike";
@@ -13,8 +14,9 @@ export type City = {
   bestRace: number;
   boost: number;
   fish: { phase: "wait" | "bite"; left: number; baited: boolean } | null;
-  bowl: { phase: "aim" | "roll" | "show"; power: number; aim: number; left: number; pins: number } | null;
-  race: { left: number; limit: number } | null;
+  bowl: { phase: "aim" | "roll" | "show" | "finished"; power: number; aim: number; left: number; pins: number;
+    frame: number; standing: number; throws: number[][]; rack: number; score: number } | null;
+  race: Race | null;
   menu: number;
 };
 
@@ -61,10 +63,15 @@ export function freshCity(): City {
 export function activityPrompt(city: City): string {
   if (city.fish?.phase === "wait") return "Line is out. Wait for BITE. Move to stop.";
   if (city.fish?.phase === "bite") return "BITE — E to catch! Move to stop.";
-  if (city.bowl?.phase === "aim") return "Hold Space. A/D aim the pocket. Release to roll.";
+  if (city.bowl?.phase === "aim") return `901 BOWL · Frame ${city.bowl.frame + 1}/10 · ${city.bowl.score} pts · ${city.bowl.standing} standing. Hold Space, A/D aim; release. E exits.`;
   if (city.bowl?.phase === "roll") return "";
-  if (city.bowl?.phase === "show") return "";
-  if (city.race) return `Sprint east to the finish. ${city.race.left.toFixed(1)}s`;
+  if (city.bowl?.phase === "show") return `${city.bowl.pins === 10 ? "STRIKE!" : city.bowl.standing === 0 ? "SPARE!" : city.bowl.pins + " pins"} · ${city.bowl.score} pts`;
+  if (city.bowl?.phase === "finished") return `901 BOWL · Final ${city.bowl.score} · E to leave`;
+  if (city.race) { const r = city.race;
+    if (r.phase === "countdown") return `NITRO CIRCUIT · ${Math.ceil(r.countdown)} · W gas, S brake, A/D steer, Space drift. E exits.`;
+    if (r.phase === "finished") return `${r.won ? "YOU WIN" : "NITRO WINS"} · ${r.time.toFixed(1)}s · E to return`;
+    return `Lap ${Math.min(3, Math.floor(r.progress / (128 + Math.PI*36)) + 1)}/3 · ${Math.round(r.speed*3.6)} km/h · ${r.progress >= r.opponent ? "1st" : "2nd"} · ${r.time.toFixed(1)}s · Space drift · E exit`;
+  }
   return "";
 }
 
@@ -104,7 +111,7 @@ export function tickCity(city: City, dt: number, hold: boolean, steer: number): 
     city.bowl.aim = Math.max(-1, Math.min(1, city.bowl.aim + steer * dt * 1.6));
     if (hold) city.bowl.power = Math.min(1, city.bowl.power + dt / 0.85);
     else if (city.bowl.power > 0.04) {
-      city.bowl.pins = scorePins(city.bowl.power, city.bowl.aim);
+      city.bowl.pins = Math.min(city.bowl.standing, scorePins(city.bowl.power, city.bowl.aim));
       city.bowl.phase = "roll";
       city.bowl.left = 1.65;
     }
@@ -112,6 +119,10 @@ export function tickCity(city: City, dt: number, hold: boolean, steer: number): 
     city.bowl.left -= dt;
     if (city.bowl.left <= 0) {
       const pins = city.bowl.pins;
+      const bowl = city.bowl;
+      bowl.standing -= pins;
+      bowl.throws[bowl.frame]!.push(pins);
+      bowl.score = bowlingScore(bowl.throws);
       city.bowl.phase = "show";
       city.bowl.left = 1.15;
       city.bowled = true;
@@ -128,31 +139,32 @@ export function tickCity(city: City, dt: number, hold: boolean, steer: number): 
     }
   } else if (city.bowl?.phase === "show") {
     city.bowl.left -= dt;
-    if (city.bowl.left <= 0) city.bowl = null;
-  }
-  if (city.race) {
-    city.race.left -= dt;
-    if (city.race.left <= 0) {
-      city.race = null;
-      return { dialogue: "Nitro — Time. I still got the strip. Run it back." };
+    if (city.bowl.left <= 0) {
+      const bowl = city.bowl, throws = bowl.throws[bowl.frame]!;
+      if (bowl.frame < 9) {
+        if (bowl.standing === 0 || throws.length >= 2) {
+          bowl.frame++; bowl.throws.push([]); bowl.standing = 10; bowl.rack++;
+        }
+      } else {
+        const bonus = throws[0] === 10 || (throws[0] ?? 0) + (throws[1] ?? 0) === 10;
+        if (throws.length >= (bonus ? 3 : 2)) { bowl.phase = "finished"; return null; }
+        if (bowl.standing === 0) { bowl.standing = 10; bowl.rack++; }
+      }
+      bowl.phase = "aim"; bowl.power = 0; bowl.aim = 0;
     }
   }
   return null;
 }
 
 export function crossFinish(city: City): PlayEvent | null {
-  if (!city.race) return null;
-  const time = city.race.limit - city.race.left;
-  city.race = null;
+  const race = city.race;
+  if (!race || race.phase !== "finished" || race.paid) return null;
+  race.paid = true;
+  if (!race.won) return { dialogue: "Nitro — Good race. E to return and try again." };
   city.raced = true;
-  city.bestRace = city.bestRace === 0 ? time : Math.min(city.bestRace, time);
-  const pay = city.fit === "night" ? 140 : 110;
-  return {
-    dollars: pay,
-    respect: 8,
-    dialogue: `Nitro — ${time.toFixed(1)}s. The strip is yours. $${pay}.`,
-    mission: cityMission(city, true) ?? undefined,
-  };
+  city.bestRace = city.bestRace === 0 ? race.time : Math.min(city.bestRace, race.time);
+  return { dollars: 110, respect: 8, dialogue: `Nitro — ${race.time.toFixed(1)}s. You took the circuit. $110. E to return.`,
+    mission: cityMission(city,true) ?? undefined };
 }
 
 export function triggerSpot(city: City, spot: Spot, dollars: number): PlayEvent & { used: boolean } {
@@ -190,7 +202,7 @@ export function hookFish(city: City): PlayEvent {
 }
 
 export function locked(city: City) {
-  return Boolean(city.fish || city.bowl);
+  return Boolean(city.fish || city.bowl || city.race);
 }
 
 function continueFishing(city: City) {
@@ -209,7 +221,7 @@ function cast(city: City): PlayEvent & { used: boolean } {
 
 function approach(city: City): PlayEvent & { used: boolean } {
   if (city.bowl) return { used: true, dialogue: "" };
-  city.bowl = { phase: "aim", power: 0, aim: 0, left: 0, pins: 0 };
+  city.bowl = { phase: "aim", power: 0, aim: 0, left: 0, pins: 0, frame: 0, standing: 10, throws: [[]], rack: 0, score: 0 };
   return { used: true, teleport: { x: 92, z: -17.6 }, dialogue: "" };
 }
 
@@ -220,10 +232,9 @@ function buyBait(city: City, dollars: number): PlayEvent & { used: boolean } {
 }
 
 function stageRace(city: City): PlayEvent & { used: boolean } {
-  if (city.race) return { used: true, dialogue: "Nitro — You already rolled out. Finish is east." };
-  const limit = city.fit === "night" ? 19 : 16;
-  city.race = { left: limit, limit };
-  return { used: true, teleport: { x: -54, z: -37.2 }, dialogue: "Nitro — Green light. East end of the strip. Don't lift." };
+  if (city.race) return { used: true };
+  city.race = createRace();
+  return { used: true, teleport: { x: city.race.x, z: city.race.z }, dialogue: "Nitro — Three laps. Coupe keys are yours. W gas, S brake, A/D steer, Space drift." };
 }
 
 function order(city: City, dollars: number): PlayEvent & { used: boolean } {
@@ -255,9 +266,28 @@ function talk(spot: Spot) {
 }
 
 function scorePins(power: number, aim: number) {
-  if (Math.abs(aim) > 0.82) return power > 0.35 ? 1 : 0;
+  if (Math.abs(aim) > 0.82) return 0;
   const pocket = Math.abs(power - 0.68);
   const powerScore = Math.max(0, 1 - pocket / 0.5);
   const aimScore = Math.max(0, 1 - Math.abs(aim) / 0.85);
   return Math.round(10 * powerScore * aimScore);
+}
+
+/** Ten-pin scoring resolves strike/spare bonuses only when the later rolls exist. */
+export function bowlingScore(frames: number[][]) {
+  const rolls = frames.flat(); let i = 0, score = 0;
+  for(let f=0;f<Math.min(10,frames.length);f++) {
+    const first=rolls[i]; if(first==null) break;
+    if(f===9) { score += frames[f]!.reduce((a,b)=>a+b,0); break; }
+    if(first===10) {
+      if(rolls[i+1]==null || rolls[i+2]==null) break;
+      score += 10 + rolls[i+1]! + rolls[i+2]!; i++;
+    } else {
+      const second=rolls[i+1]; if(second==null) break;
+      if(first+second===10) { if(rolls[i+2]==null) break; score+=10+rolls[i+2]!; }
+      else score+=first+second;
+      i+=2;
+    }
+  }
+  return score;
 }

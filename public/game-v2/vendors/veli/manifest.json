@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "identity": "Yungveli",
+  "business": "Veli’s Wings",
+  "sourcePhoto": {
+    "path": "imports/veli/yungveli-reference.png",
+    "sha256": "120d4057377921ae97a6240fbaaaae5f05f56e74700b3ccc1e33ccc72da216d2"
+  },
+  "menu": {
+    "path": "public/game-v2/vendors/veli/menu-original.png",
+    "sha256": "e3cd0592b33b863ad8dc52c1f332bf2b34690ab6cbd18191341443419ed7178f",
+    "logo": "UV crop of original menu top; no logo redraw"
+  },
+  "art": {
+    "method": "Built-in image generation referenced user photo and approved Benji style; serving poses edit chained from idle",
+    "frames": [
+      "idle.png",
+      "serve-1.png",
+      "serve-2.png",
+      "serve-3.png",
+      "serve-4.png"
+    ],
+    "cell": [
+      512,
+      512
+    ],
+    "visibleBodyHeight": [
+      451,
+      458
+    ],
+    "soleAnchor": 487,
+    "sequence": "idle → hold → extend → handoff → retract → idle",
+    "limits": "Four front-facing held poses, not a walk cycle or directional turnaround. The serving box becomes a 3D parcel only after release."
+  },
+  "canonical": "No approved Claude sprites, vehicle sprites, ZIP or flagship master changed"
+}

@@ -4,6 +4,7 @@ import { addGround } from "./ground";
 import { buildGoal } from "./kits/hoop";
 import { buildHauntExterior, buildHauntFoyer, hauntSurface } from "./kits/haunt-architecture";
 import { buildHauntLibrary, buildLibraryBookcases } from "./kits/haunt-library";
+import { buildHauntAtmosphere } from "./activities";
 import { flagshipLogo } from "./kits/brand";
 
 export type HauntWorld = {
@@ -428,6 +429,7 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
     }));
     mist.position.set(hx - 15 + (i * 37 % 30), 0.32 + (i % 3) * 0.09, 2.2 + (i * 19 % 8));
     mist.scale.set(4.8 + (i % 4), 1.15 + (i % 2) * 0.35, 1);
+    mist.name = "haunt-ground-mist"; mist.userData.homeX = mist.position.x; mist.userData.phase = i;
     exterior.add(mist);
   }
 
@@ -464,6 +466,7 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   addGround({ minX: 0, maxX: 48, minZ: OZ, maxZ: OZ + 16, y: 0.06 });
 
   dressRooms(group, glow, solids, lights);
+  buildHauntAtmosphere(group);
   buildHauntFoyer(group, solids, glow, lights);
 
   const h = 4.35;

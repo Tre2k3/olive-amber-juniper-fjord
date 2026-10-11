@@ -11,6 +11,11 @@ async function load(path) {
     const compiled = ts.transpileModule(dependency, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
     code = code.replace('"./basketball"', '"data:text/javascript;base64,' + Buffer.from(compiled).toString('base64') + '"');
   }
+  if (path.endsWith('city.ts')) {
+    const dependency = await readFile(new URL('../src/game-v2/play/racing.ts', import.meta.url), 'utf8');
+    const compiled = ts.transpileModule(dependency, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
+    code = code.replace('"./racing"', '"data:text/javascript;base64,' + Buffer.from(compiled).toString('base64') + '"');
+  }
   return import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
 }
 const { vehicleFace } = await load('../src/game-v2/core/vehicle-facing.ts');
@@ -209,3 +214,40 @@ assert.equal(fishingCity.bait, 1, 'Next bite consumes exactly one bait');
 fishing.tickCity(fishingCity, 4.1, false, 0);
 assert.equal(fishingCity.fish.left, 3.5);
 console.log('PASS: forgiving continuous fishing, repeat-tap safety and bait consumption');
+
+const { bowlingScore } = await load('../src/game-v2/play/city.ts');
+assert.equal(bowlingScore(Array.from({length:10},(_,i)=>i===9?[10,10,10]:[10])),300);
+assert.equal(bowlingScore(Array.from({length:10},(_,i)=>i===9?[5,5,5]:[5,5])),150);
+assert.equal(bowlingScore(Array.from({length:10},()=>[0,0])),0);
+assert.equal(bowlingScore([[10],[3,4]]),24);
+const {createRace,tickRace,sampleRace,nearestRace,RACE_LENGTH,RACE_LAPS,validateRaceTrack}=await load('../src/game-v2/play/racing.ts');
+assert.equal(validateRaceTrack(),true);
+for(let s=0;s<RACE_LENGTH;s+=1) { const p=sampleRace(s), n=nearestRace(p.x,p.z); assert.ok(Math.abs(n.s-s)<1e-7 || s===0&&Math.abs(n.s-RACE_LENGTH)<1e-7); }
+const drive=createRace();tickRace(drive,3,1,0,false);assert.equal(drive.phase,'running');
+for(let frame=0;frame<16000&&drive.phase!=='finished';frame++) {
+  const p=nearestRace(drive.x,drive.z),target=sampleRace(p.s+5);
+  const yaw=Math.atan2(-(target.x-drive.x),-(target.z-drive.z));
+  const diff=Math.atan2(Math.sin(yaw-drive.yaw),Math.cos(yaw-drive.yaw));
+  tickRace(drive,1/120,1,Math.max(-1,Math.min(1,diff*4)),false);
+}
+assert.equal(drive.phase,'finished');assert.equal(drive.won,true);assert.ok(drive.nextGate>RACE_LAPS*4);
+assert.ok(drive.progress>=RACE_LAPS*RACE_LENGTH);
+const steerRace=createRace();tickRace(steerRace,3,1,0,false);tickRace(steerRace,1,1,0,false);
+const yawBefore=steerRace.yaw;tickRace(steerRace,.2,1,1,false);assert.ok(steerRace.yaw>yawBefore,'A steering turns the nose left');
+const braking=steerRace.speed;tickRace(steerRace,.2,-1,0,false);assert.ok(steerRace.speed<braking);
+const {freshVeli,veliOrder,VELI_MENU,VELI_FLAVORS}=await load('../src/game-v2/play/veli.ts');
+assert.equal(VELI_MENU.length,10);assert.equal(VELI_FLAVORS.length,7);
+const v=freshVeli();v.open=true;assert.equal(veliOrder(v,14,0,0).dollars,undefined);assert.equal(v.serving,0);assert.equal(v.open,true);
+assert.equal(veliOrder(v,30,0,0,true,2).dollars,-19);assert.equal(v.serving,4);assert.equal(veliOrder(v,30,0,0),null);
+assert.equal(veliOrder({...freshVeli(),open:true},100,NaN,0),null);
+console.log('PASS: ten-frame bowling scores, ordered three-lap car race and original Veli menu purchases');
+
+const {freshCity,triggerSpot,tickCity,crossFinish}=await load('../src/game-v2/play/city.ts');
+const fullBowl=freshCity();triggerSpot(fullBowl,'bowl',240);
+for(let i=0;i<12;i++) {
+  assert.equal(fullBowl.bowl.phase,'aim');tickCity(fullBowl,.68*.85,true,0);tickCity(fullBowl,.01,false,0);
+  tickCity(fullBowl,1.7,false,0);tickCity(fullBowl,1.2,false,0);
+}
+assert.equal(fullBowl.bowl.phase,'finished');assert.equal(fullBowl.bowl.score,300);assert.equal(fullBowl.bowl.throws[9].length,3);
+const finishedCity=freshCity();finishedCity.race=drive;assert.equal(crossFinish(finishedCity).dollars,110);assert.equal(crossFinish(finishedCity),null);
+console.log('PASS: full bowling game including tenth bonuses, race reward only once');

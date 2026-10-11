@@ -1,11 +1,13 @@
-import type { PointerEvent } from "react";
+import { useState, type PointerEvent } from "react";
 import type { HudState } from "../core/types";
 import { characters } from "../assets/characters";
 import "./hud.css";
+import { VELI_MENU, VELI_FLAVORS } from "../play/veli";
 
 export function Hud({ state, night, action }: { state: HudState; night: () => void; action: (code: string) => void }) {
   return (
     <div className="memphis-hud pointer-events-none absolute inset-0 text-[#f4efe4]" style={{ fontFamily: "DM Sans, sans-serif" }}>
+      {state.veli?.open && <VeliMenu action={action} />}
       <div className="hud-wallet absolute left-3 top-3 flex max-w-[11.5rem] flex-wrap gap-2 sm:max-w-none">
         <Chip label="SACK" value={`$${state.dollars}`} />
         <Chip label="RESPECT" value={String(state.respect)} />
@@ -25,7 +27,7 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
         <Mark on={state.marks.fish} label="FISH" />
         <Mark on={state.marks.bowl} label="BOWL" />
         <Mark on={state.marks.food} label="EAT" />
-        <Mark on={state.marks.race} label="RUN" />
+        <Mark on={state.marks.race} label="RACE" />
       </div>
       {state.log && <Log state={state} />}
       {state.dialogue && <Dialogue line={state.dialogue} />}
@@ -58,7 +60,7 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
       <div className="pointer-events-auto absolute bottom-4 right-4 flex flex-col gap-2 sm:hidden">
         <Round label="N" onPointerDown={night} />
         <Round label="E" onPointerDown={() => action("KeyE")} />
-        <Round label="SHOT" onPointerDown={() => action("SpaceDown")} onPointerUp={() => action("SpaceUp")} />
+        <Round label={state.activity === "race" ? "DRIFT" : state.activity === "bowl" ? "ROLL" : "SHOT"} onPointerDown={() => action("SpaceDown")} onPointerUp={() => action("SpaceUp")} />
       </div>
       <div className="absolute bottom-3 right-4 hidden text-[11px] tracking-wide text-[#f4efe4aa] sm:block">
         {state.basketball ? "WASD move · Space timing shot · F pass · C cross · V dunk · L layup · E steal · Esc exit" : "Arrows / WASD move · Q/R orbit · drag or swipe camera · E interact · Space shoot · Shift run"}
@@ -96,7 +98,7 @@ function Log({ state }: { state: HudState }) {
 
 function Dialogue({ line }: { line: string }) {
   const [name, text] = line.includes(" — ") ? line.split(" — ") : ["", line];
-  const portrait = name.startsWith("Court")
+  const portrait = name.startsWith("Yungveli") ? "/game-v2/vendors/veli/idle.png" : name.startsWith("Court")
     ? characters.courtOg.views.front.src
     : name.startsWith("K")
       ? characters.kBlanco.portrait
@@ -199,3 +201,28 @@ function releaseStick() {
   (window as unknown as { __SACK_V2_INPUT__?: { setStick: (x: number, y: number) => void } }).__SACK_V2_INPUT__?.setStick(0, 0);
 }
 
+
+function VeliMenu({ action }: { action: (code: string) => void }) {
+  const [flavor, setFlavor] = useState(0);
+  const [okra, setOkra] = useState(false);
+  const [parts,setParts] = useState(0);
+  return <div data-testid="veli-menu" role="dialog" aria-modal="true" aria-label="Veli's Wings menu"
+    className="pointer-events-auto absolute inset-3 z-50 overflow-y-auto rounded-lg border-2 border-[#c89a40] bg-[#17140efc] p-4 sm:inset-x-[20%]">
+    <button type="button" className="float-right min-h-11 border border-[#c89a40] px-4" onClick={() => action("VeliClose")}>Close</button>
+    <h2 className="text-2xl text-[#e0b33a]">Veli’s Wings</h2><p>Yungveli · fresh wings at the window</p>
+    <img src="/game-v2/vendors/veli/menu-original.png" alt="Original Veli's Wings logo and menu" className="mx-auto my-3 w-40 sm:w-56" />
+    <label className="block">Wing flavor <select aria-label="Wing flavor" className="ml-2 min-h-11 rounded bg-[#352e20] px-2" value={flavor} onChange={e => setFlavor(Number(e.target.value))}>
+      {VELI_FLAVORS.map((name,i) => <option key={name} value={i}>{name}</option>)}
+    </select></label>
+    <label className="my-3 block"><input type="checkbox" checked={okra} onChange={e => setOkra(e.target.checked)} /> Substitute okra for fries (+$2 on combos)</label>
+    <label className="my-3 block">Wing selection <select aria-label="Wing selection" className="min-h-11 rounded bg-[#352e20]" value={parts} onChange={e => setParts(Number(e.target.value))}><option value={0}>Mixed</option><option value={1}>All drums (+$2 per 10pc)</option><option value={2}>All flats (+$2 per 10pc)</option></select></label>
+    <p className="text-sm">Combos include ranch, carrots, celery, a drink and fries.</p>
+    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+      {VELI_MENU.map((item,i) => <button type="button" key={i} data-testid={`veli-order-${i}`}
+        className="min-h-12 rounded border border-[#c89a40] px-3 py-2 text-left hover:bg-[#4b3b1d]"
+        onClick={() => action(`VeliOrder:${i}:${flavor}:${okra ? 1 : 0}:${parts}`)}>
+        {item.pieces}pc {item.combo ? "party wing combo" : "wings only"} · ${item.price + (okra && item.combo ? 2 : 0) + (parts ? item.pieces * .2 : 0)}
+      </button>)}
+    </div>
+  </div>;
+}

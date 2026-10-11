@@ -16,6 +16,10 @@ import { animateNets, exciteNet } from "./world/kits/hoop";
 import { buildSlice, carBody, spawnCourtActor, type SliceWorld } from "./world/slice";
 import { presentVehicles } from "./world/kits/vehicles";
 import { faceFoliage } from "./world/kits/trees";
+import { buildVeliTruck, animateVeliTruck, VELI_ANCHOR } from "./world/veli";
+import { freshVeli, veliOrder } from "./play/veli";
+import { tickRace, sampleRace, RACE_LENGTH } from "./play/racing";
+import { buildRaceCircuit, animateHauntAtmosphere } from "./world/activities";
 import { animateRiverfront } from "./world/riverfront-production";
 import { animateHauntLibrary } from "./world/kits/haunt-library";
 import { characters, frameSize, type Cutout } from "./assets/characters";
@@ -44,6 +48,11 @@ let activeStop: (() => void) | null = null;
 export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => void): () => void {
   activeStop?.();
   const world = buildSlice();
+  const circuit = buildRaceCircuit(world.scene);
+  const veliTruck = buildVeliTruck(world.exterior);
+  const veli = freshVeli();
+  let raceOverview = false;
+  let lastBowlRack = 0;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
   renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
@@ -147,11 +156,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   const rack = [[0], [-0.26, 0.26], [-0.52, 0, 0.52], [-0.78, -0.26, 0.26, 0.78]];
   rack.forEach((row, i) => {
     row.forEach((ox) => {
-      const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.1, 0.46, 8), pinMat);
-      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.06, 8), pinNeck);
-      band.position.y = 0.08;
+      const pin = new THREE.Mesh(new THREE.LatheGeometry([new THREE.Vector2(.075,-.28),new THREE.Vector2(.12,-.18),
+        new THREE.Vector2(.105,-.07),new THREE.Vector2(.048,.08),new THREE.Vector2(.043,.16),
+        new THREE.Vector2(.071,.23),new THREE.Vector2(.062,.27),new THREE.Vector2(0,.29)],12), pinMat);
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.046, 0.035, 10), pinNeck);
+      band.position.y = 0.125;
       pin.add(band);
-      pin.position.set(92 + ox, 0.36, -29.4 - i * 0.34);
+      pin.position.set(92 + ox, 0.44, -29.4 - i * 0.34);
       pinHome.push(pin.position.clone());
       world.scene.add(pin);
       pins.push(pin);
@@ -327,6 +338,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   const onKey = (e: KeyboardEvent, down: boolean) => {
     const code = e.code || e.key;
+    if (veli.open && code !== "KeyE") { if(down && code === "Escape") { veli.open=false; e.preventDefault(); } return; }
     if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyN", "KeyE", "KeyM", "KeyQ", "KeyR", "ShiftLeft", "ShiftRight"].includes(code) || ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
     if (down && e.repeat) return;
     if (down && courtCommand(code)) { e.preventDefault(); return; }
@@ -441,7 +453,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const interactEdge = interactQueued || (interact && !interactHeld);
     interactQueued = false;
     interactHeld = interact;
-    step(dt, hold, interactEdge);
+    if (veli.serving > 0) veli.serving = Math.max(0,veli.serving-dt);
+    animateVeliTruck(veliTruck,veli.serving,player.position);
+    const menuWasOpen = veli.open;
+    if (menuWasOpen) { if(interactEdge) veli.open=false; glideX=glideZ=0; }
+    step(dt, hold, interactEdge && !menuWasOpen);
     if (!hold) charging = false;
 
     hudAcc += dt;
@@ -470,6 +486,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       golden,
       made,
       taken,
+      activity: city.race ? "race" : city.bowl ? "bowl" : city.fish ? "fish" : undefined,
+      veli: { ...veli },
       basketball: courtMatch ? { mode: courtMatch.mode, score: [...courtMatch.score], clock: Math.ceil(courtMatch.clock),
         feedback: courtMatch.feedback, phase: courtMatch.phase } : undefined,
       dialogue,
@@ -487,6 +505,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   }
 
   function promptFor() {
+    if (veli.open) return "";
+    if (veli.serving > 0) return "Yungveli is serving your order.";
+    if (place === "street" && near(VELI_ANCHOR,2)) return "E  Veli’s Wings · order from Yungveli";
     if (courtMatch) return courtMatch.feedback;
     const live = activityPrompt(city);
     if (live) return live;
@@ -500,7 +521,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (place === "street" && near(world.districts.bowlDoor, 2.4)) return "E  Roll at 901 Bowl";
     if (place === "street" && near(world.districts.pier, 2.2)) return city.bait > 0 ? "E  Cast (bait on)" : "E  Cast a line";
     if (place === "street" && near(world.districts.bait, 2.2)) return "E  Buy bait  $15";
-    if (place === "street" && near(world.districts.meetStart, 2.6)) return "E  Run the strip";
+    if (place === "street" && near(world.districts.meetStart, 2.6)) return "E  Race Nitro · three-lap circuit";
     if (place === "street" && near(world.districts.truckOrder, 2.4)) return "E  Order at the window";
     if (place === "street" && near(world.haunt.ticket, 1.8)) return hauntTicket ? "E  Ticket punched" : "E  Buy a ticket  $10";
     if (place === "street" && near(world.haunt.gate, 1.8)) return hauntTicket ? "E  Enter the house" : "E  Need a ticket";
@@ -553,12 +574,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const sx = steer;
     const sy = (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0) + touchY;
     const len = Math.hypot(sx, sy);
+    if (city.race) { stepRace(dt, sx, sy, hold, interact); return; }
     if (city.fish && len > 0.15) {
       city.fish = null;
       say("River — Line is in. Come back whenever you want to fish.");
       glideX = glideZ = 0;
     }
-    const busy = locked(city);
+    const busy = locked(city) || veli.open || veli.serving > 0;
     const wantsMove = !busy && len > 0.15;
     if (wantsMove) {
       camDist = null;
@@ -575,8 +597,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     let speed = 0;
     if (wantsMove) {
       speed = (keys.has("ShiftLeft") || keys.has("ShiftRight") ? sprintSpeed : walkSpeed) * Math.min(1, len);
-      if (city.race) speed = city.fit === "night" ? 11.4 : 9.4;
-      else if (city.fit === "night") speed *= 1.12;
+      if (city.fit === "night") speed *= 1.12;
       if (city.boost > 0) speed *= 1.22;
     }
     const basis = screenBasis();
@@ -650,13 +671,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       talkLeft -= dt;
       if (talkLeft <= 0) dialogue = "";
     }
-    if (city.race && player.position.x > -19.5 && player.position.z < -33 && player.position.z > -40.2) {
-      const finish = crossFinish(city);
-      if (finish) grant(finish);
-    }
     rod.visible = Boolean(city.fish);
     bobber.visible = Boolean(city.fish);
     if (city.fish) bobber.position.y = 0.055 + Math.sin(performance.now() / (city.fish.phase === "bite" ? 85 : 220)) * 0.012;
+    if (city.bowl && lastBowlRack !== city.bowl.rack) { resetPins(); lastBowlRack = city.bowl.rack; }
     presentBowl(dt);
     if (place === "haunt" && !hauntCleared) {
       const room = world.haunt.finalRoom;
@@ -677,7 +695,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     animateRiverfront(performance.now() / 1000);
     faceFoliage(camera.position);
     animateNets(world.exterior, dt);
-    if (place === "haunt") animateHauntLibrary(world.haunt.group, performance.now() / 1000);
+    if (place === "haunt") {
+      animateHauntLibrary(world.haunt.group, performance.now() / 1000);
+      animateHauntAtmosphere(world.haunt.group, performance.now() / 1000);
+    }
+    for (const node of world.exterior.children) if (node.name === "haunt-ground-mist") {
+      node.position.x = Number(node.userData.homeX) + Math.sin(performance.now()/2800+Number(node.userData.phase))*.65;
+    }
     composer.render();
 
     api.x = player.position.x;
@@ -697,6 +721,39 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     api.mission = mission;
     api.carrying = carrying;
     api.dialogue = dialogue;
+  }
+
+  function stopRace() {
+    city.race = null; circuit.group.visible = false; raceOverview = false;
+    player.visible = true; player.position.set(-40,0,-36); glideX = glideZ = 0;
+    world.exterior.visible = true; say("Nitro — Keys back. E to race again.");
+  }
+
+  function stepRace(dt: number, sx: number, sy: number, drift: boolean, interact: boolean) {
+    const race = city.race!;
+    if (interact) { stopRace(); return; }
+    world.exterior.visible = false; player.visible = false; circuit.group.visible = true;
+    tickRace(race,dt,THREE.MathUtils.clamp(sy,-1,1),THREE.MathUtils.clamp(-sx,-1,1),drift);
+    const result = crossFinish(city); if (result) grant(result);
+    circuit.human.position.set(race.x,.065,race.z); circuit.human.rotation.y = race.yaw+Math.PI;
+    const rival = sampleRace(Math.min(race.opponent,3*RACE_LENGTH-.5));
+    circuit.nitro.position.set(rival.x,.065,rival.z); circuit.nitro.rotation.y = rival.yaw+Math.PI;
+    circuit.marker.position.set(race.x,2.15,race.z); circuit.marker.rotation.z=Math.PI;
+    circuit.sparks.visible = race.wasDrifting || race.boost > 0;
+    const sparkPoints = circuit.sparks.geometry.getAttribute("position") as THREE.BufferAttribute;
+    for(let i=0;i<6;i++) sparkPoints.setXYZ(i,race.x+Math.sin(race.yaw)*(.9+i*.12)+(i%2?.65:-.65)*Math.cos(race.yaw),
+      .18+(i%3)*.06,race.z+Math.cos(race.yaw)*(.9+i*.12)-(i%2?.65:-.65)*Math.sin(race.yaw));
+    sparkPoints.needsUpdate=true; circuit.sparks.geometry.computeBoundingSphere();
+    player.position.set(race.x,.065,race.z);
+    const fov = cameraFraming(camera.aspect,56+race.speed*.24,false).fov;
+    camera.fov=fov; camera.updateProjectionMatrix();
+    const scale = cameraFraming(camera.aspect,fov,false).distanceScale;
+    const desired = new THREE.Vector3(race.x+Math.sin(race.yaw)*8.4*scale,4.1*scale,race.z+Math.cos(race.yaw)*8.4*scale);
+    if(raceOverview) { camera.position.set(0,100,-150);camera.lookAt(0,0,-150); }
+    else { camera.position.lerp(desired,1-Math.exp(-5*dt));camera.lookAt(race.x-Math.sin(race.yaw)*3,.65,race.z-Math.cos(race.yaw)*3); }
+    presentVehicles(camera.position); composer.render();
+    api.x=race.x;api.y=.065;api.z=race.z;api.place="street";api.dollars=dollars;api.respect=respect;api.dialogue=dialogue;
+    if(talkLeft>0) {talkLeft-=dt;if(talkLeft<=0)dialogue="";}
   }
 
   function screenBasis() {
@@ -733,11 +790,16 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   }
 
   function tryEnter() {
+    if (veli.serving > 0) return;
+    if (place === "street" && near(VELI_ANCHOR,2)) {
+      veli.open=!veli.open; touchX=touchY=0; keys.clear(); glideX=glideZ=0; return;
+    }
+    if (city.race) { stopRace(); return; }
     if (city.fish) {
       if (city.fish.phase === "bite") grant(hookFish(city));
       return;
     }
-    if (city.bowl?.phase === "aim") {
+    if (city.bowl?.phase === "aim" || city.bowl?.phase === "finished") {
       grant(cancelApproach(city));
       resetPins();
       return;
@@ -813,7 +875,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       const play = triggerSpot(city, "bowl", dollars);
       if (play.teleport) {
         player.position.set(play.teleport.x, 0, play.teleport.z);
-        resetPins();
+        resetPins(); lastBowlRack = 0;
       }
       grant(play);
       return;
@@ -896,22 +958,24 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       const home = pinHome[i];
       if (!home) return;
       pin.position.copy(home);
-      pin.rotation.set(0, 0, 0);
+      pin.rotation.set(0, 0, 0); pin.userData.falling = false;
       pin.visible = true;
     });
     bowlBall.visible = false;
   }
 
   function knockPins(count: number) {
-    pins.forEach((pin, i) => {
-      if (i >= count) return;
-      pin.rotation.z = i % 2 === 0 ? 1.15 : -1.15;
-      pin.position.y = 0.16;
-      pin.position.z -= 0.18;
-    });
+    const standing = pins.filter(pin => !pin.userData.falling);
+    const aim = city.bowl?.aim ?? 0;
+    standing.sort((a,b) => Math.abs(a.position.x-(92+aim*.8))-Math.abs(b.position.x-(92+aim*.8)));
+    standing.slice(0,count).forEach((pin,i) => { pin.userData.falling = true; pin.userData.fallSign = i%2?1:-1; });
   }
 
   function presentBowl(dt: number) {
+    for(const pin of pins) if(pin.userData.falling) {
+      pin.rotation.z += (Number(pin.userData.fallSign)*1.4-pin.rotation.z)*(1-Math.exp(-9*dt));
+      pin.position.y += (.24-pin.position.y)*(1-Math.exp(-9*dt));
+    }
     const bowl = city.bowl;
     if (!bowl) {
       bowlBall.visible = false;
@@ -921,6 +985,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const startZ = -18.15;
     const pinZ = -29.3;
     bowlBall.visible = true;
+    if (bowl.phase === "finished") { bowlBall.visible=false; return; }
     if (bowl.phase === "aim") {
       // Held beside the right hand of the approved back-view artwork.
       bowlBall.position.set(laneX + 0.32, player.position.y + 0.74, player.position.z);
@@ -1097,6 +1162,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
           route.wait = (route.wait ?? 0) - dt;
           route.gait = (route.gait ?? 0) * Math.exp(-7 * dt);
         } else if (target) {
+          const directionX = target.x-ped.position.x, directionZ = target.z-ped.position.z;
+          const length = Math.hypot(directionX,directionZ)||1;
+          const futureX = ped.position.x+directionX/length*1.5, futureZ = ped.position.z+directionZ/length*1.5;
+          if (cars.some(car => car.speed>0 && Math.hypot(car.mesh.position.x-futureX,car.mesh.position.z-futureZ)<3.5)) {
+            route.wait=.16; route.gait=0; continue;
+          }
           const dx = target.x - ped.position.x;
           const dz = target.z - ped.position.z;
           const dist = Math.hypot(dx, dz);
@@ -1452,6 +1523,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       facing = Math.abs(side) > Math.abs(depth) ? side > 0 ? "right" : "left" : depth > 0 ? "back" : "front";
       return;
     }
+    if (veli.serving > 0) {
+      const follow=1-Math.exp(-5*dt);
+      const framing=cameraFraming(camera.aspect,54,false);
+      camera.position.lerp(new THREE.Vector3(60.8,2.65,24.6-6.1*framing.distanceScale),follow);
+      camera.fov+=(framing.fov-camera.fov)*follow;camera.updateProjectionMatrix();
+      camera.lookAt(61.6,1.85,24.3); facing="back"; return;
+    }
     if (city.bowl) {
       const bowl = city.bowl;
       avatar.visible = true;
@@ -1601,6 +1679,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   camera.lookAt(player.position.x + 1.15, 1.22, player.position.z);
 
   const touchApi = {
+    veliState() {
+      const frames=veliTruck.userData.textures as THREE.Texture[];
+      return { ...veli, frame:veliTruck.userData.frame as number, loaded:frames.every(t=>Boolean((t.image as HTMLImageElement)?.naturalWidth)),
+        vendor:veliTruck.getObjectByName("yungveli")?.visible, box:veliTruck.getObjectByName("veli-customer-box")?.visible };
+    },
     freezeCapture(paused: boolean) {
       // QA can hold an actual rendered action frame for a screenshot. Normal
       // game URLs cannot pause through this hook.
@@ -1650,6 +1733,16 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     startBasketball(mode: CourtMode) {
       if (place === "court") startCourtMatch(mode);
     },
+    raceState() {
+      return city.race ? { ...city.race, length: RACE_LENGTH, visible: circuit.group.visible,
+        vehicle: circuit.human.userData.kind, view: circuit.human.userData.card?.face } : null;
+    },
+    raceOverview(value: boolean) { raceOverview = value; },
+    atmosphereState() {
+      const effects = world.haunt.group.getObjectByName("haunt-atmosphere");
+      return { ghosts: effects?.children.filter(n => n.name === "haunt-wraith").map(n => ({x:n.position.x,y:n.position.y})) ?? [],
+        crowds: world.pedestrians.length, cars: cars.length };
+    },
     activityState() {
       const rodScreen = rodTip.clone().project(camera);
       const floatScreen = bobber.position.clone().project(camera);
@@ -1678,6 +1771,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       charging = next;
     },
     press(code: string) {
+      if (code === "VeliClose") { veli.open=false; return; }
+      if (code.startsWith("VeliOrder:")) {
+        if (place !== "street" || !near(VELI_ANCHOR,2)) { veli.open=false; return; }
+        const [,index,flavor,okra,parts] = code.split(":");
+        const event=veliOrder(veli,dollars,Number(index),Number(flavor),okra==="1",Number(parts ?? 0));
+        if(event?.dollars) { city.fed=true; city.boost=35; }
+        if(event) grant(event);
+        return;
+      }
       if (courtCommand(code)) return;
       if (code === "KeyE") {
         interactQueued = true;
@@ -1726,9 +1828,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         golden = false;
       }
       if (opts.facing) facing = opts.facing;
+      veli.open=false; veli.serving=0;
       city.fish = null;
       city.bowl = null;
-      city.race = null;
+      city.race = null; circuit.group.visible = false; player.visible = true; raceOverview = false;
       rod.visible = false;
       fishingLine.visible = false;
       bobber.visible = false;
@@ -1984,9 +2087,11 @@ function spawnTraffic(world: SliceWorld, lanes: Lane[]): Car[] {
     { lane: 2, s: 36 },
     { lane: 2, s: 62 },
     { lane: 2, s: 92 },
+    { lane: 0, s: 150 }, { lane: 0, s: 195 }, { lane: 0, s: 253 }, { lane: 0, s: 300 },
+    { lane: 2, s: 112 }, { lane: 2, s: 132 },
   ];
   spec.forEach((item, i) => {
-    const mesh = carBody((["sedan", "sedan", "suv", "sedan", "van", "suv", "sedan", "sedan", "suv", "sedan", "van", "sedan"] as const)[i]!);
+    const mesh = carBody((["sedan", "sedan", "suv", "sedan", "van", "suv", "sedan", "sedan", "suv", "sedan", "van", "sedan"] as const)[i % 12]!);
     const lamps = mesh.userData.headlights as THREE.MeshStandardMaterial[] | undefined;
     if (lamps) world.headlightMats.push(...lamps);
     const sample = sampleLane(lanes[item.lane]!, item.s);

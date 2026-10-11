@@ -183,12 +183,24 @@ function bowling(
   addGround({ minX: x - 8.2, maxX: x + 8.2, minZ: z - 7.2, maxZ: z + 7.6, y: 0.12 });
   const lane = new THREE.MeshStandardMaterial({ color: 0xc9844a, roughness: 0.55 });
   const gutter = new THREE.MeshStandardMaterial({ color: 0x3a2418, roughness: 0.7 });
+  const pinMat = new THREE.MeshStandardMaterial({ color:0xf4efe4,roughness:.35 });
+  const bandMat = new THREE.MeshStandardMaterial({ color:0xb82924,roughness:.5 });
+  const profile = [[.045,0],[.095,.07],[.095,.17],[.055,.28],[.03,.35],[.052,.41],[.03,.47],[0,.49]].map(([r,y])=>new THREE.Vector2(r!,y!));
+  const shape = new THREE.LatheGeometry(profile,12);
   for (let i = 0; i < 4; i++) {
-    const lx = x - 4.5 + i * 2.3;
-    box(1.15, 0.02, 12, lx, 0.14, z - 0.6, lane, parent);
-    box(0.18, 0.03, 12, lx - 0.72, 0.14, z - 0.6, gutter, parent);
-    box(0.18, 0.03, 12, lx + 0.72, 0.14, z - 0.6, gutter, parent);
-    for (let p = 0; p < 4; p++) box(0.08, 0.28, 0.08, lx - 0.18 + (p % 2) * 0.28, 0.3, z - 6.2 + Math.floor(p / 2) * 0.28, new THREE.MeshStandardMaterial({ color: 0xf4efe4, roughness: 0.45 }), parent);
+    const lx = x - 4.6 + i * 2.3;
+    box(1.7,.02,12,lx,.14,z-.6,lane,parent);
+    box(.25,.04,12,lx-1,.14,z-.6,gutter,parent);
+    box(.25,.04,12,lx+1,.14,z-.6,gutter,parent);
+    box(1.7,.01,.06,lx,.16,z+5.5,bandMat,parent);
+    for(let p=-2;p<=2;p++) {
+      const arrow=new THREE.Mesh(new THREE.ConeGeometry(.045,.12,3),pinMat);arrow.rotation.x=-Math.PI/2;
+      arrow.position.set(lx+p*.25,.17,z+2.7-Math.abs(p)*.12);parent.add(arrow);
+    }
+    if(i!==2) for(let row=0;row<4;row++) for(let col=0;col<=row;col++) {
+      const pin=new THREE.Mesh(shape,pinMat);pin.position.set(lx+(col-row/2)*.25,.16,z-5.3-row*.25);parent.add(pin);
+      const band=new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,.055,10),bandMat);band.position.copy(pin.position);band.position.y+=.35;parent.add(band);
+    }
   }
   const seat = new THREE.MeshStandardMaterial({ color: 0x8e2438, roughness: 0.6 });
   box(1.4, 0.45, 6, x - 7.2, 0.4, z + 1, seat, parent);
@@ -264,6 +276,7 @@ function trucks(
   const colors = [0xe0b33a, 0xc4473a, 0x2f6a4a];
   const names = ["CROWN", "901", "SOUL"];
   names.forEach((name, i) => {
+    if (i === 0) { solid(solids,60.3,63.7,24.4,31.6); solid(solids,59.3,60.6,23.3,23.9); return; }
     const x = 62 + i * 8;
     const body = new THREE.MeshStandardMaterial({ color: colors[i], roughness: 0.55, metalness: 0.15 });
     const cab = new THREE.MeshStandardMaterial({ color: 0xe8e2d6, roughness: 0.6 });
