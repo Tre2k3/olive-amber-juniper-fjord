@@ -265,6 +265,24 @@ export function buildHauntFoyer(parent: THREE.Object3D, solids: Solid[], glow: T
   guard(l.maxX, l.minZ, l.maxX, l.maxZ);
   guard(l.minX, l.maxZ, l.maxX, l.maxZ);
   guard(l.minX, l.minZ, l.minX, l.maxZ);
+  // Ornamental finials and scroll rings give the gallery guard a period iron profile
+  // while preserving the collision line and the open stair head.
+  const guardOrnaments = new THREE.Group();
+  guardOrnaments.name = "haunt-gallery-guard-ornaments";
+  room.add(guardOrnaments);
+  const finialBallGeometry = new THREE.SphereGeometry(0.095, 10, 8);
+  const finialTipGeometry = new THREE.ConeGeometry(0.075, 0.2, 8);
+  for (const [x, z] of [[0.35, 5.365], [0.825, 5.365], [2.375, 5.365], [4.8, 5.365],
+    [4.8, 7.1], [0.35, 7.1]] as const) {
+    const ball = new THREE.Mesh(finialBallGeometry, gold);
+    ball.position.set(x, landingY + 1.05, z); ball.castShadow = true; guardOrnaments.add(ball);
+    const tip = new THREE.Mesh(finialTipGeometry, iron);
+    tip.position.set(x, landingY + 1.2, z); tip.castShadow = true; guardOrnaments.add(tip);
+  }
+  for (const x of [2.68, 3.18, 3.68, 4.18, 4.62]) {
+    const scroll = new THREE.Mesh(new THREE.TorusGeometry(0.115, 0.025, 6, 14), gold);
+    scroll.position.set(x, landingY + 0.58, 5.33); guardOrnaments.add(scroll);
+  }
   // Upstairs console, wax candles and aged mirror, all physical meshes.
   block(room, wood, 0.62, 0.68, 0.48, 4.02, landingY + 0.34, 6.55);
   block(room, gold, 0.7, 0.08, 0.54, 4.02, landingY + 0.72, 6.55);
@@ -287,6 +305,41 @@ export function buildHauntFoyer(parent: THREE.Object3D, solids: Solid[], glow: T
   windowArch.position.set(1.6, 5.75, 7.7); room.add(windowArch);
   block(room, iron, 0.045, 2.93, 0.07, 1.6, 5.05, 7.66);
   for (const y of [4.3, 5.15, 5.75]) block(room, iron, 1.6, 0.045, 0.07, 1.6, y, 7.66);
+  // The arched glass is enclosed by a real upper wall rather than floating on a dark void.
+  // Plaster bays, raised wood panels, textile folds and chainwork are separate 3D surfaces.
+  const galleryArchitecture = new THREE.Group();
+  galleryArchitecture.name = "haunt-gallery-upper-architecture";
+  room.add(galleryArchitecture);
+  for (const [x, y, w, h] of [
+    [0.42, 4.92, 0.76, 3.78], [3.62, 4.92, 2.36, 3.78],
+    [1.6, 3.08, 1.64, 0.88], [1.6, 6.68, 1.64, 0.22],
+  ] as const) block(galleryArchitecture, plaster, w, h, 0.16, x, y, 7.86);
+  block(galleryArchitecture, wood, 4.72, 0.14, 0.24, 2.44, landingY + 0.16, 7.69);
+  block(galleryArchitecture, gold, 4.68, 0.055, 0.2, 2.44, landingY + 0.29, 7.67);
+  const raisedPanel = (x: number, y: number, w: number, h: number) => {
+    block(galleryArchitecture, wood, w, 0.065, 0.12, x, y + h / 2, 7.69);
+    block(galleryArchitecture, wood, w, 0.065, 0.12, x, y - h / 2, 7.69);
+    block(galleryArchitecture, wood, 0.065, h, 0.12, x - w / 2, y, 7.69);
+    block(galleryArchitecture, wood, 0.065, h, 0.12, x + w / 2, y, 7.69);
+  };
+  raisedPanel(3.05, 3.52, 0.62, 1.18);
+  raisedPanel(3.78, 3.52, 0.62, 1.18);
+  raisedPanel(4.5, 3.52, 0.52, 1.18);
+  block(galleryArchitecture, gold, 2.18, 0.075, 0.13, 3.66, 5.94, 7.6);
+  for (const [x, tilt] of [[3.0, -0.025], [3.38, -0.012], [3.76, 0.012], [4.14, 0.025]] as const) {
+    const fold = block(galleryArchitecture, velvet, 0.31, 1.75, 0.11, x, 4.98, 7.57);
+    fold.rotation.z = tilt;
+  }
+  const chainCurve = new THREE.QuadraticBezierCurve3(
+    new THREE.Vector3(2.62, 6.18, 7.54), new THREE.Vector3(3.62, 5.5, 7.5),
+    new THREE.Vector3(4.62, 6.18, 7.54));
+  const chain = new THREE.Mesh(new THREE.TubeGeometry(chainCurve, 28, 0.022, 5, false), iron);
+  chain.castShadow = true; galleryArchitecture.add(chain);
+  for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+    const p = chainCurve.getPoint(t);
+    const link = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.018, 5, 10), gold);
+    link.position.copy(p); galleryArchitecture.add(link);
+  }
   for (const [x, y, z, color, power] of [
     [3.7, 4.25, 6.25, 0xffbd74, 3.2], [1.6, 5.2, 7.15, 0x88bbeb, 2.2],
   ] as const) {
