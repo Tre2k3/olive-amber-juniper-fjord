@@ -105,9 +105,33 @@ export function buildHauntExterior(parent: THREE.Object3D, hx: number, hz: numbe
     for (const dy of [-1.18, 1.18]) block(frame, trim, 1.7, 0.14, 0.38, 0, dy, -0.12);
     block(frame, iron, 0.065, 2, 0.15, 0, 0, -0.23);
     for (const dy of [-0.4, 0.4]) block(frame, iron, 1.3, 0.06, 0.15, 0, dy, -0.23);
+    // Projecting sill, split pediment and keystone create real masonry depth.
+    block(frame, trim, 1.95, 0.17, 0.5, 0, -1.34, -0.12);
+    const pedimentLeft = block(frame, trim, 1.05, 0.15, 0.38, -0.43, 1.4, -0.12);
+    pedimentLeft.rotation.z = 0.25;
+    const pedimentRight = block(frame, trim, 1.05, 0.15, 0.38, 0.43, 1.4, -0.12);
+    pedimentRight.rotation.z = -0.25;
+    block(frame, stone, 0.24, 0.34, 0.42, 0, 1.48, -0.19);
   };
   for (const x of [-8, -4.2, 4.2, 8]) for (const y of [2.3, 6.8]) window(x, y, -6.09, 0);
   for (const x of [-10.08, 10.08]) for (const z of [-3.5, 0.6, 4]) for (const y of [2.3, 6.8]) window(x, y, z, x < 0 ? Math.PI / 2 : -Math.PI / 2);
+  // Juliet guards sit below the upper panes, leaving the window artwork unobstructed.
+  for (const x of [-8, -4.2, 4.2, 8]) {
+    block(house, trim, 1.95, 0.14, 0.62, x, 5.55, -6.45);
+    block(house, iron, 1.82, 0.07, 0.08, x, 6.58, -6.73);
+    for (let bar = 0; bar < 8; bar++)
+      block(house, iron, 0.035, 0.98, 0.04, x - 0.78 + bar * 0.223, 6.08, -6.73);
+    for (const ox of [-0.43, 0.43]) {
+      const scroll = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.022, 6, 20), iron);
+      scroll.position.set(x + ox, 6.08, -6.76);
+      house.add(scroll);
+    }
+  }
+  // Staggered quoins break up the flat front corners with raised masonry blocks.
+  for (const x of [-9.56, 9.56]) for (let row = 0; row < 10; row++) {
+    const width = row % 2 ? 0.82 : 1.08;
+    block(house, stone, width, 0.44, 0.68, x, 0.62 + row * 0.82, -6.32);
+  }
   // Deep facade relief and creeping vines bring the modeled
   // building closer to the approved festival-house reference.
   block(house, trim, 20.35, 0.32, 0.5, 0, 8.92, -6.05);
