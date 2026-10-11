@@ -214,7 +214,7 @@ export function buildHauntExterior(parent: THREE.Object3D, hx: number, hz: numbe
   return house;
 }
 
-export function buildHauntFoyer(parent: THREE.Object3D, solids: Solid[], glow: THREE.MeshStandardMaterial[]) {
+export function buildHauntFoyer(parent: THREE.Object3D, solids: Solid[], glow: THREE.MeshStandardMaterial[], lights: THREE.PointLight[]) {
   const room = new THREE.Group(); room.name = "haunt-3d-foyer"; parent.add(room);
   const wood = hauntSurface("wood");
   const iron = new THREE.MeshStandardMaterial({ color: 0x24201c, metalness: 0.6, roughness: 0.4 });
@@ -265,12 +265,35 @@ export function buildHauntFoyer(parent: THREE.Object3D, solids: Solid[], glow: T
   guard(l.maxX, l.minZ, l.maxX, l.maxZ);
   guard(l.minX, l.maxZ, l.maxX, l.maxZ);
   guard(l.minX, l.minZ, l.minX, l.maxZ);
-  // Upstairs console, wax candles and framed portrait, all physical meshes.
+  // Upstairs console, wax candles and aged mirror, all physical meshes.
   block(room, wood, 0.62, 0.68, 0.48, 4.02, landingY + 0.34, 6.55);
   block(room, gold, 0.7, 0.08, 0.54, 4.02, landingY + 0.72, 6.55);
   block(room, candle, 0.07, 0.28, 0.07, 4.1, landingY + 0.9, 6.55);
   block(room, gold, 0.55, 0.8, 0.07, 3.88, landingY + 1.25, 6.74);
-  block(room, plaster, 0.42, 0.65, 0.04, 3.88, landingY + 1.25, 6.69);
+  block(room, new THREE.MeshStandardMaterial({ color: 0x2b454b, metalness: 0.65, roughness: 0.35 }),
+    0.42, 0.65, 0.04, 3.88, landingY + 1.25, 6.69);
+  // An actual arched upper window brings the reference's cool/warm contrast upstairs.
+  const windowShape = new THREE.Shape();
+  windowShape.moveTo(-0.8, 0); windowShape.lineTo(0.8, 0); windowShape.lineTo(0.8, 2.2);
+  windowShape.absarc(0, 2.2, 0.8, 0, Math.PI, false); windowShape.lineTo(-0.8, 0);
+  const upperWindow = new THREE.Mesh(new THREE.ShapeGeometry(windowShape),
+    new THREE.MeshStandardMaterial({ color: 0x6489a2, emissive: 0x3b6893, emissiveIntensity: 0.42,
+      roughness: 0.28, side: THREE.DoubleSide }));
+  upperWindow.name = "haunt-gallery-arched-window";
+  upperWindow.position.set(1.6, 3.55, 7.77); room.add(upperWindow);
+  for (const x of [0.78, 2.42]) block(room, gold, 0.1, 2.2, 0.13, x, 4.65, 7.7);
+  block(room, gold, 1.82, 0.12, 0.18, 1.6, 3.53, 7.67);
+  const windowArch = new THREE.Mesh(new THREE.TorusGeometry(0.82, 0.055, 6, 28, Math.PI), gold);
+  windowArch.position.set(1.6, 5.75, 7.7); room.add(windowArch);
+  block(room, iron, 0.045, 2.93, 0.07, 1.6, 5.05, 7.66);
+  for (const y of [4.3, 5.15, 5.75]) block(room, iron, 1.6, 0.045, 0.07, 1.6, y, 7.66);
+  for (const [x, y, z, color, power] of [
+    [3.7, 4.25, 6.25, 0xffbd74, 3.2], [1.6, 5.2, 7.15, 0x88bbeb, 2.2],
+  ] as const) {
+    const light = new THREE.PointLight(color, 0, 8, 2);
+    light.position.set(x, y, z); light.userData.baseIntensity = power;
+    room.add(light); lights.push(light);
+  }
   solids.push({ minX: 3.65, maxX: 4.39, minZ: 6.25, maxZ: 6.83,
     minY: landingY, maxY: landingY + 1.68 });
   const rug = new THREE.Mesh(new THREE.CircleGeometry(1.32, 48), velvet);

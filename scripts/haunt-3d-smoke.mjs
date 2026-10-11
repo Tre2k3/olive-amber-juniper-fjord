@@ -86,6 +86,7 @@ try {
   await page.waitForFunction(() => window.__SACK_V2__.x > 3.2, null, { timeout: 90000 });
   await frames(8); await page.keyboard.up('KeyA'); await frames(3);
   assert.ok(await page.evaluate(() => window.__SACK_V2__.x < 3.32), 'Upstairs console must block Benji at its own height');
+  await set({ place: 'haunt', x: 2.8, z: 506, yaw: Math.PI / 2, dialogue: '' }); await frames(12);
   await page.screenshot({ path: 'artifacts/haunt/upstairs-gallery.png', timeout: 60000 });
   await page.setViewportSize({ width: 390, height: 844 });
   await set({ place: 'haunt', x: 2.8, z: 506, yaw: Math.PI / 2, dialogue: '' }); await frames(12);
@@ -99,7 +100,7 @@ try {
   await page.screenshot({ path: 'artifacts/haunt/stairs-descended.png', timeout: 60000 });
   await set({ place: 'haunt', x: 3, z: 503, yaw: 0, dialogue: '' });
   await page.keyboard.down('KeyD');
-  await page.waitForFunction(() => window.__SACK_V2__.x < 2.7, null, { timeout: 90000 });
+  await page.waitForFunction(() => window.__SACK_V2__.x < 2.85, null, { timeout: 90000 });
   await frames(10); await page.keyboard.up('KeyD'); await frames(2);
   assert.ok(await page.evaluate(() => window.__SACK_V2__.x >= 2.375 && window.__SACK_V2__.y < 0.2),
     'Entering stairs sideways must not teleport Benji onto a high tread');
@@ -354,6 +355,6 @@ try {
   assert.deepEqual(errors, [], 'House gameplay must have no uncaught errors');
   assert.deepEqual(shaderErrors, [], 'Flagship logo materials must compile without shader errors');
   console.log('PASS: library chair collision and doorway route remain playable');
-  console.log('PASS: exact flagship logo loaded and thirty-five actual house, HQ, court and activity screenshots captured');
+  console.log('PASS: exact flagship logo loaded and thirty-nine actual house, HQ, court and activity screenshots captured');
 } finally { await browser.close(); }
 

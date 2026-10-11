@@ -464,7 +464,7 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   addGround({ minX: 0, maxX: 48, minZ: OZ, maxZ: OZ + 16, y: 0.06 });
 
   dressRooms(group, glow, solids, lights);
-  buildHauntFoyer(group, solids, glow);
+  buildHauntFoyer(group, solids, glow, lights);
 
   const h = 4.35;
   box(48, h, 0.2, 24, h / 2, 15.9, wall, group);
