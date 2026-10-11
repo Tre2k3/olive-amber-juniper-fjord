@@ -259,7 +259,7 @@ try {
     }
     throw new Error('Dunk never reached the through-rim follow-through');
   });
-  assert.ok(throughRim.hand[1] < throughRim.rim.y - .15, 'Wrist must enter below the rim plane');
+  assert.ok(throughRim.hand[1] > throughRim.rim.y + .1, 'Dunk wrist stays above the rim while its forearm crosses the opening');
   assert.ok(Math.hypot(throughRim.hand[0] - throughRim.rim.x, throughRim.hand[2] - throughRim.rim.z) < .1,
     'Dunk wrist must stay within the hoop opening');
   await captureAction('artifacts/haunt/basketball-dunk-through-rim.png');

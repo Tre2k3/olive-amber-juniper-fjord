@@ -1272,10 +1272,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     // Keep the reach pose at the rim through release; only the ball detaches.
     if (animated && courtMatch?.dunk === 0 && courtAnimation.state().frame === 2) {
       const progress = 1 - courtMatch.actionLeft / .85;
-      // Reach above the hoop, then carry the wrist through its opening as
-      // the ball is driven down. Keep the reach pose after ball release.
+      // The palm stays above the rim while the forearm crosses its opening.
+      // The ball sits beneath the finishing hand and drops through on release.
       const insertion = THREE.MathUtils.smoothstep(progress, .58, .71);
-      const target = new THREE.Vector3(rim.x, rim.y + .13 - insertion * .34, rim.z);
+      const target = new THREE.Vector3(rim.x, rim.y + .13 - insertion * .1, rim.z);
       courtAnimation.alignGrip(target, actionHand);
     }
     if (animated && courtMatch?.owner === 0 && (courtMatch.charge > 0 || ((courtMatch.dunk >= 0 || courtMatch.layup >= 0) && !courtMatch.scored))) {
