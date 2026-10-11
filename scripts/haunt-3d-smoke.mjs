@@ -83,7 +83,25 @@ try {
   assert.equal(aiming.bowl?.phase, 'aim');
   assert.equal(aiming.avatarVisible, true, 'Bowling must show Benji');
   assert.ok(aiming.bowlBall.y > 0.6 && Math.abs(aiming.bowlBall.x - 92) < 0.5, 'Aiming ball must be held beside Benji');
-  await page.screenshot({ path: 'artifacts/haunt/bowling-held.png', timeout: 60000 });
+  const heldCapture = await page.screenshot({ path: 'artifacts/haunt/bowling-held.png', timeout: 60000 });
+  const projected = await page.evaluate(() => window.__SACK_V2_INPUT__.renderState().playerScreen);
+  const visibleShirt = await page.evaluate(async ({ bytes, projected }) => {
+    const image = await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: 'image/png' }));
+    const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height;
+    const context = canvas.getContext('2d'); context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(0, 0, image.width, image.height).data;
+    const height = projected.feetY - projected.headY;
+    const centerX = (projected.headX + projected.feetX) / 2;
+    let green = 0;
+    for (let y = Math.max(0, Math.floor(projected.headY + height * 0.28)); y < Math.min(image.height, projected.headY + height * 0.65); y++) {
+      for (let x = Math.max(0, Math.floor(centerX - height * 0.12)); x < Math.min(image.width, centerX + height * 0.12); x++) {
+        const i = (y * image.width + x) * 4;
+        if (pixels[i + 1] > 100 && pixels[i] < pixels[i + 1] * 0.65 && pixels[i + 2] < pixels[i + 1] * 0.8) green++;
+      }
+    }
+    return green;
+  }, { bytes: [...heldCapture], projected });
+  assert.ok(visibleShirt > 40, 'Benji must actually render in the bowling capture, not disappear behind transparent glass');
   await page.keyboard.down('Space'); await frames(8); await page.keyboard.up('Space');
   await page.waitForFunction(() => window.__SACK_V2_INPUT__.activityState().bowl?.phase === 'roll', null, { timeout: 90000 });
   await frames(5);

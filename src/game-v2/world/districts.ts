@@ -162,6 +162,7 @@ function bowling(
   const glass = new THREE.MeshStandardMaterial({
     color: 0x163044,
     transparent: true,
+    depthWrite: false,
     opacity: 0.22,
     roughness: 0.05,
     metalness: 0.25,
@@ -365,3 +366,4 @@ function meet(
   lamp(-50, 4.2, -24, 0xff4d4d, parent, lamps);
   box(12, 0.9, 0.08, -28, 0.7, -39.2, warm, parent);
 }
+

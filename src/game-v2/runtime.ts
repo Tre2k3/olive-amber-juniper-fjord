@@ -847,7 +847,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (!city.fish) return;
     // Anchor the handle to the billboard's hand side, independently of orbit.
     const yaw = avatar.rotation.y;
-    rod.position.set(Math.cos(yaw) * 0.34, 0.74, -Math.sin(yaw) * 0.34);
+    rod.position.set(Math.cos(yaw) * 0.26, 0.64, -Math.sin(yaw) * 0.26);
     const handX = player.position.x + rod.position.x, handZ = player.position.z + rod.position.z;
     const dx = bobber.position.x - handX, dz = bobber.position.z - handZ;
     rodDirection.set(dx, Math.hypot(dx, dz) * 0.55, dz).normalize();
@@ -1354,7 +1354,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       const head = new THREE.Vector3(player.position.x, player.position.y + 1.85, player.position.z).project(camera);
       const feet = player.position.clone().project(camera);
       return { width: renderWidth, height: renderHeight, ratio: renderRatio, resizeCount, fov: camera.fov,
-        playerScreen: { headY: (1 - head.y) * renderHeight / 2, feetY: (1 - feet.y) * renderHeight / 2 } };
+        playerScreen: { headX: (head.x + 1) * renderWidth / 2, feetX: (feet.x + 1) * renderWidth / 2,
+          headY: (1 - head.y) * renderHeight / 2, feetY: (1 - feet.y) * renderHeight / 2 } };
     },
     setStick(x: number, y: number) {
       touchX = x;
