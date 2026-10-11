@@ -217,6 +217,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   let camHeight: number | null = null;
   let camLookY: number | null = null;
   let charge = 0;
+  let shotCameraLeft = 0;
+  let shotCameraActive = false;
   let charging = false;
   let interactHeld = false;
   let ballHeld = false;
@@ -879,8 +881,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   }
 
   function updateBall(dt: number, hold: boolean, interact: boolean) {
+    shotCameraLeft = Math.max(0, shotCameraLeft - dt);
     if (place !== "court") {
       charge = 0;
+      shotCameraLeft = 0;
       return;
     }
     if (pinBall) {
@@ -907,6 +911,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
           ballVel.z += (dz / dist) * 1.4;
         }
         ballHeld = false;
+        shotCameraLeft = 3;
         taken += 1;
         charge = 0;
       } else if (!hold) charge = 0;
@@ -930,11 +935,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         dollars += 25;
         mission = "Bucket. The 901 felt that.";
         ballHeld = true;
+        shotCameraLeft = 0;
         charge = 0;
         return;
       }
     }
     if (ball.position.y < 0.16) {
+      shotCameraLeft = 0;
       ball.position.y = 0.16;
       if (Math.abs(ballVel.y) < 1.4) ballVel.set(0, 0, 0);
       else ballVel.y *= -0.45;
@@ -1193,6 +1200,37 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   }
 
   function placeCamera(dt: number) {
+    shotCameraActive = place === "court" && (charge > 0 || shotCameraLeft > 0);
+    if (shotCameraActive) {
+      // Fit the shooter, live ball and rim in both screen orientations. The
+      // elevated view clears the court fence and keeps the shot arc readable.
+      const hoop = world.hoop;
+      const minX = Math.min(player.position.x, hoop.x, ball.position.x);
+      const maxX = Math.max(player.position.x, hoop.x, ball.position.x);
+      const minZ = Math.min(player.position.z, hoop.z, ball.position.z);
+      const maxZ = Math.max(player.position.z, hoop.z, ball.position.z);
+      const maxY = Math.max(player.position.y + 1.85, hoop.y + 0.4, ball.position.y + 0.2);
+      const target = new THREE.Vector3((minX + maxX) / 2, maxY / 2, (minZ + maxZ) / 2);
+      const radius = Math.max(2, Math.hypot(maxX - minX, maxY, maxZ - minZ) / 2);
+      const framing = cameraFraming(camera.aspect, 54, false);
+      const vertical = THREE.MathUtils.degToRad(framing.fov / 2);
+      const halfAngle = Math.min(vertical, Math.atan(Math.tan(vertical) * camera.aspect));
+      const distance = radius / Math.sin(halfAngle) * 1.15;
+      const dx = hoop.x - player.position.x, dz = hoop.z - player.position.z;
+      const length = Math.hypot(dx, dz) || 1;
+      const offset = new THREE.Vector3(-dx / length * 0.75 - dz / length * 0.35, 0.8,
+        -dz / length * 0.75 + dx / length * 0.35).normalize().multiplyScalar(distance);
+      const follow = 1 - Math.exp(-6 * dt);
+      camera.position.lerp(offset.add(target), follow);
+      camera.fov += (framing.fov - camera.fov) * follow;
+      camera.updateProjectionMatrix();
+      camera.lookAt(target);
+      avatar.visible = true;
+      const toX = player.position.x - camera.position.x, toZ = player.position.z - camera.position.z;
+      const side = dx * -toZ + dz * toX, depth = dx * toX + dz * toZ;
+      facing = Math.abs(side) > Math.abs(depth) ? side > 0 ? "right" : "left" : depth > 0 ? "back" : "front";
+      return;
+    }
     if (city.fish) {
       // Frame the fisherman and float from the side instead of hiding the
       // rod behind the back cutout. Resume the user's orbit after fishing.
@@ -1377,7 +1415,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         hearth: { flameHeight: fire?.scale.y ?? 0, intensity: hearth?.intensity ?? 0 } };
     },
     ballState() {
-      return { held: ballHeld, charge, taken, position: { x: ball.position.x, y: ball.position.y, z: ball.position.z } };
+      const projected = [player.position.clone(), new THREE.Vector3(player.position.x, player.position.y + 1.85, player.position.z),
+        ball.position.clone(), new THREE.Vector3(world.hoop.x, world.hoop.y, world.hoop.z)].map(point => point.project(camera));
+      return { held: ballHeld, charge, taken, shotCameraActive, shotCameraLeft,
+        shotScreen: projected.map(point => ({ x: point.x, y: point.y, z: point.z })),
+        position: { x: ball.position.x, y: ball.position.y, z: ball.position.z } };
     },
     activityState() {
       const rodScreen = rodTip.clone().project(camera);
@@ -1473,6 +1515,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       updatePlace();
       if (opts.place === "court") place = "court";
       if (opts.ballHeld != null) ballHeld = opts.ballHeld;
+      shotCameraLeft = 0;
+      charge = 0;
       if (opts.ballAt) {
         ballHeld = false;
         pinBall = new THREE.Vector3(opts.ballAt.x, opts.ballAt.y, opts.ballAt.z);

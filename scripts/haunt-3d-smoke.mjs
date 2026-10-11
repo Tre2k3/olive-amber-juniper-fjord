@@ -138,6 +138,33 @@ try {
   assert.ok(Math.min(...dribble) >= 0.16, 'Dribble must stay above the court surface');
   await page.screenshot({ path: 'artifacts/haunt/basketball-dribble.png', timeout: 60000 });
   await page.keyboard.up('KeyD');
+  const assertShotFrame = state => {
+    assert.ok(state.shotCameraActive, 'Shot camera must engage during charge and flight');
+    for (const point of state.shotScreen) {
+      assert.ok(Math.abs(point.x) < 0.95 && Math.abs(point.y) < 0.95 && point.z > -1 && point.z < 1,
+        'Shot camera must retain Benji, the live ball and hoop');
+    }
+  };
+  for (const [name, width, height] of [['desktop', 1280, 800], ['portrait', 390, 844]]) {
+    await page.setViewportSize({ width, height });
+    await set({ place: 'court', x: 66, z: -22, yaw: Math.PI / 2, ballHeld: true, dialogue: '' });
+    const orbit = await page.evaluate(() => window.__SACK_V2_INPUT__.cameraYaw());
+    await page.evaluate(() => window.__SACK_V2_INPUT__.setCharge(true));
+    await frames(12);
+    assertShotFrame(await page.evaluate(() => window.__SACK_V2_INPUT__.ballState()));
+    await page.screenshot({ path: `artifacts/haunt/basketball-charge-${name}.png`, timeout: 60000 });
+    await page.evaluate(() => window.__SACK_V2_INPUT__.setCharge(false));
+    await frames(10);
+    assertShotFrame(await page.evaluate(() => window.__SACK_V2_INPUT__.ballState()));
+    await page.screenshot({ path: `artifacts/haunt/basketball-flight-${name}.png`, timeout: 60000 });
+    await frames(100);
+    assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.ballState())).shotCameraActive, false,
+      'Shot camera must return after landing or timeout');
+    assert.equal(await page.evaluate(() => window.__SACK_V2_INPUT__.cameraYaw()), orbit,
+      'Shot camera must preserve the player orbit');
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  console.log('PASS: desktop and portrait shot cameras frame Benji, ball and hoop and restore orbit');
   const pier = await page.evaluate(() => window.__SACK_V2_INPUT__.activityState().pier);
   await set({ place: 'street', x: pier.x, z: pier.z, yaw: Math.PI, dialogue: '' });
   await page.keyboard.press('KeyE'); await frames(20);
@@ -167,7 +194,7 @@ try {
   assert.deepEqual(errors, [], 'House gameplay must have no uncaught errors');
   assert.deepEqual(shaderErrors, [], 'Flagship logo materials must compile without shader errors');
   console.log('PASS: library chair collision and doorway route remain playable');
-  console.log('PASS: exact flagship logo loaded and seventeen actual house, HQ, court and activity screenshots captured');
+  console.log('PASS: exact flagship logo loaded and twenty-one actual house, HQ, court and activity screenshots captured');
 } finally { await browser.close(); }
 
 
