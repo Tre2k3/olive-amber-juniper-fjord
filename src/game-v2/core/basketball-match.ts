@@ -12,7 +12,7 @@ export type CourtMatch = {
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value));
 export function createCourtMatch(mode: CourtMode): CourtMatch {
   return { mode, players: [0, 1, 2, 3].map((i) => ({ team: i < 2 ? 0 : 1,
-    x: mode === "half" ? 64 + (i % 2) * 3 : 63 + (i % 2) * 4,
+    x: mode === "half" ? 64 + (i % 2) * 1.2 : 63 + (i % 2) * 4,
     z: -24 + Math.floor(i / 2) * 4, jump: 0, action: "ready", heading: 0 })),
     owner: 0, possession: 0, score: [0, 0], clock: 24, charge: 0, time: 0,
     ball: { x: 64, y: 0.8, z: -24 }, velocity: { x: 0, y: 0, z: 0 },
@@ -29,7 +29,7 @@ function checkBall(match: CourtMatch, team: 0 | 1, message: string) {
   match.feedback = message;
   for (let i = 0; i < 4; i++) {
     const player = match.players[i]!;
-    player.x = match.mode === "half" ? 64 + i % 2 * 3 : (team === 0 ? 60 : 72) + (i % 2 - 0.5) * 2;
+    player.x = match.mode === "half" ? 64 + i % 2 * 1.2 : (team === 0 ? 60 : 72) + (i % 2 - 0.5) * 2;
     player.z = -24 + Math.floor(i / 2) * 4; player.jump = 0; player.action = "ready";
   }
 }
@@ -46,7 +46,7 @@ function shoot(match: CourtMatch, hoops: CourtPoint[], timing: number) {
   match.velocity = { x: release.x, y: release.y, z: release.z };
   match.shooter = shooter; match.points = shotPoints(athlete, rim); match.scored = false;
   match.owner = -1; match.charge = 0; match.actionLeft = 0.5;
-  athlete.action = "shoot"; match.feedback = contest > 0.35 ? "CONTESTED" : release.quality;
+  athlete.jump = 0.18; athlete.action = "shoot"; match.feedback = contest > 0.35 ? "CONTESTED" : release.quality;
 }
 
 export function courtAction(match: CourtMatch, action: "pass" | "cross" | "dunk" | "steal", hoops: CourtPoint[]) {
@@ -98,7 +98,7 @@ export function tickCourtMatch(match: CourtMatch, dt: number, hoops: CourtPoint[
   } else {
     const p = match.players[0]!;
     if (match.dunk < 0) {
-      p.x = clamp(human.x, match.mode === "half" ? 56 : 56, match.mode === "half" ? 67.5 : 76);
+      p.x = clamp(human.x, match.mode === "half" ? 56 : 56, match.mode === "half" ? 66 : 76);
       p.z = clamp(human.z, -28, -16);
     }
     match.clock -= dt;
@@ -125,7 +125,7 @@ export function tickCourtMatch(match: CourtMatch, dt: number, hoops: CourtPoint[
     const dx = tx - athlete.x, dz = tz - athlete.z, length = Math.hypot(dx, dz);
     if (length > (attacking && match.owner === i && match.cleared ? 2.5 : 0.7)) {
       const step = Math.min(length, dt * (match.owner === i ? 3.1 : 3.8));
-      athlete.x = clamp(athlete.x + dx / length * step, 56, match.mode === "half" ? 67.5 : 76);
+      athlete.x = clamp(athlete.x + dx / length * step, 56, match.mode === "half" ? 66 : 76);
       athlete.z = clamp(athlete.z + dz / length * step, -28, -16);
       athlete.heading = Math.atan2(dx, dz); athlete.action = match.owner === i ? "dribble" : "run";
     }
@@ -140,6 +140,10 @@ export function tickCourtMatch(match: CourtMatch, dt: number, hoops: CourtPoint[
       a.x -= dx / length * push; a.z -= dz / length * push;
       b.x += dx / length * push; b.z += dz / length * push;
     }
+  }
+  for (const athlete of match.players) {
+    athlete.x = clamp(athlete.x, 56, match.mode === "half" ? 66 : 76);
+    athlete.z = clamp(athlete.z, -28, -16);
   }
   if (match.owner === 0 && match.dunk < 0) {
     if (hold) { match.charge = Math.min(1, match.charge + dt / 0.85); match.players[0]!.action = "gather"; }
@@ -162,7 +166,7 @@ export function tickCourtMatch(match: CourtMatch, dt: number, hoops: CourtPoint[
     const holder = match.players[match.owner]!;
     const cross = holder.action === "crossover" ? Math.cos(match.actionLeft / 0.4 * Math.PI) : 1;
     match.ball = { x: holder.x + 0.28 * cross, z: holder.z,
-      y: match.charge > 0 ? 1.15 + match.charge * 0.55 : 0.17 + 0.68 * Math.abs(Math.cos(match.time * 7)) };
+      y: match.charge > 0 ? 1.15 + match.charge * 0.55 : 0.17 + 0.85 * Math.abs(Math.cos(match.time * 7)) };
   } else {
     const previous = { ...match.ball };
     match.ball.x += match.velocity.x * dt; match.ball.z += match.velocity.z * dt;
@@ -173,7 +177,7 @@ export function tickCourtMatch(match: CourtMatch, dt: number, hoops: CourtPoint[
       match.net = match.mode === "half" ? 0 : match.possession === 0 ? 1 : 0;
       if (!match.feedback.endsWith("WINS")) match.feedback = match.points === 3 ? "THREE!" : "BUCKET!";
     }
-    if (match.ball.x < 55.5 || match.ball.x > (match.mode === "half" ? 68 : 76.5) || match.ball.z < -28.5 || match.ball.z > -15.5) {
+    if (match.ball.x < 55.5 || match.ball.x > (match.mode === "half" ? 66.5 : 76.5) || match.ball.z < -28.5 || match.ball.z > -15.5) {
       if (match.scored) finishBasket(match);
       else checkBall(match, match.possession === 0 ? 1 : 0, "OUT OF BOUNDS");
     } else if (match.ball.y < 0.17) {

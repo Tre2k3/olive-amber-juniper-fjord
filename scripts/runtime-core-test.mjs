@@ -106,6 +106,10 @@ for (const mode of ['half', 'full']) {
   assert.equal(match.phase, 'check');
   assert.equal(matchRim(match, rims), rims[mode === 'half' ? 0 : 0]);
 }
+const boundsMatch = createCourtMatch('half');
+assert.ok(boundsMatch.players.every(p => p.x <= 66));
+for (let i = 0; i < 100; i++) tickCourtMatch(boundsMatch, 1/60, rims, {x: 80, z: -12}, false);
+assert.ok(boundsMatch.players.every(p => p.x >= 56 && p.x <= 66 && p.z >= -28 && p.z <= -16), 'Separation must not push half-court athletes past bounds');
 const dunk = createCourtMatch('half');
 dunk.players[0].x = 58; dunk.players[0].z = -22;
 dunk.players[2].x = 65; dunk.players[3].x = 66;

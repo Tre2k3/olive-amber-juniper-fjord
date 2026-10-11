@@ -200,11 +200,31 @@ try {
   for (const mode of ['half', 'full']) {
     await page.evaluate(m => window.__SACK_V2_INPUT__.startBasketball(m), mode);
     await frames(20);
+    await page.waitForFunction(() => window.__SACK_V2_INPUT__.basketballState()?.animation.loaded === 3, null, { timeout: 90000 });
     const match = await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState());
     assert.equal(match.mode, mode); assert.equal(match.players.length, 4);
+    assert.equal(match.duplicateCastVisible, 0, 'Court participants must not also stand on the sidelines');
+    assert.ok(match.animation.visible && match.animation.action === 'dribble', 'Ball owner must use supplementary dribble poses');
+    if (mode === 'half') assert.ok(match.players.every(p => p.x <= 66));
     assert.ok(match.players.every(p => p.x >= 55.5 && p.x <= 76.5 && p.z >= -28.5 && p.z <= -15.5));
     await page.screenshot({ path: `artifacts/haunt/basketball-2v2-${mode}.png`, timeout: 60000 });
   }
+  await page.evaluate(() => window.__SACK_V2_INPUT__.setCharge(true)); await frames(12);
+  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState())).animation.action, 'shoot');
+  await page.screenshot({ path: 'artifacts/haunt/basketball-animated-gather.png', timeout: 60000 });
+  await page.evaluate(() => window.__SACK_V2_INPUT__.setCharge(false)); await frames(2);
+  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState())).animation.action, 'shoot');
+  await page.screenshot({ path: 'artifacts/haunt/basketball-animated-release.png', timeout: 60000 });
+  await frames(5);
+  await page.screenshot({ path: 'artifacts/haunt/basketball-animated-follow.png', timeout: 60000 });
+  await page.evaluate(() => window.__SACK_V2_INPUT__.startBasketball('half'));
+  await set({ place: 'court', x: 58, z: -22, yaw: Math.PI, ballHeld: true, dialogue: '' }); await frames(2);
+  await page.keyboard.press('KeyV'); await frames(15);
+  const dunkView = await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState());
+  assert.equal(dunkView.animation.action, 'dunk'); assert.equal(dunkView.animation.visible, true);
+  await page.screenshot({ path: 'artifacts/haunt/basketball-animated-dunk.png', timeout: 60000 });
+  // Reset possession for the existing mobile pass check.
+  await page.evaluate(() => window.__SACK_V2_INPUT__.startBasketball('full')); await frames(3);
   const beforeLeft = await page.evaluate(() => window.__SACK_V2__.x);
   await page.keyboard.down('KeyA'); await frames(5); await page.keyboard.up('KeyA');
   assert.ok(await page.evaluate(x => window.__SACK_V2__.x < x - 0.05, beforeLeft), 'Match A must move screen-left');
@@ -218,13 +238,14 @@ try {
   await page.getByRole('button', { name: 'EXIT', exact: true }).click(); await frames(2);
   assert.equal(await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState()), null);
   await page.setViewportSize({ width: 1280, height: 800 });
+  console.log('PASS: supplementary dribble, gather, release poses and hidden duplicate court cast');
   console.log('PASS: live made shot, four-player half/full court, A/D controls, mobile pass and match exit');
   console.log('PASS: bowling held/release presentation and moving basketball dribble');
   console.log('PASS: modeled house, ticket, room doorway, furniture collision, light budget and exit');
   assert.deepEqual(errors, [], 'House gameplay must have no uncaught errors');
   assert.deepEqual(shaderErrors, [], 'Flagship logo materials must compile without shader errors');
   console.log('PASS: library chair collision and doorway route remain playable');
-  console.log('PASS: exact flagship logo loaded and twenty-five actual house, HQ, court and activity screenshots captured');
+  console.log('PASS: exact flagship logo loaded and twenty-nine actual house, HQ, court and activity screenshots captured');
 } finally { await browser.close(); }
 
 

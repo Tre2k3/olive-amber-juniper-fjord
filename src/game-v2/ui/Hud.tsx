@@ -46,7 +46,7 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
         </div>
       )}
       {state.place === "court" && (
-        <div className="pointer-events-auto absolute bottom-36 left-3 flex max-w-[90vw] flex-wrap gap-1 sm:bottom-16">
+        <div className="pointer-events-auto absolute bottom-36 left-3 flex max-w-[calc(100vw-6rem)] flex-wrap gap-1 sm:bottom-16 sm:max-w-none">
           {[["HALF 2v2", "KeyG"], ["FULL 2v2", "KeyH"], ...(state.basketball ? [["PASS", "KeyF"], ["CROSS", "KeyC"], ["DUNK", "KeyV"], ["EXIT", "Escape"]] : [])].map(([label, code]) => (
             <button key={code} type="button" className="min-h-11 rounded border border-[#e0b33a77] bg-[#0d0d0dee] px-2 text-[10px]" onClick={() => action(code!)}>{label}</button>
           ))}

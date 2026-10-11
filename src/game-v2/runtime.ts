@@ -10,6 +10,7 @@ import { pullCamera } from "./core/camera-collision";
 import { cameraFraming } from "./core/camera-framing";
 import { BALL_GRAVITY, rimCrossing, shotVelocity } from "./core/basketball";
 import { createCourtMatch, courtAction, matchRim, tickCourtMatch, type CourtMatch, type CourtMode } from "./core/basketball-match";
+import { createCourtAnimation } from "./world/kits/court-animation";
 import { animateNets, exciteNet } from "./world/kits/hoop";
 import { buildSlice, carBody, spawnCourtActor, type SliceWorld } from "./world/slice";
 import { presentVehicles } from "./world/kits/vehicles";
@@ -228,6 +229,19 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   let courtMatch: CourtMatch | null = null;
   const courtActors: THREE.Group[] = [];
   let practiceYaw = camYaw;
+  const courtAnimation = createCourtAnimation(player);
+  const actionHand = new THREE.Vector3();
+  const hiddenCourtCast = new Map<THREE.Object3D, boolean>();
+  function teamRing(host: THREE.Object3D, color: number) {
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.43,0.5,32), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide }));
+    ring.name = "court-team-ring"; ring.rotation.x = -Math.PI / 2; ring.position.y = 0.015; host.add(ring); return ring;
+  }
+  const humanRing = teamRing(player, 0x49e975); humanRing.visible = false;
+  function endCourtMatch() {
+    courtMatch = null; camYaw = practiceYaw; ballHeld = true; charge = 0;
+    courtActors.forEach(actor => { actor.visible = false; }); humanRing.visible = false;
+    hiddenCourtCast.forEach((visible, actor) => { actor.visible = visible; }); hiddenCourtCast.clear();
+  }
 
   function courtCommand(code: string) {
     if (place !== "court") return false;
@@ -237,8 +251,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     }
     if (!courtMatch) return false;
     if (code === "Escape") {
-      courtMatch = null; camYaw = practiceYaw; ballHeld = true; charge = 0;
-      courtActors.forEach(actor => { actor.visible = false; }); return true;
+      endCourtMatch(); return true;
     }
     const action = code === "KeyF" ? "pass" : code === "KeyC" ? "cross" : code === "KeyV" ? "dunk" : code === "KeyE" ? "steal" : null;
     if (action) { courtAction(courtMatch, action, world.hoops); return true; }
@@ -251,9 +264,14 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (!courtActors.length) for (const asset of [characters.courtOg, characters.nitro, characters.strike]) {
       const actor = spawnCourtActor(asset, 64, -22, world.exterior);
       actor.name = "basketball-match-athlete";
+      teamRing(actor, courtActors.length === 0 ? 0x49e975 : 0xe0b33a);
       courtActors.push(actor);
     }
-    courtActors.forEach(actor => { actor.visible = true; });
+    courtActors.forEach(actor => { actor.visible = true; }); humanRing.visible = true;
+    for (const actor of world.billboards) if (["court-og", "nitro", "strike"].includes(actor.userData.asset?.id ?? "")) {
+      if (!hiddenCourtCast.has(actor)) hiddenCourtCast.set(actor, actor.visible);
+      actor.visible = false;
+    }
     player.position.set(courtMatch.players[0]!.x, 0.08, courtMatch.players[0]!.z);
     dialogue = "";
   }
@@ -441,7 +459,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       place,
       dollars,
       respect,
-      mission,
+      mission: courtMatch ? `901 COURT · ${courtMatch.mode.toUpperCase()} 2v2` : mission,
       prompt: promptFor(),
       charge: place === "court" ? charge : activityCharge(city),
       night,
@@ -925,8 +943,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   function updateBall(dt: number, hold: boolean, interact: boolean) {
     if (courtMatch && place !== "court") {
-      courtMatch = null; camYaw = practiceYaw;
-      courtActors.forEach(actor => { actor.visible = false; });
+      endCourtMatch();
     }
     if (courtMatch) {
       tickCourtMatch(courtMatch, dt, world.hoops, player.position, hold);
@@ -1205,7 +1222,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const fraction = playerDistanceSq > 0.01 ? (vx * px + vz * pz) / playerDistanceSq : -1;
     const sideDistance = playerDistanceSq > 0.01
       ? Math.abs(vx * pz - vz * px) / Math.sqrt(playerDistanceSq) : Infinity;
-    const opacity = cameraDistance < 2 ? 0
+    const opacity = host.name === "basketball-match-athlete" ? 1 : cameraDistance < 2 ? 0
       : fraction > 0.05 && fraction < 0.96 && sideDistance < 0.72 ? 0.2 : 1;
     mesh.visible = opacity !== 0;
     if (mat.opacity !== opacity || mat.depthWrite !== (opacity === 1)) {
@@ -1244,6 +1261,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     avatar.rotation.z = 0;
     seatOnGround(avatar);
     avatar.position.y += courtMatch?.players[0]?.jump ?? 0;
+    const rim = courtMatch ? matchRim(courtMatch, world.hoops) : world.hoop;
+    const animated = courtAnimation.update(courtMatch, rim.x >= player.position.x ? 1 : -1, yawTo(avatar, camera.position));
+    avatar.visible = !animated;
+    if (animated && courtMatch?.owner === 0 && (courtMatch.charge > 0 || courtMatch.dunk >= 0)) {
+      courtAnimation.handWorld(actionHand); ball.position.copy(actionHand);
+    }
     avatar.scale.set(presentScale(player), presentScale(player), 1);
     for (const board of world.billboards) {
       plantFeet(board);
@@ -1276,17 +1299,20 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (courtMatch) {
       camYaw = Math.PI;
       const rim = matchRim(courtMatch, world.hoops);
-      const focusX = courtMatch.mode === "half" ? 62 : 66;
+      const portrait = camera.aspect < 0.8;
+      const focusX = portrait ? THREE.MathUtils.clamp((player.position.x + ball.position.x) / 2, 59.5, courtMatch.mode === "half" ? 62.5 : 72.5) : courtMatch.mode === "half" ? 61 : 66;
+      const focusZ = portrait ? THREE.MathUtils.clamp((player.position.z + ball.position.z) / 2, -25, -19) : -22;
       const fov = cameraFraming(camera.aspect, 54, false).fov;
       const vertical = THREE.MathUtils.degToRad(fov / 2);
       const halfAngle = Math.min(vertical, Math.atan(Math.tan(vertical) * camera.aspect));
-      const distance = (courtMatch.mode === "half" ? 8 : 12) / Math.sin(halfAngle);
-      const destination = new THREE.Vector3(focusX, distance * 0.6 + 2, -22 + distance * 0.8);
+      const radius = portrait ? 6.2 : courtMatch.mode === "half" ? 7.2 : 10.8;
+      const distance = radius / Math.sin(halfAngle);
+      const destination = new THREE.Vector3(focusX, distance * 0.65 + 2, focusZ + distance * 0.76);
       const follow = 1 - Math.exp(-5 * dt);
       camera.position.lerp(destination, follow); camera.fov += (fov - camera.fov) * follow;
-      camera.updateProjectionMatrix(); camera.lookAt(focusX, 1, -22);
+      camera.updateProjectionMatrix(); camera.lookAt(focusX, 1, focusZ);
       if (courtMatch.charge > 0 || courtMatch.dunk >= 0) facing = faceAlong(rim.x - player.position.x, rim.z - player.position.z);
-      avatar.visible = true; shotCameraActive = false; return;
+      avatar.visible = !courtAnimation.mesh.visible; shotCameraActive = false; return;
     }
     shotCameraActive = place === "court" && (charge > 0 || shotCameraLeft > 0);
     if (shotCameraActive) {
@@ -1512,6 +1538,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     },
     basketballState() {
       return courtMatch ? { ...courtMatch, players: courtMatch.players.map(p => ({ ...p })),
+        animation: courtAnimation.state(),
+        duplicateCastVisible: [...hiddenCourtCast.keys()].filter(actor => actor.visible).length,
         nets: world.exterior.children.filter(node => node.name === "basketball-reactive-net").map(node => node.userData.reaction ?? 0) } : null;
     },
     startBasketball(mode: CourtMode) {
@@ -1800,6 +1828,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     canvas.removeEventListener("pointerup", orbitEnd);
     canvas.removeEventListener("pointercancel", orbitEnd);
     canvas.removeEventListener("lostpointercapture", orbitEnd);
+    courtAnimation.dispose();
     bloom.dispose();
     composer.dispose();
     renderer.dispose();
