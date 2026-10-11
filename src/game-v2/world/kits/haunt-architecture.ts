@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import type { Solid } from "../../core/types";
-import { flagshipLogo } from "./brand";
 
 function block(parent: THREE.Object3D, material: THREE.Material, w: number, h: number, d: number, x: number, y: number, z: number) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
@@ -54,7 +53,6 @@ export function buildHauntExterior(parent: THREE.Object3D, hx: number, hz: numbe
   const iron = new THREE.MeshStandardMaterial({ color: 0x191c20, metalness: 0.65, roughness: 0.48 });
   const glass = new THREE.MeshStandardMaterial({ color: 0x6f8299, emissive: 0x33567d, emissiveIntensity: 0.35, roughness: 0.25 });
   const amber = new THREE.MeshStandardMaterial({ color: 0xffb569, emissive: 0xff942f, emissiveIntensity: 0.6 });
-  const gold = new THREE.MeshStandardMaterial({ color: 0xa9854a, metalness: 0.52, roughness: 0.43 });
   const banner = new THREE.MeshStandardMaterial({ color: 0x3b1019, roughness: 0.92 });
   const vine = new THREE.MeshStandardMaterial({ color: 0x263a20, roughness: 0.98 });
   glow.push(amber);
@@ -110,24 +108,13 @@ export function buildHauntExterior(parent: THREE.Object3D, hx: number, hz: numbe
   };
   for (const x of [-8, -4.2, 4.2, 8]) for (const y of [2.3, 6.8]) window(x, y, -6.09, 0);
   for (const x of [-10.08, 10.08]) for (const z of [-3.5, 0.6, 4]) for (const y of [2.3, 6.8]) window(x, y, z, x < 0 ? Math.PI / 2 : -Math.PI / 2);
-  // Deep facade relief, hanging banners and creeping vines bring the modeled
+  // Deep facade relief and creeping vines bring the modeled
   // building closer to the approved festival-house reference.
   block(house, trim, 20.35, 0.32, 0.5, 0, 8.92, -6.05);
   for (const x of [-9.25, -5.95, 5.95, 9.25]) {
     block(house, trim, 0.62, 9.25, 0.58, x, 4.72, -6.2);
     block(house, stone, 0.88, 0.38, 0.75, x, 0.42, -6.28);
     block(house, stone, 0.88, 0.38, 0.75, x, 8.75, -6.28);
-  }
-  for (const x of [-6.9, 6.9]) {
-    block(house, iron, 0.06, 1.05, 0.06, x - 0.75, 9.25, -6.48);
-    block(house, iron, 0.06, 1.05, 0.06, x + 0.75, 9.25, -6.48);
-    block(house, banner, 2.15, 3.1, 0.11, x, 7.15, -6.46);
-    block(house, gold, 2.28, 0.11, 0.16, x, 8.75, -6.5);
-    block(house, gold, 2.28, 0.11, 0.16, x, 5.55, -6.5);
-    const logo = flagshipLogo(1.95);
-    logo.position.set(x, 7.15, -6.53);
-    logo.rotation.y = Math.PI;
-    house.add(logo);
   }
   const medallion = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.13, 8, 36), trim);
   medallion.position.set(0, 7.18, -6.5); house.add(medallion);

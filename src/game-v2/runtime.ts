@@ -94,12 +94,16 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   ball.position.set(world.hoop.x + 4, 0.16, world.hoop.z);
   world.scene.add(ball);
 
-  const rod = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.02, 0.025, 1.35, 6),
-    new THREE.MeshStandardMaterial({ color: 0x6b3a22, roughness: 0.7 }),
-  );
-  rod.position.set(0.38, 1.05, 0.05);
-  rod.rotation.z = -0.7;
+  const rod = new THREE.Group();
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.017, 1.35, 8),
+    new THREE.MeshStandardMaterial({ color: 0x303b35, roughness: 0.45 }));
+  shaft.position.y = 0.675; rod.add(shaft);
+  const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.18, 8),
+    new THREE.MeshStandardMaterial({ color: 0x9c7951, roughness: 0.9 }));
+  grip.position.y = 0.035; rod.add(grip);
+  const reel = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.055, 12),
+    new THREE.MeshStandardMaterial({ color: 0x7b8585, metalness: 0.65, roughness: 0.4 }));
+  reel.rotation.z = Math.PI / 2; reel.position.set(0.05, 0.05, 0); rod.add(reel);
   rod.visible = false;
   player.add(rod);
   const bobber = new THREE.Mesh(
@@ -109,12 +113,26 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   bobber.visible = false;
   bobber.position.set(-16, 0.18, -81);
   world.scene.add(bobber);
+  const fishingLineGeometry = new THREE.BufferGeometry();
+  fishingLineGeometry.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(9), 3));
+  const fishingLine = new THREE.Line(fishingLineGeometry, new THREE.LineBasicMaterial({ color: 0xc9d4ca, transparent: true, opacity: 0.65 }));
+  fishingLine.visible = false;
+  fishingLine.frustumCulled = false;
+  world.scene.add(fishingLine);
+  const rodDirection = new THREE.Vector3(), rodTip = new THREE.Vector3();
+  const rodUp = new THREE.Vector3(0, 1, 0);
   const bowlBall = new THREE.Mesh(
-    new THREE.SphereGeometry(0.34, 18, 14),
-    new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.35, metalness: 0.4 }),
+    new THREE.SphereGeometry(0.13, 18, 14),
+    new THREE.MeshStandardMaterial({ color: 0x25204f, roughness: 0.24, metalness: 0.15 }),
   );
   bowlBall.visible = false;
   world.scene.add(bowlBall);
+  const fingerHoleMaterial = new THREE.MeshBasicMaterial({ color: 0x08080b });
+  for (const [x, y] of [[-0.027, 0.03], [0.027, 0.03], [0, -0.025]]) {
+    const hole = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), fingerHoleMaterial);
+    hole.position.set(x!, y!, 0.122);
+    bowlBall.add(hole);
+  }
   const pinMat = new THREE.MeshStandardMaterial({ color: 0xf4efe4, roughness: 0.45 });
   const pinNeck = new THREE.MeshStandardMaterial({ color: 0xc4473a, roughness: 0.5 });
   const pins: THREE.Mesh[] = [];
@@ -513,7 +531,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (city.bowl) {
       player.position.x = 92;
       player.position.z = -17.6;
+      facing = "back";
     }
+    if (city.fish) facing = faceAlong(bobber.position.x - player.position.x, bobber.position.z - player.position.z);
     separateBodies();
     // Door openings remain real colliders, not teleport triggers through walls.
     if (place === "home" && player.position.z >= 203.7 && Math.abs(player.position.x) < 1.35) {
@@ -565,6 +585,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     updatePeds(dt);
     placeCamera(dt);
     faceAvatar();
+    presentFishing();
     faceFoliage(camera.position);
     composer.render();
 
@@ -807,14 +828,37 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const pinZ = -29.3;
     bowlBall.visible = true;
     if (bowl.phase === "aim") {
-      bowlBall.position.set(laneX + bowl.aim * 0.42, 0.2, startZ);
+      // Held beside the right hand of the approved back-view artwork.
+      bowlBall.position.set(laneX + 0.32, player.position.y + 0.74, player.position.z);
       bowlBall.rotation.set(0, 0, 0);
       return;
     }
     const duration = bowl.phase === "roll" ? 1.65 : 0;
     const t = bowl.phase === "roll" ? 1 - Math.max(0, bowl.left) / duration : 1;
-    bowlBall.position.set(laneX + bowl.aim * (0.42 + t * 0.85), 0.2, startZ + (pinZ - startZ) * t);
+    const release = Math.min(1, t / 0.14);
+    bowlBall.position.set(laneX + bowl.aim * (0.42 + t * 0.85) * release + 0.32 * (1 - release),
+      0.28 + (player.position.y + 0.74 - 0.28) * (1 - release),
+      THREE.MathUtils.lerp(player.position.z, startZ + (pinZ - startZ) * t, release));
     bowlBall.rotation.x -= dt * 16;
+  }
+
+  function presentFishing() {
+    fishingLine.visible = Boolean(city.fish);
+    if (!city.fish) return;
+    // Anchor the handle to the billboard's hand side, independently of orbit.
+    const yaw = avatar.rotation.y;
+    rod.position.set(Math.cos(yaw) * 0.34, 0.74, -Math.sin(yaw) * 0.34);
+    const handX = player.position.x + rod.position.x, handZ = player.position.z + rod.position.z;
+    const dx = bobber.position.x - handX, dz = bobber.position.z - handZ;
+    rodDirection.set(dx, Math.hypot(dx, dz) * 0.55, dz).normalize();
+    rod.quaternion.setFromUnitVectors(rodUp, rodDirection);
+    rodTip.set(0, 1.35, 0).applyQuaternion(rod.quaternion).add(rod.position).add(player.position);
+    const points = fishingLineGeometry.getAttribute("position") as THREE.BufferAttribute;
+    points.setXYZ(0, rodTip.x, rodTip.y, rodTip.z);
+    points.setXYZ(1, (rodTip.x + bobber.position.x) / 2, (rodTip.y + bobber.position.y) / 2 - 0.12,
+      (rodTip.z + bobber.position.z) / 2);
+    points.setXYZ(2, bobber.position.x, bobber.position.y, bobber.position.z);
+    points.needsUpdate = true;
   }
 
   function updatePlace() {
@@ -840,7 +884,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return;
     }
     if (ballHeld) {
-      ball.position.set(player.position.x, 1.05, player.position.z);
+      const basis = screenBasis();
+      const moving = Math.hypot(glideX, glideZ) > 0.28;
+      const dribbleY = moving && !hold ? 0.16 + 0.62 * (1 - Math.abs(Math.sin(travel * 5.5))) : hold ? 1.05 : 0.74;
+      ball.position.set(player.position.x + basis.rightX * 0.34, player.position.y + dribbleY, player.position.z + basis.rightZ * 0.34);
+      if (moving && !hold) ball.rotation.z += dt * 2.5;
       ballVel.set(0, 0, 0);
       if (hold) charge = Math.min(1, charge + dt / 0.85);
       if ((!hold || charge >= 1) && charge > 0.02) {
@@ -1141,11 +1189,17 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   function placeCamera(dt: number) {
     if (city.bowl) {
-      const aim = city.bowl.aim;
-      avatar.visible = false;
+      const bowl = city.bowl;
+      avatar.visible = true;
       player.position.set(92, 0, -17.6);
-      camera.position.set(92, 1.05, -17.15);
-      camera.lookAt(92 + aim * 0.7, 0.16, -23.5);
+      const roll = bowl.phase === "aim" ? 0 : bowl.phase === "roll" ? 1 - Math.max(0, bowl.left) / 1.65 : 1;
+      const follow = 1 - Math.exp(-5 * dt);
+      const distanceScale = cameraFraming(camera.aspect, 54, false).distanceScale;
+      const destination = new THREE.Vector3(92.8, 2.7, -17.6 + 4.2 * distanceScale - roll * 7);
+      camera.position.lerp(destination, follow);
+      camera.fov += (54 - camera.fov) * follow;
+      camera.updateProjectionMatrix();
+      camera.lookAt(92 + bowl.aim * 0.5, 0.9 - roll * 0.35, -19.1 - roll * 6);
       return;
     }
     avatar.visible = true;
@@ -1290,6 +1344,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     ballState() {
       return { held: ballHeld, charge, taken, position: { x: ball.position.x, y: ball.position.y, z: ball.position.z } };
     },
+    activityState() {
+      return { bowl: city.bowl ? { ...city.bowl } : null, fish: city.fish ? { ...city.fish } : null,
+        avatarVisible: avatar.visible, bowlBall: { x: bowlBall.position.x, y: bowlBall.position.y, z: bowlBall.position.z },
+        rodVisible: rod.visible, lineVisible: fishingLine.visible,
+        bowlDoor: world.districts.bowlDoor, pier: world.districts.pier };
+    },
     renderState() {
       const head = new THREE.Vector3(player.position.x, player.position.y + 1.85, player.position.z).project(camera);
       const feet = player.position.clone().project(camera);
@@ -1355,6 +1415,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       city.bowl = null;
       city.race = null;
       rod.visible = false;
+      fishingLine.visible = false;
       bobber.visible = false;
       bowlBall.visible = false;
       if (opts.place === "home") {

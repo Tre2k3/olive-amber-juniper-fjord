@@ -74,10 +74,49 @@ try {
   await set({ place: 'haunt', x: 4, z: 501.2, yaw: Math.PI });
   await page.keyboard.press('KeyE'); await frames(3);
   assert.equal(await page.evaluate(() => window.__SACK_V2__.place), 'street', 'House exit returns to the neighborhood');
+  // Real interaction enters bowling: Benji remains visible and the ball starts
+  // at hand height, then lowers into a rolling release with activity framing.
+  const door = await page.evaluate(() => window.__SACK_V2_INPUT__.activityState().bowlDoor);
+  await set({ place: 'street', x: door.x, z: door.z, yaw: Math.PI, dialogue: '' });
+  await page.keyboard.press('KeyE'); await frames(12);
+  const aiming = await page.evaluate(() => window.__SACK_V2_INPUT__.activityState());
+  assert.equal(aiming.bowl?.phase, 'aim');
+  assert.equal(aiming.avatarVisible, true, 'Bowling must show Benji');
+  assert.ok(aiming.bowlBall.y > 0.6 && Math.abs(aiming.bowlBall.x - 92) < 0.5, 'Aiming ball must be held beside Benji');
+  await page.screenshot({ path: 'artifacts/haunt/bowling-held.png', timeout: 60000 });
+  await page.keyboard.down('Space'); await frames(8); await page.keyboard.up('Space');
+  await page.waitForFunction(() => window.__SACK_V2_INPUT__.activityState().bowl?.phase === 'roll', null, { timeout: 90000 });
+  await frames(5);
+  const rolling = await page.evaluate(() => window.__SACK_V2_INPUT__.activityState());
+  assert.equal(rolling.avatarVisible, true);
+  assert.ok(rolling.bowlBall.z < aiming.bowlBall.z && rolling.bowlBall.y < aiming.bowlBall.y, 'Release must lower the ball and send it toward the pins');
+  await page.screenshot({ path: 'artifacts/haunt/bowling-roll.png', timeout: 60000 });
+  await set({ place: 'court', x: 66, z: -22, yaw: Math.PI, ballHeld: true, dialogue: '' });
+  await page.keyboard.down('KeyD');
+  const dribble = await page.evaluate(async () => {
+    const heights = [];
+    for (let i = 0; i < 14; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      heights.push(window.__SACK_V2_INPUT__.ballState().position.y);
+    }
+    return heights;
+  });
+  assert.ok(Math.max(...dribble) - Math.min(...dribble) > 0.1, 'Moving with the basketball must dribble');
+  assert.ok(Math.min(...dribble) >= 0.16, 'Dribble must stay above the court surface');
+  await page.screenshot({ path: 'artifacts/haunt/basketball-dribble.png', timeout: 60000 });
+  await page.keyboard.up('KeyD');
+  const pier = await page.evaluate(() => window.__SACK_V2_INPUT__.activityState().pier);
+  await set({ place: 'street', x: pier.x, z: pier.z, yaw: Math.PI, dialogue: '' });
+  await page.keyboard.press('KeyE'); await frames(4);
+  const fishing = await page.evaluate(() => window.__SACK_V2_INPUT__.activityState());
+  assert.ok(fishing.fish && fishing.rodVisible && fishing.lineVisible, 'Fishing must show the held rod and a line to the bobber');
+  await page.screenshot({ path: 'artifacts/haunt/fishing-held-rod.png', timeout: 60000 });
+  console.log('PASS: bowling held/release presentation and moving basketball dribble');
   console.log('PASS: modeled house, ticket, room doorway, furniture collision, light budget and exit');
   assert.deepEqual(errors, [], 'House gameplay must have no uncaught errors');
   assert.deepEqual(shaderErrors, [], 'Flagship logo materials must compile without shader errors');
   console.log('PASS: library chair collision and doorway route remain playable');
-  console.log('PASS: exact flagship logo loaded and ten actual house, HQ and court screenshots captured');
+  console.log('PASS: exact flagship logo loaded and fourteen actual house, HQ, court and activity screenshots captured');
 } finally { await browser.close(); }
+
 
