@@ -152,8 +152,44 @@ function pierProps(parent: THREE.Object3D) {
       box(parent, 0.31, 0.10, 0.31, dockX + dx, 1.33, z, bridgeRed);
     }
   }
-  for (let z = -65; z >= -79; z -= 0.66) {
-    box(parent, 4.11, 0.025, 0.045, dockX, 0.524, z, iron).castShadow = false;
+  // Distinct weathered boards replace the solid slab appearance, in one draw call.
+  const grain = canvasTex((g, w, h) => {
+    g.fillStyle = "#78604a"; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 220; i++) {
+      g.strokeStyle = i % 3 ? "rgba(43,30,23,.25)" : "rgba(218,190,145,.2)";
+      g.lineWidth = i % 4 === 0 ? 2 : 1;
+      const y = (i * 37) % h;
+      g.beginPath(); g.moveTo(0, y);
+      g.bezierCurveTo(w * .3, y + i % 9, w * .65, y - i % 7, w, y + i % 5);
+      g.stroke();
+    }
+    for (const x of [38, w - 38]) {
+      g.fillStyle = "#392e27"; g.beginPath(); g.arc(x, h / 2, 3, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = "rgba(35,23,16,.32)";
+      for (const radius of [10, 16, 23]) {
+        g.beginPath(); g.ellipse(x + 23, h * .68, radius * 1.8, radius * .35, .03, 0, Math.PI * 2); g.stroke();
+      }
+    }
+  }, 512, 128);
+  const boardMaterial = new THREE.MeshStandardMaterial({ map: grain, bumpMap: grain,
+    bumpScale: .018, color: 0xc8b49a, roughness: .91 });
+  const boards = new THREE.InstancedMesh(new THREE.BoxGeometry(4.1, .026, .64), boardMaterial, 24);
+  const boardTransform = new THREE.Object3D();
+  for (let i = 0; i < 24; i++) {
+    boardTransform.position.set(dockX, .515, -64.35 - i * .66);
+    boardTransform.rotation.y = ((i % 3) - 1) * .001;
+    boardTransform.updateMatrix(); boards.setMatrixAt(i, boardTransform.matrix);
+    boards.setColorAt(i, new THREE.Color().setScalar(.82 + (i % 5) * .035));
+  }
+  boards.name = "river-weathered-deck"; boards.receiveShadow = true;
+  boards.instanceMatrix.needsUpdate = true; parent.add(boards);
+  const ropeMaterial = new THREE.MeshStandardMaterial({ color: 0x99866b, roughness: .96 });
+  for (const x of [dockX - 2.05, dockX + 2.05]) {
+    for (const [z, endZ] of [[-66, -69.5], [-69.5, -73], [-73, -77.5]]) {
+      const rope = new THREE.QuadraticBezierCurve3(new THREE.Vector3(x, 1.15, z),
+        new THREE.Vector3(x, .9, (z + endZ) / 2), new THREE.Vector3(x, 1.15, endZ));
+      mesh(parent, new THREE.TubeGeometry(rope, 12, .028, 5, false), ropeMaterial, 0, 0, 0);
+    }
   }
   // A few prepared fishing rods leaning out over the river.
   for (const [x,z,theta] of [[-17.86,-73,0.16],[-14.12,-76,-0.19]] as const) {
@@ -228,11 +264,17 @@ export function riverWaterMaterial() {
   }, 512, 512, true);
   tex.repeat.set(6, 2);
   riverWater = new THREE.MeshStandardMaterial({
-    map: tex, color: 0x91aab1, roughness: 0.36, metalness: 0.18,
+    map: tex, bumpMap: tex, bumpScale: 0.065, color: 0xa9bec6, roughness: 0.32, metalness: 0.2,
     emissive: 0x12364e, emissiveIntensity: 0.12,
   });
   return riverWater;
 }
+/** Drift surface detail with elapsed game time; no per-frame geometry or textures. */
+export function animateRiverfront(time: number) {
+  if (!riverWater?.map) return;
+  riverWater.map.offset.set(time * .008, Math.sin(time * .12) * .008);
+}
+
 export function dressRiverfront(parent: THREE.Object3D, solids: Solid[]) {
   const scene = new THREE.Group();
   scene.name = "memphis-riverfront-production";

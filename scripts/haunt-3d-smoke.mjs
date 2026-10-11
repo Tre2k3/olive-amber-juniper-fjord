@@ -213,6 +213,9 @@ try {
   await page.setViewportSize({ width: 1280, height: 800 });
   console.log('PASS: desktop and portrait shot cameras frame Benji, ball and hoop and restore orbit');
   const pier = await page.evaluate(() => window.__SACK_V2_INPUT__.activityState().pier);
+  await set({ place: 'street', x: -16, z: -64, yaw: 0, dist: 18, height: 8, lookY: 3, night: false, dialogue: '' });
+  await frames(24);
+  await page.screenshot({ path: 'artifacts/haunt/riverfront-overview.png', timeout: 60000 });
   await set({ place: 'street', x: pier.x, z: pier.z, yaw: Math.PI, dialogue: '' });
   await page.keyboard.press('KeyE'); await frames(20);
   const fishing = await page.evaluate(() => window.__SACK_V2_INPUT__.activityState());
@@ -223,6 +226,7 @@ try {
     }
   };
   assertFishingFrame(fishing);
+  assert.ok(fishing.lineEndX < -18.1 && fishing.lineEndZ < -66, 'Cast must land in open water beside the pier');
   assert.ok(Math.abs(fishing.lineEndY - fishing.waterY) < 0.001, 'Fishing line must enter the river surface');
   assert.ok(Math.abs(fishing.floatY - fishing.waterY) < 0.06, 'Bobber must float at the water');
   await page.waitForFunction(() => window.__SACK_V2_INPUT__.activityState().fish?.phase === 'bite',

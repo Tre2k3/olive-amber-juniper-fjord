@@ -16,6 +16,7 @@ import { animateNets, exciteNet } from "./world/kits/hoop";
 import { buildSlice, carBody, spawnCourtActor, type SliceWorld } from "./world/slice";
 import { presentVehicles } from "./world/kits/vehicles";
 import { faceFoliage } from "./world/kits/trees";
+import { animateRiverfront } from "./world/riverfront-production";
 import { animateHauntLibrary } from "./world/kits/haunt-library";
 import { characters, frameSize, type Cutout } from "./assets/characters";
 import { characterMaterial, footMarker, plantFeet, seatOnGround, solePlane, solidCutout } from "./world/feet";
@@ -116,7 +117,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     new THREE.MeshStandardMaterial({ color: 0xe0b33a, emissive: 0xe0b33a, emissiveIntensity: 0.4 }),
   );
   bobber.visible = false;
-  bobber.position.set(-16, 0.055, -81);
+  // Cast beside the deck so the line and float remain visible in open water.
+  bobber.position.set(-21.5, 0.055, -73);
   world.scene.add(bobber);
   const fishingLineGeometry = new THREE.BufferGeometry();
   fishingLineGeometry.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(9), 3));
@@ -672,6 +674,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     placeCamera(dt);
     faceAvatar();
     presentFishing();
+    animateRiverfront(performance.now() / 1000);
     faceFoliage(camera.position);
     animateNets(world.exterior, dt);
     if (place === "haunt") animateHauntLibrary(world.haunt.group, performance.now() / 1000);
@@ -1653,6 +1656,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return { bowl: city.bowl ? { ...city.bowl } : null, fish: city.fish ? { ...city.fish } : null,
         avatarVisible: avatar.visible, bowlBall: { x: bowlBall.position.x, y: bowlBall.position.y, z: bowlBall.position.z },
         rodVisible: rod.visible, lineVisible: fishingLine.visible,
+        lineEndX: (fishingLineGeometry.getAttribute("position") as THREE.BufferAttribute).getX(2),
+        lineEndZ: (fishingLineGeometry.getAttribute("position") as THREE.BufferAttribute).getZ(2),
         lineEndY: (fishingLineGeometry.getAttribute("position") as THREE.BufferAttribute).getY(2),
         floatY: bobber.position.y, waterY: 0.02,
         fishingScreen: { tip: { x: rodScreen.x, y: rodScreen.y }, float: { x: floatScreen.x, y: floatScreen.y } },
