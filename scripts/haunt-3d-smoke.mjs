@@ -42,6 +42,21 @@ try {
   ]) {
     await set(shot); await frames(8);
     await page.screenshot({ path: `artifacts/haunt/${name}.png`, timeout: 60000 });
+    if (name === 'library-hearth') {
+      const heights = await page.evaluate(async () => {
+        const values = [];
+        for (let i = 0; i < 20; i++) {
+          await new Promise(r => requestAnimationFrame(r));
+          const state = window.__SACK_V2_INPUT__.hauntState();
+          if (state.activeLights > 4 || state.hearth.intensity > 5) throw new Error('Hearth exceeds the lighting budget');
+          values.push(state.hearth.flameHeight);
+        }
+        return values;
+      });
+      assert.ok(Math.max(...heights) - Math.min(...heights) > 0.01, 'Hearth flames must animate in the running game');
+      await page.screenshot({ path: 'artifacts/haunt/library-hearth-flicker.png', timeout: 60000 });
+      console.log('PASS: animated hearth stays below five intensity and within four active house lights');
+    }
   }
   await set({ place: 'street', x: -88.6, z: 4.35, dollars: 240, yaw: 0 });
   await page.keyboard.press('KeyE'); await frames(3);
@@ -152,7 +167,7 @@ try {
   assert.deepEqual(errors, [], 'House gameplay must have no uncaught errors');
   assert.deepEqual(shaderErrors, [], 'Flagship logo materials must compile without shader errors');
   console.log('PASS: library chair collision and doorway route remain playable');
-  console.log('PASS: exact flagship logo loaded and sixteen actual house, HQ, court and activity screenshots captured');
+  console.log('PASS: exact flagship logo loaded and seventeen actual house, HQ, court and activity screenshots captured');
 } finally { await browser.close(); }
 
 

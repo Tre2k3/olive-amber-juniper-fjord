@@ -11,6 +11,7 @@ import { cameraFraming } from "./core/camera-framing";
 import { buildSlice, carBody, type SliceWorld } from "./world/slice";
 import { presentVehicles } from "./world/kits/vehicles";
 import { faceFoliage } from "./world/kits/trees";
+import { animateHauntLibrary } from "./world/kits/haunt-library";
 import { characters, frameSize, type Cutout } from "./assets/characters";
 import { characterMaterial, footMarker, plantFeet, seatOnGround, solePlane, solidCutout } from "./world/feet";
 import {
@@ -587,6 +588,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     faceAvatar();
     presentFishing();
     faceFoliage(camera.position);
+    if (place === "haunt") animateHauntLibrary(world.haunt.group, performance.now() / 1000);
     composer.render();
 
     api.x = player.position.x;
@@ -1327,7 +1329,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       .sort((a, b) => a.getWorldPosition(new THREE.Vector3()).distanceToSquared(player.position)
         - b.getWorldPosition(new THREE.Vector3()).distanceToSquared(player.position)).slice(0, 4));
     for (const light of world.haunt.lights) {
-      light.intensity = 18;
+      light.intensity = typeof light.userData.baseIntensity === "number" ? light.userData.baseIntensity : 18;
       light.visible = place === "haunt" && hauntNearby.has(light);
     }
     for (const mat of world.headlightMats) mat.emissiveIntensity = night ? 1.7 : golden ? 0.8 : 0.3;
@@ -1363,13 +1365,16 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return { logos, loaded };
     },
     hauntState() {
+      const fire = world.haunt.group.getObjectByName("library-hearth-flame");
+      const hearth = world.haunt.group.getObjectByName("library-hearth-light") as THREE.PointLight | undefined;
       const house = world.exterior.getObjectByName("haunt-3d-house");
       const foyer = world.haunt.group.getObjectByName("haunt-3d-foyer");
       let houseMeshes = 0, foyerMeshes = 0;
       house?.traverse(node => { if (node instanceof THREE.Mesh) houseMeshes++; });
       foyer?.traverse(node => { if (node instanceof THREE.Mesh) foyerMeshes++; });
       return { houseMeshes, foyerMeshes, ticket: hauntTicket, cleared: hauntCleared,
-        activeLights: world.haunt.lights.filter(light => light.visible).length };
+        activeLights: world.haunt.lights.filter(light => light.visible).length,
+        hearth: { flameHeight: fire?.scale.y ?? 0, intensity: hearth?.intensity ?? 0 } };
     },
     ballState() {
       return { held: ballHeld, charge, taken, position: { x: ball.position.x, y: ball.position.y, z: ball.position.z } };

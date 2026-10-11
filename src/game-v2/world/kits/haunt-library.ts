@@ -2,6 +2,11 @@ import * as THREE from "three";
 import type { Solid } from "../../core/types";
 import { hauntSurface } from "./haunt-architecture";
 
+const animations = new WeakMap<THREE.Object3D, (time: number) => void>();
+export function animateHauntLibrary(parent: THREE.Object3D, time: number) {
+  animations.get(parent)?.(time);
+}
+
 // Small repeatable textile, drawn once; it never includes room or character art.
 function libraryTextile() {
   const canvas = document.createElement("canvas");
@@ -52,7 +57,7 @@ export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], light
   const velvet = new THREE.MeshStandardMaterial({ color: 0x62232b, roughness: 0.95 });
   const paper = new THREE.MeshStandardMaterial({ color: 0xc9b68c, roughness: 0.98 });
   const stone = hauntSurface("stone");
-  const flame = new THREE.MeshBasicMaterial({ color: 0xffa23c, transparent: true, opacity: 0.7, depthWrite: false });
+  const flame = new THREE.MeshBasicMaterial({ color: 0xf27a22, transparent: true, opacity: 0.8, depthWrite: false });
   const add = (geometry: THREE.BufferGeometry, material: THREE.Material, x: number, y: number, z: number) => {
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(x, y, z);
@@ -143,7 +148,9 @@ export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], light
   // Shallow fireplace leaves the north doorway at x=28 clear.
   const fx = 30.55, fz = 7.45;
   block(1.65, 0.13, 0.85, fx, 0.16, fz - 0.1, stone);
-  block(1.45, 1.42, 0.13, fx, 0.86, fz + 0.21, iron);
+  const soot = hauntSurface("stone");
+  soot.color.set(0x39302b);
+  block(1.45, 1.42, 0.13, fx, 0.86, fz + 0.21, soot);
   for (const x of [fx - 0.69, fx + 0.69]) block(0.25, 1.5, 0.45, x, 0.97, fz, stone);
   block(1.76, 0.2, 0.62, fx, 1.76, fz, wood);
   block(1.43, 0.16, 0.35, fx, 1.52, fz, stone);
@@ -155,23 +162,49 @@ export function buildHauntLibrary(parent: THREE.Object3D, solids: Solid[], light
   }
   const mantelRosette = add(new THREE.TorusGeometry(0.065, 0.018, 6, 12), brass, fx, 1.77, fz - 0.317);
   mantelRosette.scale.x = 1.7;
-  for (const x of [fx - 0.33, fx + 0.23]) {
-    const log = add(new THREE.CylinderGeometry(0.065, 0.065, 0.65, 8), iron, x, 0.36, fz - 0.04);
+  const charcoal = new THREE.MeshStandardMaterial({ color: 0x251a13, roughness: 1 });
+  const ember = new THREE.MeshBasicMaterial({ color: 0xc9400e });
+  for (const x of [fx - 0.28, fx + 0.23]) {
+    const log = add(new THREE.CylinderGeometry(0.075, 0.06, 0.65, 8), charcoal, x, 0.36, fz - 0.04);
     log.rotation.z = Math.PI / 2;
+    for (let i = 0; i < 3; i++) block(0.055, 0.016, 0.022, x - 0.2 + i * 0.18, 0.415, fz - 0.06, ember);
   }
-  for (let i = 0; i < 5; i++) {
-    const fire = add(new THREE.SphereGeometry(0.09, 10, 8), flame,
-      fx - 0.32 + i * 0.16, 0.47 + i % 2 * 0.05, fz - 0.14);
-    fire.scale.set(0.85, 1.8 + i % 2 * 0.55, 0.65);
-    fire.rotation.z = (i - 2) * 0.13;
-    fire.castShadow = false;
+  // Tapered volumes share geometry; animate transforms rather than allocating
+  // particles, textures or extra point lights each frame.
+  const flameGeometry = new THREE.LatheGeometry([
+    new THREE.Vector2(0, 0), new THREE.Vector2(0.07, 0.035),
+    new THREE.Vector2(0.055, 0.14), new THREE.Vector2(0.025, 0.28),
+    new THREE.Vector2(0, 0.42),
+  ], 8);
+  const goldFlame = new THREE.MeshBasicMaterial({ color: 0xffba45, transparent: true, opacity: 0.85, depthWrite: false });
+  const fires: THREE.Group[] = [];
+  for (let i = 0; i < 7; i++) {
+    const fire = new THREE.Group(); fire.name = "library-hearth-flame";
+    fire.position.set(fx - 0.39 + i * 0.13, 0.38, fz - 0.14);
+    const outer = new THREE.Mesh(flameGeometry, flame);
+    const inner = new THREE.Mesh(flameGeometry, goldFlame);
+    inner.scale.set(0.5, 0.65, 0.5); inner.position.set(0, 0.01, -0.045);
+    fire.add(outer, inner); room.add(fire); fires.push(fire);
   }
+  // Low grate stands in front of the logs and leaves the flames readable.
+  for (let i = 0; i < 7; i++) block(0.022, 0.2, 0.028, fx - 0.44 + i * 0.145, 0.36, fz - 0.3, iron);
+  block(1.02, 0.025, 0.03, fx, 0.45, fz - 0.3, iron);
   candle(fx - 0.6, 1.87, fz, 0.22);
   candle(fx + 0.55, 1.87, fz, 0.3);
   const hearthLight = new THREE.PointLight(0xff8c3b, 0, 7, 2);
+  hearthLight.name = "library-hearth-light";
+  hearthLight.userData.baseIntensity = 4.5;
   hearthLight.position.set(fx, 0.8, fz - 0.6);
   room.add(hearthLight);
   lights.push(hearthLight);
+  animations.set(parent, (time) => {
+    fires.forEach((fire, i) => {
+      fire.scale.set(0.82 + Math.sin(time * 3.1 + i * 1.8) * 0.1,
+        0.85 + i % 3 * 0.14 + Math.sin(time * 5.2 + i * 2.3) * 0.14, 0.7);
+      fire.rotation.z = Math.sin(time * 2.8 + i * 1.7) * 0.12;
+    });
+    if (hearthLight.visible) hearthLight.intensity = 4.5 * (0.94 + Math.sin(time * 7.2) * 0.06);
+  });
   solids.push({ minX: fx - 0.88, maxX: fx + 0.88, minZ: fz - 0.58, maxZ: 7.9 });
   // Physical rug border stays flush with the existing floor.
   const rug = add(new THREE.PlaneGeometry(3.6, 2.8), libraryTextile(), 28.3, 0.104, 5.4);
