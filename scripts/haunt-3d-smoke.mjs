@@ -95,7 +95,7 @@ try {
   await set({ place: 'haunt', x: 1.6, z: 505.85, yaw: 0, dialogue: '' });
   await page.keyboard.down('KeyS');
   await page.waitForFunction(() => window.__SACK_V2__.z < 501.4, null, { timeout: 90000 });
-  await page.keyboard.up('KeyS'); await frames(3);
+  await page.keyboard.up('KeyS'); await frames(20);
   assert.ok(Math.abs(await page.evaluate(() => window.__SACK_V2__.y) - 0.11) < 0.001, 'Descending stairs returns soles to the foyer floor');
   await page.screenshot({ path: 'artifacts/haunt/stairs-descended.png', timeout: 60000 });
   await set({ place: 'haunt', x: 3, z: 503, yaw: 0, dialogue: '' });

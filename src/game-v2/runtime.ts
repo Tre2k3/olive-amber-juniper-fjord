@@ -1467,8 +1467,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const previousFov = camera.fov;
     camera.fov += (desiredFov - camera.fov) * (1 - Math.exp(-5 * dt));
     if (camera.fov !== previousFov) camera.updateProjectionMatrix();
-    const lookX = Math.sin(camYaw);
-    const lookZ = Math.cos(camYaw);
+    let lookX = Math.sin(camYaw);
+    let lookZ = Math.cos(camYaw);
     const talking = place === "hq" && dialogue.startsWith("K Blanco");
     const dist = camDist ?? (talking ? 2.9 : place === "haunt" ? 3.2 : inside ? 3.05 : 3.4) * framing.distanceScale;
     const height = camHeight ?? (talking ? 1.42 : place === "haunt" ? 1.72 : inside ? 1.5 : 1.32);
@@ -1476,7 +1476,22 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     let destX = player.position.x - lookX * dist + lookZ * side;
     let destZ = player.position.z - lookZ * dist - lookX * side;
     const zone = collisionZone();
-    const pulled = pullCamera(player.position.x, player.position.z, destX, destZ, zone.solids.filter(s => s.cameraBlock !== false), zone.ox, zone.oz);
+    let pulled = pullCamera(player.position.x, player.position.z, destX, destZ, zone.solids.filter(s => s.cameraBlock !== false), zone.ox, zone.oz);
+    // Once the walker stops at a wall, rotate toward open room space rather
+    // than leaving the lens pressed against the cap. Updating yaw also keeps
+    // the next movement input aligned with the new camera.
+    if (place === "haunt" && camDist === null && Math.hypot(glideX, glideZ) < 0.3
+      && Math.hypot(pulled.x - player.position.x, pulled.z - player.position.z) < 1.15) {
+      const centerX = Math.floor(player.position.x / 8) * 8 + 4;
+      const centerZ = Math.floor((player.position.z - 500) / 8) * 8 + 504;
+      const open = pullCamera(player.position.x, player.position.z, centerX, centerZ,
+        zone.solids.filter(s => s.cameraBlock !== false), zone.ox, zone.oz);
+      if (Math.hypot(open.x - player.position.x, open.z - player.position.z) > 1.9) {
+        pulled = open;
+        camYaw = Math.atan2(player.position.x - open.x, player.position.z - open.z);
+        lookX = Math.sin(camYaw); lookZ = Math.cos(camYaw);
+      }
+    }
     destX = pulled.x;
     destZ = pulled.z;
     const destY = player.position.y + height;
