@@ -420,11 +420,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   window.addEventListener("resize", resize);
 
   const save = createSaveWriter((value) => localStorage.setItem(SAVE_KEY, value));
+  let captureFrozen = false;
   const loop = (now: number) => {
     frame = requestAnimationFrame(loop);
     const dt = Math.min(0.033, (now - last) / 1000);
     last = now;
     resize();
+    if (captureFrozen) { composer.render(); return; }
 
     const hold = keys.has("Space") || charging;
     for (const [code, left] of pulses) {
@@ -1551,6 +1553,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   camera.lookAt(player.position.x + 1.15, 1.22, player.position.z);
 
   const touchApi = {
+    freezeCapture(paused: boolean) {
+      // QA can hold an actual rendered action frame for a screenshot. Normal
+      // game URLs cannot pause through this hook.
+      if (new URLSearchParams(window.location.search).get("qa") === "1") captureFrozen = paused;
+    },
     brandState() {
       let logos = 0, loaded = 0;
       world.scene.traverse(node => {

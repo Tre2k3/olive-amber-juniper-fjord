@@ -122,10 +122,10 @@ export function createCourtAnimation(parent: THREE.Object3D) {
     },
     gripWorld(target: THREE.Vector3) {
       // The palm supports the lower/back edge instead of occupying ball center.
-      return mesh.localToWorld(target.copy(hand).add(new THREE.Vector3(0, .105, .025)));
+      return mesh.localToWorld(target.copy(hand).add(new THREE.Vector3(0, .075, .025)));
     },
     alignGrip(target: THREE.Vector3, scratch: THREE.Vector3) {
-      mesh.localToWorld(scratch.copy(hand).add(new THREE.Vector3(0, .105, .025)));
+      mesh.localToWorld(scratch.copy(hand).add(new THREE.Vector3(0, .075, .025)));
       mesh.position.add(scratch.sub(target).multiplyScalar(-1)); mesh.updateWorldMatrix(true, false);
     },
     handWorld(target: THREE.Vector3) { return mesh.localToWorld(target.copy(hand)); },
