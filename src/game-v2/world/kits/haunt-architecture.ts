@@ -34,10 +34,45 @@ export function hauntSurface(kind: "stone" | "wood" | "tile") {
       }
     }
   }
+  if (kind === "stone") {
+    // Deterministic mineral flecks, lime chips and rain trails break the tiled look.
+    for (let i = 0; i < 620; i++) {
+      const x = i * 137 % 256;
+      const y = i * 83 % 256;
+      const bright = i % 5 === 0;
+      ctx.fillStyle = bright ? "rgba(220,210,186,.13)" : "rgba(20,17,18,.16)";
+      ctx.fillRect(x, y, 1 + i % 3, 1 + (i * 3) % 2);
+    }
+    for (let i = 0; i < 18; i++) {
+      const x = 6 + i * 37 % 244;
+      const length = 24 + i * 29 % 92;
+      const streak = ctx.createLinearGradient(x, 0, x + 3, length);
+      streak.addColorStop(0, "rgba(24,18,20,0)");
+      streak.addColorStop(0.28, "rgba(24,18,20,.12)");
+      streak.addColorStop(1, "rgba(24,18,20,0)");
+      ctx.fillStyle = streak;
+      ctx.fillRect(x, i * 41 % 180, 3 + i % 5, length);
+    }
+    for (let i = 0; i < 46; i++) {
+      ctx.fillStyle = i % 2 ? "rgba(225,211,183,.1)" : "rgba(40,29,27,.14)";
+      ctx.fillRect(i * 67 % 248, i * 113 % 252, 4 + i % 8, 1);
+    }
+  }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(kind === "stone" ? 3 : 2, 2);
+  if (kind === "stone") {
+    const bump = texture.clone();
+    bump.colorSpace = THREE.NoColorSpace;
+    bump.needsUpdate = true;
+    return new THREE.MeshStandardMaterial({
+      map: texture,
+      bumpMap: bump,
+      bumpScale: 0.035,
+      roughness: 0.92,
+    });
+  }
   return new THREE.MeshStandardMaterial({ map: texture, roughness: kind === "tile" ? 0.34 : 0.85 });
 }
 
