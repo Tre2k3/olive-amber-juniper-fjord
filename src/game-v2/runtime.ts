@@ -1262,9 +1262,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     seatOnGround(avatar);
     avatar.position.y += courtMatch?.players[0]?.jump ?? 0;
     const rim = courtMatch ? matchRim(courtMatch, world.hoops) : world.hoop;
-    const animated = courtAnimation.update(courtMatch, rim.x >= player.position.x ? 1 : -1, yawTo(avatar, camera.position));
+    const attackX = rim.x - player.position.x, attackZ = rim.z - player.position.z;
+    const viewX = camera.position.x - player.position.x, viewZ = camera.position.z - player.position.z;
+    const rear = attackX * viewX + attackZ * viewZ < -0.55 * Math.hypot(attackX, attackZ) * Math.hypot(viewX, viewZ);
+    const animated = courtAnimation.update(courtMatch, rim.x >= player.position.x ? 1 : -1, yawTo(avatar, camera.position), rear);
     avatar.visible = !animated;
-    if (animated && courtMatch?.owner === 0 && (courtMatch.charge > 0 || courtMatch.dunk >= 0)) {
+    if (animated && courtMatch?.owner === 0 && (courtMatch.charge > 0 || (courtMatch.dunk >= 0 && !courtMatch.scored))) {
       courtAnimation.handWorld(actionHand); ball.position.copy(actionHand);
     }
     avatar.scale.set(presentScale(player), presentScale(player), 1);
@@ -1297,8 +1300,30 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   function placeCamera(dt: number) {
     if (courtMatch) {
-      camYaw = Math.PI;
       const rim = matchRim(courtMatch, world.hoops);
+      const athlete = courtMatch.players[0]!;
+      const actionView = courtMatch.charge > 0 || courtMatch.dunk === 0
+        || (courtMatch.shooter === 0 && athlete.action === "shoot" && courtMatch.actionLeft > 0)
+        || (courtMatch.owner === 0 && (athlete.action === "crossover" || athlete.dribbleHand === -1));
+      if (actionView) {
+        const dx = rim.x - player.position.x, dz = rim.z - player.position.z;
+        const length = Math.hypot(dx, dz) || 1;
+        const points = [player.position.clone(), player.position.clone().add(new THREE.Vector3(0, 3, 0)),
+          ball.position.clone(), new THREE.Vector3(rim.x, rim.y + 0.4, rim.z)];
+        const bounds = new THREE.Box3().setFromPoints(points), target = bounds.getCenter(new THREE.Vector3());
+        const radius = Math.max(2.4, bounds.getSize(new THREE.Vector3()).length() / 2);
+        const fov = cameraFraming(camera.aspect, 54, false).fov;
+        const halfAngle = Math.min(THREE.MathUtils.degToRad(fov / 2), Math.atan(Math.tan(THREE.MathUtils.degToRad(fov / 2)) * camera.aspect));
+        const distance = radius / Math.sin(halfAngle) * 1.15;
+        const offset = new THREE.Vector3(-dx / length - dz / length * 0.18, 0.65,
+          -dz / length + dx / length * 0.18).normalize().multiplyScalar(distance);
+        camera.position.copy(target.clone().add(offset)); camera.fov = fov;
+        camera.updateProjectionMatrix(); camera.lookAt(target);
+        camYaw = Math.atan2(target.x - camera.position.x, target.z - camera.position.z);
+        facing = faceAlong(dx, dz);
+        avatar.visible = !courtAnimation.mesh.visible; shotCameraActive = false; return;
+      }
+      camYaw = Math.PI;
       const portrait = camera.aspect < 0.8;
       const focusX = portrait ? THREE.MathUtils.clamp((player.position.x + ball.position.x) / 2, 59.5, courtMatch.mode === "half" ? 62.5 : 72.5) : courtMatch.mode === "half" ? 61 : 66;
       const focusZ = portrait ? THREE.MathUtils.clamp((player.position.z + ball.position.z) / 2, -25, -19) : -22;
@@ -1339,6 +1364,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       camera.fov += (framing.fov - camera.fov) * follow;
       camera.updateProjectionMatrix();
       camera.lookAt(target);
+      // A short transition must still keep every gameplay subject in frame.
+      // Pull back along the current view only when the interpolated camera crops one.
+      for (let i = 0; i < 12; i++) {
+        camera.updateMatrixWorld();
+        const points = [player.position.clone(), player.position.clone().add(new THREE.Vector3(0, 1.85, 0)),
+          ball.position.clone(), new THREE.Vector3(hoop.x, hoop.y, hoop.z)];
+        if (points.every(p => { p.project(camera); return Math.abs(p.x) < 0.9 && Math.abs(p.y) < 0.9 && p.z > -1 && p.z < 1; })) break;
+        camera.position.sub(target).multiplyScalar(1.18).add(target); camera.lookAt(target);
+      }
       avatar.visible = true;
       const toX = player.position.x - camera.position.x, toZ = player.position.z - camera.position.z;
       const side = dx * -toZ + dz * toX, depth = dx * toX + dz * toZ;
@@ -1539,6 +1573,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     basketballState() {
       return courtMatch ? { ...courtMatch, players: courtMatch.players.map(p => ({ ...p })),
         animation: courtAnimation.state(),
+        actionScreen: [player.position.clone(), player.position.clone().add(new THREE.Vector3(0, 3, 0)),
+          ball.position.clone(), new THREE.Vector3(matchRim(courtMatch, world.hoops).x, matchRim(courtMatch, world.hoops).y, matchRim(courtMatch, world.hoops).z)]
+          .map(point => { point.project(camera); return { x: point.x, y: point.y, z: point.z }; }),
         duplicateCastVisible: [...hiddenCourtCast.keys()].filter(actor => actor.visible).length,
         nets: world.exterior.children.filter(node => node.name === "basketball-reactive-net").map(node => node.userData.reaction ?? 0) } : null;
     },

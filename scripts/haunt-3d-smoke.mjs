@@ -200,7 +200,7 @@ try {
   for (const mode of ['half', 'full']) {
     await page.evaluate(m => window.__SACK_V2_INPUT__.startBasketball(m), mode);
     await frames(20);
-    await page.waitForFunction(() => window.__SACK_V2_INPUT__.basketballState()?.animation.loaded === 3, null, { timeout: 90000 });
+    await page.waitForFunction(() => window.__SACK_V2_INPUT__.basketballState()?.animation.loaded === 7, null, { timeout: 90000 });
     const match = await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState());
     assert.equal(match.mode, mode); assert.equal(match.players.length, 4);
     assert.equal(match.duplicateCastVisible, 0, 'Court participants must not also stand on the sidelines');
@@ -210,10 +210,10 @@ try {
     await page.screenshot({ path: `artifacts/haunt/basketball-2v2-${mode}.png`, timeout: 60000 });
   }
   await page.evaluate(() => window.__SACK_V2_INPUT__.setCharge(true)); await frames(12);
-  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState())).animation.action, 'shoot');
+  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState())).animation.action, 'shoot-back');
   await page.screenshot({ path: 'artifacts/haunt/basketball-animated-gather.png', timeout: 60000 });
   await page.evaluate(() => window.__SACK_V2_INPUT__.setCharge(false)); await frames(2);
-  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState())).animation.action, 'shoot');
+  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState())).animation.action, 'shoot-back');
   await page.screenshot({ path: 'artifacts/haunt/basketball-animated-release.png', timeout: 60000 });
   await frames(5);
   await page.screenshot({ path: 'artifacts/haunt/basketball-animated-follow.png', timeout: 60000 });
@@ -221,8 +221,26 @@ try {
   await set({ place: 'court', x: 58, z: -22, yaw: Math.PI, ballHeld: true, dialogue: '' }); await frames(2);
   await page.keyboard.press('KeyV'); await frames(15);
   const dunkView = await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState());
-  assert.equal(dunkView.animation.action, 'dunk'); assert.equal(dunkView.animation.visible, true);
+  assert.equal(dunkView.animation.action, 'dunk-back');
+  assert.ok(dunkView.actionScreen.every(p => Math.abs(p.x) < .95 && Math.abs(p.y) < .95 && p.z > -1 && p.z < 1), 'Rear dunk camera retains player, ball and rim'); assert.equal(dunkView.animation.visible, true);
   await page.screenshot({ path: 'artifacts/haunt/basketball-animated-dunk.png', timeout: 60000 });
+  await page.evaluate(() => window.__SACK_V2_INPUT__.startBasketball('half')); await frames(3);
+  await page.keyboard.press('KeyC'); await frames(2);
+  let crossView = await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState());
+  assert.equal(crossView.animation.action, 'cross-back');
+  assert.equal(crossView.players[0].dribbleHand, -1);
+  await page.screenshot({ path: 'artifacts/haunt/basketball-crossover-start.png', timeout: 60000 });
+  await frames(6);
+  crossView = await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState());
+  assert.equal(crossView.animation.action, 'cross-back');
+  await page.screenshot({ path: 'artifacts/haunt/basketball-crossover-receive.png', timeout: 60000 });
+  await frames(8);
+  crossView = await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState());
+  assert.equal(crossView.players[0].dribbleHand, -1, 'Receiving hand stays active');
+  await page.screenshot({ path: 'artifacts/haunt/basketball-left-hand-dribble.png', timeout: 60000 });
+  await page.keyboard.press('KeyC'); await frames(16);
+  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState())).players[0].dribbleHand, 1);
+  console.log('PASS: rear shot/dunk and right-to-left-to-right crossover, persistent hand');
   // Reset possession for the existing mobile pass check.
   await page.evaluate(() => window.__SACK_V2_INPUT__.startBasketball('full')); await frames(3);
   const beforeLeft = await page.evaluate(() => window.__SACK_V2__.x);
@@ -245,7 +263,7 @@ try {
   assert.deepEqual(errors, [], 'House gameplay must have no uncaught errors');
   assert.deepEqual(shaderErrors, [], 'Flagship logo materials must compile without shader errors');
   console.log('PASS: library chair collision and doorway route remain playable');
-  console.log('PASS: exact flagship logo loaded and twenty-nine actual house, HQ, court and activity screenshots captured');
+  console.log('PASS: exact flagship logo loaded and thirty-two actual house, HQ, court and activity screenshots captured');
 } finally { await browser.close(); }
 
 
