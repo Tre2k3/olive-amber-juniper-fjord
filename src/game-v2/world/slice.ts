@@ -203,7 +203,7 @@ function actor(url: string, size: { w: number; h: number; footPad: number; pxH: 
   return g;
 }
 
-function spawn(asset: Spawnable, x: number, z: number, parent: THREE.Object3D) {
+export function spawnCourtActor(asset: Spawnable, x: number, z: number, parent: THREE.Object3D) {
   const size = frameSize(asset);
   const g = actor(size.src, size, x, z, parent);
   g.userData.asset = asset;
@@ -438,7 +438,7 @@ export function buildSlice(): SliceWorld {
     return { pts, i: towardEnd ? 1 : 0, dir: towardEnd ? 1 : -1, speed, phase, wait: 0 };
   }
   // Three people walking the north sidewalk. Everyone else is posted up.
-  const walkerA = spawn(ped.male01, -14, 6.38, exterior);
+  const walkerA = spawnCourtActor(ped.male01, -14, 6.38, exterior);
   walkerA.userData.route = route(
     [
       { x: -20, z: 6.38 },
@@ -448,7 +448,7 @@ export function buildSlice(): SliceWorld {
     1.15,
     0,
   );
-  const walkerB = spawn(ped.female02, -8, 6.38, exterior);
+  const walkerB = spawnCourtActor(ped.female02, -8, 6.38, exterior);
   walkerB.userData.route = route(
     [
       { x: -16, z: 6.38 },
@@ -458,7 +458,7 @@ export function buildSlice(): SliceWorld {
     1.05,
     0.45,
   );
-  const walkerC = spawn(ped.female04, -2, 6.38, exterior);
+  const walkerC = spawnCourtActor(ped.female04, -2, 6.38, exterior);
   walkerC.userData.route = route(
     [
       { x: -10, z: 6.38 },
@@ -468,28 +468,28 @@ export function buildSlice(): SliceWorld {
     1.1,
     0.2,
   );
-  const talkA = spawn(ped.female01, 2.4, 6.55, exterior);
+  const talkA = spawnCourtActor(ped.female01, 2.4, 6.55, exterior);
   talkA.userData.idle = true;
-  const talkB = spawn(ped.male02, 3.85, 6.55, exterior);
+  const talkB = spawnCourtActor(ped.male02, 3.85, 6.55, exterior);
   talkB.userData.idle = true;
   pair(talkA, talkB);
-  const neighbor = spawn(ped.male03, -29.2, 6.55, exterior);
+  const neighbor = spawnCourtActor(ped.male03, -29.2, 6.55, exterior);
   neighbor.userData.idle = true;
-  const driveway = spawn(ped.male04, -27.5, 6.55, exterior);
+  const driveway = spawnCourtActor(ped.male04, -27.5, 6.55, exterior);
   driveway.userData.idle = true;
   pair(neighbor, driveway);
-  const porch = spawn(characters.mamaDee, -20.5, 7.72, exterior);
+  const porch = spawnCourtActor(characters.mamaDee, -20.5, 7.72, exterior);
   porch.userData.idle = true;
   porch.userData.look = { x: -12, z: 8.4 };
-  const hqIdle = spawn(characters.nitro, 48.5, 6.7, exterior);
+  const hqIdle = spawnCourtActor(characters.nitro, 48.5, 6.7, exterior);
   hqIdle.userData.idle = true;
   hqIdle.userData.look = { x: 62, z: 6.7 };
-  const unc = spawn(characters.uncJ, -6.2, -6.55, exterior);
+  const unc = spawnCourtActor(characters.uncJ, -6.2, -6.55, exterior);
   unc.userData.idle = true;
-  const uncFriend = spawn(ped.female03, -4.45, -6.4, exterior);
+  const uncFriend = spawnCourtActor(ped.female03, -4.45, -6.4, exterior);
   uncFriend.userData.idle = true;
   pair(unc, uncFriend);
-  const strike = spawn(characters.strike, 62.4, -16.2, exterior);
+  const strike = spawnCourtActor(characters.strike, 62.4, -16.2, exterior);
   strike.userData.idle = true;
   strike.userData.look = { x: 66, z: -22 };
   const pedestrians = [walkerA, walkerB, walkerC, talkA, talkB, neighbor, driveway, porch, hqIdle, unc, uncFriend, strike];
@@ -728,7 +728,7 @@ export function buildSlice(): SliceWorld {
   arch.position.set(courtX, 6.8, courtZ - 15);
   exterior.add(arch);
   box(22, 0.4, 1.6, courtX, 11.5, courtZ - 15, new THREE.MeshStandardMaterial({ color: 0x4e4038, roughness: 0.6 }), exterior);
-  const benchMate = spawn(characters.pedestrian.female04, courtX + 1.85, courtZ + 4.7, exterior);
+  const benchMate = spawnCourtActor(characters.pedestrian.female04, courtX + 1.85, courtZ + 4.7, exterior);
   benchMate.userData.idle = true;
   pedestrians.push(benchMate);
   billboards.push(benchMate);
@@ -927,13 +927,13 @@ export function buildSlice(): SliceWorld {
       exterior.add(bulb);
     }
   }
-  const og = spawn(characters.courtOg, courtX, courtZ + 5.6, exterior);
+  const og = spawnCourtActor(characters.courtOg, courtX, courtZ + 5.6, exterior);
   billboards.push(og);
   pair(og, benchMate);
 
   buildDowntown(exterior, streetSolids, glowMats, lamps);
   const pace = (asset: Spawnable, x: number, z: number, pts: { x: number; z: number }[], speed: number) => {
-    const g = spawn(asset, x, z, exterior);
+    const g = spawnCourtActor(asset, x, z, exterior);
     g.userData.route = { pts, i: 1, dir: 1, speed, phase: x };
     g.userData.heading = Math.atan2(pts[1]!.x - pts[0]!.x, pts[1]!.z - pts[0]!.z);
     pedestrians.push(g);
@@ -972,8 +972,8 @@ export function buildSlice(): SliceWorld {
       { x: beat.b, z: beat.zb },
     ], beat.speed);
   }
-  const cornerA = spawn(characters.pedestrian.female04, 40.4, -48.2, exterior);
-  const cornerB = spawn(characters.pedestrian.male03, 41.3, -48.55, exterior);
+  const cornerA = spawnCourtActor(characters.pedestrian.female04, 40.4, -48.2, exterior);
+  const cornerB = spawnCourtActor(characters.pedestrian.male03, 41.3, -48.55, exterior);
   cornerA.userData.idle = true;
   cornerB.userData.idle = true;
   cornerA.userData.partner = cornerB;
@@ -1082,5 +1082,6 @@ function buildHomeInterior(group: THREE.Group, solids: Solid[], glow: THREE.Mesh
 }
 
 function buildHqInterior(group: THREE.Group, solids: Solid[], glow: THREE.MeshStandardMaterial[]) {
-  return buildBoutiqueInterior(group, solids, glow, (x, z) => spawn(characters.kBlanco, x, z, group));
+  return buildBoutiqueInterior(group, solids, glow, (x, z) => spawnCourtActor(characters.kBlanco, x, z, group));
 }
+

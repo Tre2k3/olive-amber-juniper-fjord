@@ -32,6 +32,7 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
       {state.charge > 0 && (
         <div data-testid="shot-charge" className="absolute bottom-44 left-1/2 h-2 w-40 -translate-x-1/2 overflow-hidden rounded bg-[#0d0d0d] sm:bottom-24">
           <div className="h-full bg-[#e0b33a]" style={{ width: `${state.charge * 100}%` }} />
+          <div className="absolute inset-y-0 border-x border-[#071018] bg-[#49e97599]" style={{ left: "63.5%", width: "13%" }} />
         </div>
       )}
       {state.prompt && (
@@ -41,7 +42,14 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
       )}
       {state.place === "court" && (
         <div data-testid="court-score" className="absolute left-1/2 top-[15.5rem] -translate-x-1/2 whitespace-nowrap rounded bg-[#0d0d0dcc] px-2 py-1 text-xs tracking-widest text-[#e0b33a] sm:bottom-20 sm:top-auto">
-          {state.made} MADE / {state.taken} TAKEN
+          {state.basketball ? `GREEN ${state.basketball.score[0]} — ${state.basketball.score[1]} GOLD · ${state.basketball.clock}s` : `${state.made} MADE / ${state.taken} TAKEN`}
+        </div>
+      )}
+      {state.place === "court" && (
+        <div className="pointer-events-auto absolute bottom-36 left-3 flex max-w-[90vw] flex-wrap gap-1 sm:bottom-16">
+          {[["HALF 2v2", "KeyG"], ["FULL 2v2", "KeyH"], ...(state.basketball ? [["PASS", "KeyF"], ["CROSS", "KeyC"], ["DUNK", "KeyV"], ["EXIT", "Escape"]] : [])].map(([label, code]) => (
+            <button key={code} type="button" className="min-h-11 rounded border border-[#e0b33a77] bg-[#0d0d0dee] px-2 text-[10px]" onClick={() => action(code!)}>{label}</button>
+          ))}
         </div>
       )}
       <div className="pointer-events-auto absolute bottom-4 left-4 h-28 w-28 sm:hidden">
@@ -53,7 +61,7 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
         <Round label="SHOT" onPointerDown={() => action("SpaceDown")} onPointerUp={() => action("SpaceUp")} />
       </div>
       <div className="absolute bottom-3 right-4 hidden text-[11px] tracking-wide text-[#f4efe4aa] sm:block">
-        Arrows / WASD move · Q/R orbit · drag or swipe camera · E interact · Space shoot · Shift run
+        {state.basketball ? "WASD move · Space timing shot · F pass · C cross · V dunk · E steal · Esc exit" : "Arrows / WASD move · Q/R orbit · drag or swipe camera · E interact · Space shoot · Shift run"}
       </div>
     </div>
   );
@@ -190,3 +198,4 @@ function moveStick(e: PointerEvent<HTMLDivElement>) {
 function releaseStick() {
   (window as unknown as { __SACK_V2_INPUT__?: { setStick: (x: number, y: number) => void } }).__SACK_V2_INPUT__?.setStick(0, 0);
 }
+

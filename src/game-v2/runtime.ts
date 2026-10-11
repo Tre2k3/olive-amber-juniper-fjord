@@ -8,7 +8,10 @@ import { productionLanes, sampleLane, gapAhead, type Lane } from "./roads/lanes"
 import { createSaveWriter } from "./core/persistence";
 import { pullCamera } from "./core/camera-collision";
 import { cameraFraming } from "./core/camera-framing";
-import { buildSlice, carBody, type SliceWorld } from "./world/slice";
+import { BALL_GRAVITY, rimCrossing, shotVelocity } from "./core/basketball";
+import { createCourtMatch, courtAction, matchRim, tickCourtMatch, type CourtMatch, type CourtMode } from "./core/basketball-match";
+import { animateNets, exciteNet } from "./world/kits/hoop";
+import { buildSlice, carBody, spawnCourtActor, type SliceWorld } from "./world/slice";
 import { presentVehicles } from "./world/kits/vehicles";
 import { faceFoliage } from "./world/kits/trees";
 import { animateHauntLibrary } from "./world/kits/haunt-library";
@@ -219,6 +222,41 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   let charge = 0;
   let shotCameraLeft = 0;
   let shotCameraActive = false;
+  let scoredFlight = false;
+  let shotFeedback = "";
+  const previousBall = new THREE.Vector3();
+  let courtMatch: CourtMatch | null = null;
+  const courtActors: THREE.Group[] = [];
+  let practiceYaw = camYaw;
+
+  function courtCommand(code: string) {
+    if (place !== "court") return false;
+    if (code === "KeyG" || code === "KeyH") {
+      if (!courtMatch) practiceYaw = camYaw;
+      startCourtMatch(code === "KeyG" ? "half" : "full"); return true;
+    }
+    if (!courtMatch) return false;
+    if (code === "Escape") {
+      courtMatch = null; camYaw = practiceYaw; ballHeld = true; charge = 0;
+      courtActors.forEach(actor => { actor.visible = false; }); return true;
+    }
+    const action = code === "KeyF" ? "pass" : code === "KeyC" ? "cross" : code === "KeyV" ? "dunk" : code === "KeyE" ? "steal" : null;
+    if (action) { courtAction(courtMatch, action, world.hoops); return true; }
+    return false;
+  }
+
+  function startCourtMatch(mode: CourtMode) {
+    courtMatch = createCourtMatch(mode);
+    camYaw = Math.PI; charge = 0; shotCameraLeft = 0; pinBall = null;
+    if (!courtActors.length) for (const asset of [characters.courtOg, characters.nitro, characters.strike]) {
+      const actor = spawnCourtActor(asset, 64, -22, world.exterior);
+      actor.name = "basketball-match-athlete";
+      courtActors.push(actor);
+    }
+    courtActors.forEach(actor => { actor.visible = true; });
+    player.position.set(courtMatch.players[0]!.x, 0.08, courtMatch.players[0]!.z);
+    dialogue = "";
+  }
   let charging = false;
   let interactHeld = false;
   let ballHeld = false;
@@ -271,6 +309,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const code = e.code || e.key;
     if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyN", "KeyE", "KeyM", "KeyQ", "KeyR", "ShiftLeft", "ShiftRight"].includes(code) || ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
     if (down && e.repeat) return;
+    if (down && courtCommand(code)) { e.preventDefault(); return; }
     const names = [code, e.key].filter(Boolean);
     if (down) names.forEach((name) => keys.add(name));
     else names.forEach((name) => keys.delete(name));
@@ -409,6 +448,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       golden,
       made,
       taken,
+      basketball: courtMatch ? { mode: courtMatch.mode, score: [...courtMatch.score], clock: Math.ceil(courtMatch.clock),
+        feedback: courtMatch.feedback, phase: courtMatch.phase } : undefined,
       dialogue,
       carrying,
       x: player.position.x,
@@ -424,6 +465,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   }
 
   function promptFor() {
+    if (courtMatch) return courtMatch.feedback;
     const live = activityPrompt(city);
     if (live) return live;
     if (place === "street" && near(world.homeDoor, 1.4)) return "E  Enter home";
@@ -590,6 +632,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     faceAvatar();
     presentFishing();
     faceFoliage(camera.position);
+    animateNets(world.exterior, dt);
     if (place === "haunt") animateHauntLibrary(world.haunt.group, performance.now() / 1000);
     composer.render();
 
@@ -881,6 +924,21 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   }
 
   function updateBall(dt: number, hold: boolean, interact: boolean) {
+    if (courtMatch && place !== "court") {
+      courtMatch = null; camYaw = practiceYaw;
+      courtActors.forEach(actor => { actor.visible = false; });
+    }
+    if (courtMatch) {
+      tickCourtMatch(courtMatch, dt, world.hoops, player.position, hold);
+      player.position.x = courtMatch.players[0]!.x; player.position.z = courtMatch.players[0]!.z;
+      ball.position.set(courtMatch.ball.x, courtMatch.ball.y, courtMatch.ball.z);
+      ball.rotation.z += dt * 4;
+      ballHeld = courtMatch.owner === 0; charge = courtMatch.charge;
+      if (courtMatch.net >= 0) {
+        const rim = world.hoops[courtMatch.net]!; exciteNet(world.exterior, rim.x, rim.z);
+      }
+      return;
+    }
     shotCameraLeft = Math.max(0, shotCameraLeft - dt);
     if (place !== "court") {
       charge = 0;
@@ -901,15 +959,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       ballVel.set(0, 0, 0);
       if (hold) charge = Math.min(1, charge + dt / 0.85);
       if ((!hold || charge >= 1) && charge > 0.02) {
-        const dx = world.hoop.x - player.position.x;
-        const dz = world.hoop.z - player.position.z;
-        const dist = Math.hypot(dx, dz) || 1;
-        const power = 4.2 + charge * 7.5;
-        ballVel.set((dx / dist) * power, 4.2 + charge * 4.8, (dz / dist) * power);
-        if (city.fit === "court") {
-          ballVel.x += (dx / dist) * 1.4;
-          ballVel.z += (dz / dist) * 1.4;
-        }
+        const release = shotVelocity(ball.position, world.hoop, charge);
+        ballVel.set(release.x, release.y, release.z);
+        shotFeedback = release.quality;
+        scoredFlight = false;
         ballHeld = false;
         shotCameraLeft = 3;
         taken += 1;
@@ -917,8 +970,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       } else if (!hold) charge = 0;
       return;
     }
-    ballVel.y -= 12 * dt;
+    previousBall.copy(ball.position);
     ball.position.addScaledVector(ballVel, dt);
+    ball.position.y -= BALL_GRAVITY * dt * dt / 2;
+    ballVel.y -= BALL_GRAVITY * dt;
+    ball.rotation.x += ballVel.z * dt;
+    ball.rotation.z -= ballVel.x * dt;
     for (const board of world.backboards) {
       const hitting = ball.position.y > board.minY && ball.position.y < board.maxY && ball.position.z > board.minZ && ball.position.z < board.maxZ;
       if (hitting && Math.abs(ball.position.x - board.x) < 0.28 && Math.sign(ballVel.x) === -board.nx) {
@@ -927,17 +984,17 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       }
     }
     for (const hoop of world.hoops) {
-      const rimDx = ball.position.x - hoop.x;
-      const rimDz = ball.position.z - hoop.z;
-      if (ballVel.y < 0 && ball.position.y < hoop.y + 0.2 && ball.position.y > hoop.y - 0.15 && Math.hypot(rimDx, rimDz) < 0.42) {
+      if (!scoredFlight && rimCrossing(previousBall, ball.position, hoop)) {
         made += 1;
         respect += 5;
         dollars += 25;
         mission = "Bucket. The 901 felt that.";
-        ballHeld = true;
-        shotCameraLeft = 0;
+        scoredFlight = true;
+        exciteNet(world.exterior, hoop.x, hoop.z);
+        ballVel.x *= 0.25;
+        ballVel.z *= 0.25;
         charge = 0;
-        return;
+        break;
       }
     }
     if (ball.position.y < 0.16) {
@@ -947,6 +1004,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       else ballVel.y *= -0.45;
       ballVel.x *= 0.7;
       ballVel.z *= 0.7;
+    }
+    // Recover an out-of-bounds practice ball without trapping it behind fences.
+    if (ball.position.x < 55.5 || ball.position.x > 76.5 || ball.position.z < -28.5 || ball.position.z > -15.5) {
+      ball.position.x = THREE.MathUtils.clamp(ball.position.x, 56, 76);
+      ball.position.z = THREE.MathUtils.clamp(ball.position.z, -28, -16);
+      ballVel.x *= -0.4; ballVel.z *= -0.4;
     }
     if (interact && ball.position.distanceTo(player.position) < 1.6) ballHeld = true;
   }
@@ -1180,6 +1243,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     avatar.rotation.y = yawTo(avatar, camera.position);
     avatar.rotation.z = 0;
     seatOnGround(avatar);
+    avatar.position.y += courtMatch?.players[0]?.jump ?? 0;
     avatar.scale.set(presentScale(player), presentScale(player), 1);
     for (const board of world.billboards) {
       plantFeet(board);
@@ -1197,9 +1261,33 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     kSprite.rotation.x = 0;
     applyCard(kSprite, kHost);
     presentVehicles(camera.position);
+    for (let i = 0; i < courtActors.length; i++) {
+      const host = courtActors[i]!, athlete = courtMatch?.players[i + 1];
+      host.visible = Boolean(athlete);
+      if (!athlete) continue;
+      host.position.set(athlete.x, 0.08, athlete.z);
+      host.userData.heading = athlete.heading;
+      const sprite = host.getObjectByName("sprite");
+      if (sprite) { applyCard(sprite, host); sprite.position.y = athlete.jump; }
+    }
   }
 
   function placeCamera(dt: number) {
+    if (courtMatch) {
+      camYaw = Math.PI;
+      const rim = matchRim(courtMatch, world.hoops);
+      const focusX = courtMatch.mode === "half" ? 62 : 66;
+      const fov = cameraFraming(camera.aspect, 54, false).fov;
+      const vertical = THREE.MathUtils.degToRad(fov / 2);
+      const halfAngle = Math.min(vertical, Math.atan(Math.tan(vertical) * camera.aspect));
+      const distance = (courtMatch.mode === "half" ? 8 : 12) / Math.sin(halfAngle);
+      const destination = new THREE.Vector3(focusX, distance * 0.6 + 2, -22 + distance * 0.8);
+      const follow = 1 - Math.exp(-5 * dt);
+      camera.position.lerp(destination, follow); camera.fov += (fov - camera.fov) * follow;
+      camera.updateProjectionMatrix(); camera.lookAt(focusX, 1, -22);
+      if (courtMatch.charge > 0 || courtMatch.dunk >= 0) facing = faceAlong(rim.x - player.position.x, rim.z - player.position.z);
+      avatar.visible = true; shotCameraActive = false; return;
+    }
     shotCameraActive = place === "court" && (charge > 0 || shotCameraLeft > 0);
     if (shotCameraActive) {
       // Fit the shooter, live ball and rim in both screen orientations. The
@@ -1418,8 +1506,16 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       const projected = [player.position.clone(), new THREE.Vector3(player.position.x, player.position.y + 1.85, player.position.z),
         ball.position.clone(), new THREE.Vector3(world.hoop.x, world.hoop.y, world.hoop.z)].map(point => point.project(camera));
       return { held: ballHeld, charge, taken, shotCameraActive, shotCameraLeft,
+        made, shotFeedback, scoredFlight,
         shotScreen: projected.map(point => ({ x: point.x, y: point.y, z: point.z })),
         position: { x: ball.position.x, y: ball.position.y, z: ball.position.z } };
+    },
+    basketballState() {
+      return courtMatch ? { ...courtMatch, players: courtMatch.players.map(p => ({ ...p })),
+        nets: world.exterior.children.filter(node => node.name === "basketball-reactive-net").map(node => node.userData.reaction ?? 0) } : null;
+    },
+    startBasketball(mode: CourtMode) {
+      if (place === "court") startCourtMatch(mode);
     },
     activityState() {
       const rodScreen = rodTip.clone().project(camera);
@@ -1445,6 +1541,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       charging = next;
     },
     press(code: string) {
+      if (courtCommand(code)) return;
       if (code === "KeyE") {
         interactQueued = true;
         return;

@@ -189,12 +189,42 @@ try {
   await page.screenshot({ path: 'artifacts/haunt/fishing-mobile.png', timeout: 60000 });
   await page.setViewportSize({ width: 1280, height: 800 });
   console.log('PASS: automatic fishing camera retains rod tip and bobber on desktop and portrait');
+  await set({ place: 'court', x: 61, z: -22, yaw: Math.PI, ballHeld: true, dialogue: '' });
+  const beforeMake = (await page.evaluate(() => window.__SACK_V2_INPUT__.ballState())).made;
+  await page.evaluate(() => window.__SACK_V2_INPUT__.setCharge(true));
+  await page.waitForFunction(() => window.__SACK_V2_INPUT__.ballState().charge > 0.67, null, { timeout: 90000, polling: 'raf' });
+  await page.evaluate(() => window.__SACK_V2_INPUT__.setCharge(false));
+  await page.waitForFunction(n => window.__SACK_V2_INPUT__.ballState().made > n, beforeMake, { timeout: 90000, polling: 'raf' });
+  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.ballState())).held, false, 'Made practice shot remains live instead of teleporting to the hand');
+  await page.screenshot({ path: 'artifacts/haunt/basketball-made-net.png', timeout: 60000 });
+  for (const mode of ['half', 'full']) {
+    await page.evaluate(m => window.__SACK_V2_INPUT__.startBasketball(m), mode);
+    await frames(20);
+    const match = await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState());
+    assert.equal(match.mode, mode); assert.equal(match.players.length, 4);
+    assert.ok(match.players.every(p => p.x >= 55.5 && p.x <= 76.5 && p.z >= -28.5 && p.z <= -15.5));
+    await page.screenshot({ path: `artifacts/haunt/basketball-2v2-${mode}.png`, timeout: 60000 });
+  }
+  const beforeLeft = await page.evaluate(() => window.__SACK_V2__.x);
+  await page.keyboard.down('KeyA'); await frames(5); await page.keyboard.up('KeyA');
+  assert.ok(await page.evaluate(x => window.__SACK_V2__.x < x - 0.05, beforeLeft), 'Match A must move screen-left');
+  const beforeRight = await page.evaluate(() => window.__SACK_V2__.x);
+  await page.keyboard.down('KeyD'); await frames(8); await page.keyboard.up('KeyD');
+  assert.ok(await page.evaluate(x => window.__SACK_V2__.x > x + 0.05, beforeRight), 'Match D must move screen-right');
+  await page.setViewportSize({ width: 390, height: 844 }); await frames(20);
+  await page.screenshot({ path: 'artifacts/haunt/basketball-2v2-mobile.png', timeout: 60000 });
+  await page.getByRole('button', { name: 'PASS', exact: true }).click(); await frames(3);
+  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState())).feedback, 'PASS');
+  await page.getByRole('button', { name: 'EXIT', exact: true }).click(); await frames(2);
+  assert.equal(await page.evaluate(() => window.__SACK_V2_INPUT__.basketballState()), null);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  console.log('PASS: live made shot, four-player half/full court, A/D controls, mobile pass and match exit');
   console.log('PASS: bowling held/release presentation and moving basketball dribble');
   console.log('PASS: modeled house, ticket, room doorway, furniture collision, light budget and exit');
   assert.deepEqual(errors, [], 'House gameplay must have no uncaught errors');
   assert.deepEqual(shaderErrors, [], 'Flagship logo materials must compile without shader errors');
   console.log('PASS: library chair collision and doorway route remain playable');
-  console.log('PASS: exact flagship logo loaded and twenty-one actual house, HQ, court and activity screenshots captured');
+  console.log('PASS: exact flagship logo loaded and twenty-five actual house, HQ, court and activity screenshots captured');
 } finally { await browser.close(); }
 
 

@@ -92,8 +92,34 @@ function netTex() {
 
 const boardMap = boardTex();
 const netMap = netTex();
+type ReactiveNet = { group: THREE.Group; x: number; z: number; left: number };
+const nets = new WeakMap<THREE.Object3D, ReactiveNet[]>();
+
+export function exciteNet(parent: THREE.Object3D, x: number, z: number) {
+  const net = nets.get(parent)?.find(item => Math.hypot(item.x - x, item.z - z) < 0.1);
+  if (net) net.left = 1.1;
+}
+
+export function animateNets(parent: THREE.Object3D, dt: number) {
+  for (const net of nets.get(parent) ?? []) {
+    net.left = Math.max(0, net.left - dt);
+    const amplitude = net.left / 1.1;
+    const phase = (1.1 - net.left) * 18;
+    net.group.scale.set(1 + amplitude * 0.12, 1 + amplitude * 0.25, 1 + amplitude * 0.12);
+    net.group.rotation.z = Math.sin(phase) * amplitude * 0.065;
+    net.group.rotation.x = Math.cos(phase * 0.8) * amplitude * 0.055;
+    net.group.userData.reaction = amplitude;
+  }
+}
 
 function hangNet(rimX: number, rimY: number, z: number, parent: THREE.Object3D) {
+  const net = new THREE.Group();
+  net.name = "basketball-reactive-net";
+  net.position.set(rimX, rimY, z);
+  parent.add(net);
+  const list = nets.get(parent) ?? [];
+  list.push({ group: net, x: rimX, z, left: 0 });
+  nets.set(parent, list);
   const skirt = new THREE.Mesh(
     new THREE.CylinderGeometry(0.31, 0.12, 0.62, 20, 1, true),
     new THREE.MeshBasicMaterial({
@@ -104,8 +130,8 @@ function hangNet(rimX: number, rimY: number, z: number, parent: THREE.Object3D) 
       depthWrite: false,
     }),
   );
-  skirt.position.set(rimX, rimY - 0.34, z);
-  parent.add(skirt);
+  skirt.position.set(0, -0.34, 0);
+  net.add(skirt);
   const cord = new THREE.MeshStandardMaterial({ color: 0xf7f4ee, roughness: 0.8 });
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2;
@@ -115,8 +141,8 @@ function hangNet(rimX: number, rimY: number, z: number, parent: THREE.Object3D) 
       new THREE.Vector3(Math.cos(a) * 0.12, -0.5, Math.sin(a) * 0.12),
     ];
     const strand = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 6, 0.012, 4, false), cord);
-    strand.position.set(rimX, rimY - 0.02, z);
-    parent.add(strand);
+    strand.position.set(0, -0.02, 0);
+    net.add(strand);
   }
 }
 
@@ -200,3 +226,4 @@ export function buildGoal(rimX: number, z: number, dir: 1 | -1, parent: THREE.Ob
     } satisfies GoalBoard,
   };
 }
+

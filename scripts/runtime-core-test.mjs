@@ -5,7 +5,13 @@ import ts from 'typescript';
 async function load(path) {
   const source = await readFile(new URL(path, import.meta.url), 'utf8');
   const { outputText } = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } });
-  return import('data:text/javascript;base64,' + Buffer.from(outputText).toString('base64'));
+  let code = outputText;
+  if (path.endsWith('basketball-match.ts')) {
+    const dependency = await readFile(new URL('../src/game-v2/core/basketball.ts', import.meta.url), 'utf8');
+    const compiled = ts.transpileModule(dependency, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
+    code = code.replace('"./basketball"', '"data:text/javascript;base64,' + Buffer.from(compiled).toString('base64') + '"');
+  }
+  return import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
 }
 const { vehicleFace } = await load('../src/game-v2/core/vehicle-facing.ts');
 const { cameraFraming } = await load('../src/game-v2/core/camera-framing.ts');
@@ -69,3 +75,56 @@ for (const lane of productionLanes()) {
   }
 }
 console.log('PASS: traffic forward gaps remain correct across repeated route loops');
+
+const { shotVelocity, rimCrossing, shotPoints } = await load('../src/game-v2/core/basketball.ts');
+const rims = [{ x: 57.3, y: 2.72, z: -22 }, { x: 74.7, y: 2.72, z: -22 }];
+for (const distance of [1, 4, 8, 15]) {
+  const start = { x: rims[0].x + distance, y: 1.75, z: -22 };
+  const shot = shotVelocity(start, rims[0], 0.7);
+  const end = { x: start.x + shot.x * shot.time,
+    y: start.y + shot.y * shot.time - 6 * shot.time ** 2, z: start.z + shot.z * shot.time };
+  assert.ok(Math.hypot(end.x - rims[0].x, end.y - rims[0].y, end.z - rims[0].z) < 1e-8);
+}
+assert.equal(rimCrossing({ x: 57.3, y: 3, z: -22 }, { x: 57.3, y: 2.3, z: -22 }, rims[0]), true);
+assert.equal(rimCrossing({ x: 57.7, y: 3, z: -22 }, { x: 57.7, y: 2.3, z: -22 }, rims[0]), false);
+assert.equal(rimCrossing({ x: 57.3, y: 2.3, z: -22 }, { x: 57.3, y: 3, z: -22 }, rims[0]), false);
+assert.equal(shotPoints({ x: 64, z: -22 }, rims[0]), 3);
+console.log('PASS: ballistic shots reach the rim; swept scoring rejects wide and upward crossings');
+
+const { createCourtMatch, courtAction, tickCourtMatch, matchRim } = await load('../src/game-v2/core/basketball-match.ts');
+for (const mode of ['half', 'full']) {
+  const match = createCourtMatch(mode);
+  assert.equal(match.players.length, 4);
+  assert.equal(match.players.filter(p => p.team === 0).length, 2);
+  const human = { x: 64, z: -24 };
+  const opponentStart = match.players[2].x;
+  for (let i = 0; i < 60; i++) tickCourtMatch(match, 1 / 60, rims, human, false);
+  assert.notEqual(match.players[2].x, opponentStart, 'AI defenders move');
+  match.clock = 0.01;
+  tickCourtMatch(match, 1 / 60, rims, human, false);
+  assert.equal(match.possession, 1, 'Shot-clock violation transfers possession');
+  assert.equal(match.phase, 'check');
+  assert.equal(matchRim(match, rims), rims[mode === 'half' ? 0 : 0]);
+}
+const dunk = createCourtMatch('half');
+dunk.players[0].x = 58; dunk.players[0].z = -22;
+dunk.players[2].x = 65; dunk.players[3].x = 66;
+assert.equal(courtAction(dunk, 'dunk', rims), true);
+let pulsed = false;
+for (let i = 0; i < 60; i++) {
+  tickCourtMatch(dunk, 1 / 60, rims, dunk.players[0], false);
+  pulsed ||= dunk.net === 0;
+}
+assert.equal(dunk.score[0], 2); assert.equal(pulsed, true); assert.equal(dunk.possession, 1);
+const pass = createCourtMatch('half');
+assert.equal(courtAction(pass, 'pass', rims), true); assert.equal(pass.owner, -1);
+assert.equal(pass.feedback, 'PASS');
+console.log('PASS: 2v2 rosters, moving defenders, clock turnovers, travelling passes and scored dunks');
+for (const mode of ['half', 'full']) {
+  const match = createCourtMatch(mode);
+  for (let i = 0; i < 18000; i++) tickCourtMatch(match, 1 / 60, rims, match.players[0], false);
+  assert.equal(match.phase, 'finished', 'AI game must reach a real winner');
+  assert.ok(Math.max(...match.score) >= 21 && Math.abs(match.score[0] - match.score[1]) >= 2);
+}
+console.log('PASS: complete half/full AI games terminate at 21 with a two-point lead');
+

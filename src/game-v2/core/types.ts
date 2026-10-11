@@ -20,6 +20,7 @@ export type HudState = {
   golden: boolean;
   made: number;
   taken: number;
+  basketball?: { mode: "half" | "full"; score: number[]; clock: number; feedback: string; phase: string };
   dialogue: string;
   carrying: boolean;
   x: number;
@@ -48,3 +49,4 @@ export type V2Public = {
   /** Standing view, or `${facing}-walk` while a stride sheet is showing. */
   pose: string;
 };
+

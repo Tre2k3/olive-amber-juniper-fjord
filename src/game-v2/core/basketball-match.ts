@@ -1,0 +1,203 @@
+import { BALL_GRAVITY, rimCrossing, shotPoints, shotVelocity, type CourtPoint } from "./basketball";
+
+export type CourtMode = "half" | "full";
+export type Athlete = { team: 0 | 1; x: number; z: number; jump: number; action: string; heading: number };
+export type CourtMatch = {
+  mode: CourtMode; players: Athlete[]; owner: number; possession: 0 | 1;
+  score: [number, number]; clock: number; charge: number; time: number;
+  ball: CourtPoint; velocity: CourtPoint; phase: "live" | "check" | "finished";
+  pause: number; cleared: boolean; feedback: string; shooter: number;
+  points: number; scored: boolean; net: number; actionLeft: number; dunk: number;
+};
+const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value));
+export function createCourtMatch(mode: CourtMode): CourtMatch {
+  return { mode, players: [0, 1, 2, 3].map((i) => ({ team: i < 2 ? 0 : 1,
+    x: mode === "half" ? 64 + (i % 2) * 3 : 63 + (i % 2) * 4,
+    z: -24 + Math.floor(i / 2) * 4, jump: 0, action: "ready", heading: 0 })),
+    owner: 0, possession: 0, score: [0, 0], clock: 24, charge: 0, time: 0,
+    ball: { x: 64, y: 0.8, z: -24 }, velocity: { x: 0, y: 0, z: 0 },
+    phase: "live", pause: 0, cleared: true, feedback: "FIRST TO 21 · WIN BY 2",
+    shooter: -1, points: 2, scored: false, net: -1, actionLeft: 0, dunk: -1 };
+}
+export function matchRim(match: CourtMatch, hoops: CourtPoint[], team = match.possession) {
+  return hoops[match.mode === "half" ? 0 : team === 0 ? 1 : 0]!;
+}
+function checkBall(match: CourtMatch, team: 0 | 1, message: string) {
+  match.possession = team; match.owner = team === 0 ? 0 : 2;
+  match.clock = 24; match.charge = 0; match.shooter = -1; match.dunk = -1;
+  match.phase = "check"; match.pause = 1; match.cleared = true;
+  match.feedback = message;
+  for (let i = 0; i < 4; i++) {
+    const player = match.players[i]!;
+    player.x = match.mode === "half" ? 64 + i % 2 * 3 : (team === 0 ? 60 : 72) + (i % 2 - 0.5) * 2;
+    player.z = -24 + Math.floor(i / 2) * 4; player.jump = 0; player.action = "ready";
+  }
+}
+function shoot(match: CourtMatch, hoops: CourtPoint[], timing: number) {
+  if (match.owner < 0 || !match.cleared) return;
+  const shooter = match.owner, athlete = match.players[shooter]!;
+  const rim = matchRim(match, hoops, athlete.team);
+  let contest = 0;
+  for (const defender of match.players) if (defender.team !== athlete.team) {
+    contest = Math.max(contest, clamp(1 - Math.hypot(defender.x - athlete.x, defender.z - athlete.z) / 2, 0, 1));
+  }
+  match.ball = { x: athlete.x, y: 1.75, z: athlete.z };
+  const release = shotVelocity(match.ball, rim, timing, contest);
+  match.velocity = { x: release.x, y: release.y, z: release.z };
+  match.shooter = shooter; match.points = shotPoints(athlete, rim); match.scored = false;
+  match.owner = -1; match.charge = 0; match.actionLeft = 0.5;
+  athlete.action = "shoot"; match.feedback = contest > 0.35 ? "CONTESTED" : release.quality;
+}
+
+export function courtAction(match: CourtMatch, action: "pass" | "cross" | "dunk" | "steal", hoops: CourtPoint[]) {
+  if (match.phase !== "live" || match.actionLeft > 0) return false;
+  const athlete = match.players[0]!;
+  if (action === "steal") {
+    if (match.owner < 2) return false;
+    const holder = match.players[match.owner]!;
+    match.actionLeft = 0.75; athlete.action = "steal";
+    if (Math.hypot(holder.x - athlete.x, holder.z - athlete.z) < 1.1) {
+      match.owner = 0; match.possession = 0; match.cleared = match.mode === "full";
+      match.clock = 24; match.feedback = "STEAL · CLEAR BEYOND THE ARC"; return true;
+    }
+    match.feedback = "REACH MISSED"; return false;
+  }
+  if (match.owner !== 0) return false;
+  if (action === "pass") {
+    const receiver = match.players[1]!;
+    // A visible travelling pass can be intercepted, not an instant teleport.
+    const time = 0.35;
+    match.velocity = { x: (receiver.x - athlete.x) / time,
+      y: (1 - match.ball.y + BALL_GRAVITY * time * time / 2) / time,
+      z: (receiver.z - athlete.z) / time };
+    match.owner = -1; match.shooter = -1; match.actionLeft = 0.45;
+    athlete.action = "pass"; match.feedback = "PASS"; return true;
+  }
+  if (action === "cross") {
+    match.actionLeft = 0.4; athlete.action = "crossover"; match.feedback = "CROSSOVER"; return true;
+  }
+  const rim = matchRim(match, hoops);
+  if (!match.cleared || Math.hypot(athlete.x - rim.x, athlete.z - rim.z) > 1.8) {
+    match.feedback = "DRIVE CLOSER TO DUNK"; return false;
+  }
+  if (match.players.some(p => p.team === 1 && Math.hypot(p.x - rim.x, p.z - rim.z) < 0.85)) {
+    match.feedback = "DUNK CONTESTED"; return false;
+  }
+  match.dunk = 0; match.actionLeft = 0.85; athlete.action = "dunk"; match.feedback = "DUNK";
+  athlete.x = rim.x + (rim.x < 66 ? 0.6 : -0.6); athlete.z = rim.z;
+  match.shooter = 0; match.points = 2; match.scored = false; return true;
+}
+
+export function tickCourtMatch(match: CourtMatch, dt: number, hoops: CourtPoint[], human: { x: number; z: number }, hold: boolean) {
+  match.net = -1;
+  if (match.phase === "finished") return;
+  match.time += dt;
+  if (match.phase === "check") {
+    match.pause -= dt;
+    if (match.pause <= 0) match.phase = "live";
+  } else {
+    const p = match.players[0]!;
+    if (match.dunk < 0) {
+      p.x = clamp(human.x, match.mode === "half" ? 56 : 56, match.mode === "half" ? 67.5 : 76);
+      p.z = clamp(human.z, -28, -16);
+    }
+    match.clock -= dt;
+    if (match.clock <= 0 && match.owner >= 0) checkBall(match, match.possession === 0 ? 1 : 0, "SHOT CLOCK · TURNOVER");
+  }
+  match.actionLeft = Math.max(0, match.actionLeft - dt);
+  for (const athlete of match.players) {
+    athlete.jump = Math.max(0, athlete.jump - dt * 4);
+    if (match.actionLeft <= 0) athlete.action = "ready";
+  }
+  const rim = matchRim(match, hoops);
+  if (match.mode === "half" && !match.cleared && match.owner >= 0) {
+    const holder = match.players[match.owner]!;
+    if (Math.hypot(holder.x - rim.x, holder.z - rim.z) >= 6.25) { match.cleared = true; match.feedback = "CLEARED"; }
+  }
+  if (match.phase === "live") for (let i = 1; i < 4; i++) {
+    const athlete = match.players[i]!;
+    const attacking = athlete.team === match.possession;
+    const target = attacking ? matchRim(match, hoops, athlete.team) : match.players[match.owner >= 0 ? match.owner : match.shooter >= 0 ? match.shooter : 0]!;
+    let tx = target.x, tz = target.z;
+    if (attacking && match.owner !== i) { tx += (target.x < 66 ? 4.5 : -4.5); tz += i % 2 ? 3.5 : -3.5; }
+    else if (!attacking) { tx += athlete.team === 1 ? 1 : -1; tz += i % 2 ? 0.8 : -0.8; }
+    else if (!match.cleared) tx = 65;
+    const dx = tx - athlete.x, dz = tz - athlete.z, length = Math.hypot(dx, dz);
+    if (length > (attacking && match.owner === i && match.cleared ? 2.5 : 0.7)) {
+      const step = Math.min(length, dt * (match.owner === i ? 3.1 : 3.8));
+      athlete.x = clamp(athlete.x + dx / length * step, 56, match.mode === "half" ? 67.5 : 76);
+      athlete.z = clamp(athlete.z + dz / length * step, -28, -16);
+      athlete.heading = Math.atan2(dx, dz); athlete.action = match.owner === i ? "dribble" : "run";
+    }
+    if (match.owner === i && match.cleared && match.actionLeft <= 0 && match.time % 2.5 < dt) shoot(match, hoops, 0.65);
+  }
+  // Body separation keeps the four participants from standing inside each other.
+  for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) {
+    const a = match.players[i]!, b = match.players[j]!;
+    const dx = b.x - a.x, dz = b.z - a.z, length = Math.hypot(dx, dz);
+    if (length > 0.001 && length < 0.72) {
+      const push = (0.72 - length) * 0.5;
+      a.x -= dx / length * push; a.z -= dz / length * push;
+      b.x += dx / length * push; b.z += dz / length * push;
+    }
+  }
+  if (match.owner === 0 && match.dunk < 0) {
+    if (hold) { match.charge = Math.min(1, match.charge + dt / 0.85); match.players[0]!.action = "gather"; }
+    if ((!hold || match.charge >= 1) && match.charge > 0.02) {
+      if (match.cleared) shoot(match, hoops, match.charge);
+      else { match.charge = 0; match.feedback = "CLEAR BEYOND THE ARC FIRST"; }
+    }
+  }
+  if (match.dunk >= 0) {
+    const progress = 1 - match.actionLeft / 0.85;
+    const athlete = match.players[match.dunk]!;
+    athlete.jump = Math.sin(Math.min(1, progress) * Math.PI) * 1.1;
+    match.ball.x = rim.x; match.ball.z = rim.z; match.ball.y = 1.4 + athlete.jump * 1.5;
+    if (progress >= 0.55 && !match.scored) {
+      match.ball.y = rim.y - 0.02; match.net = match.mode === "half" ? 0 : match.possession === 0 ? 1 : 0;
+      match.scored = true; recordPoints(match, 2);
+    }
+    if (match.actionLeft <= 0) finishBasket(match);
+  } else if (match.owner >= 0) {
+    const holder = match.players[match.owner]!;
+    const cross = holder.action === "crossover" ? Math.cos(match.actionLeft / 0.4 * Math.PI) : 1;
+    match.ball = { x: holder.x + 0.28 * cross, z: holder.z,
+      y: match.charge > 0 ? 1.15 + match.charge * 0.55 : 0.17 + 0.68 * Math.abs(Math.cos(match.time * 7)) };
+  } else {
+    const previous = { ...match.ball };
+    match.ball.x += match.velocity.x * dt; match.ball.z += match.velocity.z * dt;
+    match.ball.y += match.velocity.y * dt - BALL_GRAVITY * dt * dt / 2;
+    match.velocity.y -= BALL_GRAVITY * dt;
+    if (match.shooter >= 0 && !match.scored && rimCrossing(previous, match.ball, rim)) {
+      match.scored = true; recordPoints(match, match.points);
+      match.net = match.mode === "half" ? 0 : match.possession === 0 ? 1 : 0;
+      if (!match.feedback.endsWith("WINS")) match.feedback = match.points === 3 ? "THREE!" : "BUCKET!";
+    }
+    if (match.ball.x < 55.5 || match.ball.x > (match.mode === "half" ? 68 : 76.5) || match.ball.z < -28.5 || match.ball.z > -15.5) {
+      if (match.scored) finishBasket(match);
+      else checkBall(match, match.possession === 0 ? 1 : 0, "OUT OF BOUNDS");
+    } else if (match.ball.y < 0.17) {
+      match.ball.y = 0.17; match.velocity.y = Math.abs(match.velocity.y) * 0.48;
+      match.velocity.x *= 0.75; match.velocity.z *= 0.75;
+      if (match.scored) finishBasket(match);
+    }
+    if (!match.scored && match.ball.y < 1.4 && match.velocity.y < 1) for (let i = 0; i < 4; i++) {
+      const athlete = match.players[i]!;
+      if (Math.hypot(athlete.x - match.ball.x, athlete.z - match.ball.z) < 0.7 && (i !== match.shooter || match.ball.y < 0.5)) {
+        const changed = athlete.team !== match.possession;
+        match.owner = i; match.possession = athlete.team; match.shooter = -1; match.clock = changed ? 24 : 14;
+        match.cleared = !changed || match.mode === "full"; match.feedback = changed ? "REBOUND · NEW POSSESSION" : "OFFENSIVE REBOUND"; break;
+      }
+    }
+  }
+}
+function recordPoints(match: CourtMatch, points: number) {
+  match.score[match.possession] += points;
+  if (Math.max(...match.score) >= 21 && Math.abs(match.score[0] - match.score[1]) >= 2) {
+    match.phase = "finished"; match.feedback = match.score[0] > match.score[1] ? "GREEN TEAM WINS" : "GOLD TEAM WINS";
+  }
+}
+function finishBasket(match: CourtMatch) {
+  if (match.phase === "finished") { match.dunk = -1; return; }
+  checkBall(match, match.possession === 0 ? 1 : 0, "CHECK BALL · POSSESSION CHANGES");
+}
