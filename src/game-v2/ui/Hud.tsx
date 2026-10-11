@@ -2,12 +2,22 @@ import { useState, type PointerEvent } from "react";
 import type { HudState } from "../core/types";
 import { characters } from "../assets/characters";
 import "./hud.css";
+import { FOOD_VENDORS, type FoodVendor } from "../play/food-court";
 import { VELI_MENU, VELI_FLAVORS } from "../play/veli";
 
 export function Hud({ state, night, action }: { state: HudState; night: () => void; action: (code: string) => void }) {
   return (
     <div className="memphis-hud pointer-events-none absolute inset-0 text-[#f4efe4]" style={{ fontFamily: "DM Sans, sans-serif" }}>
       {state.veli?.open && <VeliMenu action={action} />}
+      {state.foodCourt?.open && <FoodMenu vendor={state.foodCourt.open} action={action} />}
+      {state.veliTv?.near && <div data-testid="veli-tv-controls" className="pointer-events-auto absolute bottom-60 left-3 z-20 max-w-52 rounded-md border border-[#c89a40] bg-[#17140ef2] p-2 sm:bottom-16 sm:left-3">
+        <p className="text-xs text-[#e0b33a]">VELI TV</p>
+        <div className="flex gap-2">
+          <button type="button" className="min-h-11 whitespace-nowrap px-2 text-sm" onClick={()=>action("VeliTVToggle")}>{state.veliTv.playing ? "Pause music" : "Play music"}</button>
+          <button type="button" className="min-h-11 whitespace-nowrap px-2 text-sm" onClick={()=>action("VeliTVMute")}>{state.veliTv.muted ? "Unmute" : "Mute"}</button>
+        </div>
+        {state.veliTv.error && <p role="status" className="text-xs">{state.veliTv.error}</p>}
+      </div>}
       <div className="hud-wallet absolute left-3 top-3 flex max-w-[11.5rem] flex-wrap gap-2 sm:max-w-none">
         <Chip label="SACK" value={`$${state.dollars}`} />
         <Chip label="RESPECT" value={String(state.respect)} />
@@ -20,10 +30,10 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
         <div className="text-[10px] tracking-[0.18em] text-[#e0b33a]">{state.activity === "race" ? "NITRO" : "MEMPHIS"}</div>
         <Mini state={state} />
       </div>
-      {!state.veli?.near && <div className="hud-mission absolute left-3 right-[7.5rem] top-[7.15rem] rounded-md bg-[#0d0d0dcc] px-3 py-2 text-center text-sm sm:left-1/2 sm:right-auto sm:top-4 sm:max-w-[70vw] sm:-translate-x-1/2">
+      {!state.veli?.near && !state.foodCourt?.near && <div className="hud-mission absolute left-3 right-[7.5rem] top-[7.15rem] rounded-md bg-[#0d0d0dcc] px-3 py-2 text-center text-sm sm:left-1/2 sm:right-auto sm:top-4 sm:max-w-[70vw] sm:-translate-x-1/2">
         {state.activity === "race" ? "NITRO CIRCUIT · 3 LAPS" : state.mission}
       </div>}
-      {!state.veli?.near && state.activity !== "race" && <div className="hud-marks absolute left-3 top-[10.6rem] flex gap-1 text-[10px] tracking-[0.14em] sm:left-1/2 sm:top-14 sm:-translate-x-1/2">
+      {!state.veli?.near && !state.foodCourt?.near && state.activity !== "race" && <div className="hud-marks absolute left-3 top-[10.6rem] flex gap-1 text-[10px] tracking-[0.14em] sm:left-1/2 sm:top-14 sm:-translate-x-1/2">
         <Mark on={state.marks.fish} label="FISH" />
         <Mark on={state.marks.bowl} label="BOWL" />
         <Mark on={state.marks.food} label="EAT" />
@@ -98,7 +108,7 @@ function Log({ state }: { state: HudState }) {
 
 function Dialogue({ line }: { line: string }) {
   const [name, text] = line.includes(" — ") ? line.split(" — ") : ["", line];
-  const portrait = name.startsWith("Yungveli") ? "/game-v2/vendors/veli/idle.png" : name.startsWith("Court")
+  const portrait = name.startsWith("Brotherz") ? "/game-v2/vendors/food-court/brother-1.png" : name.startsWith("Yungveli") ? "/game-v2/vendors/veli/idle.png" : name.startsWith("Court")
     ? characters.courtOg.views.front.src
     : name.startsWith("K")
       ? characters.kBlanco.portrait
@@ -225,5 +235,18 @@ function VeliMenu({ action }: { action: (code: string) => void }) {
         {item.pieces}pc {item.combo ? "party wing combo" : "wings only"} · ${item.price + (okra && item.combo ? 2 : 0) + (parts ? item.pieces * .2 : 0)}
       </button>)}
     </div>
+  </div>;
+}
+
+
+function FoodMenu({ vendor, action }: { vendor: FoodVendor; action: (code:string)=>void }) {
+  const spec=FOOD_VENDORS[vendor];
+  return <div data-testid="food-menu" role="dialog" aria-modal="true" aria-label={`${spec.name} menu`}
+    className="pointer-events-auto absolute inset-3 z-50 overflow-y-auto rounded-lg border-2 border-[#c89a40] bg-[#17140efc] p-4 sm:inset-x-[25%]">
+    <button type="button" className="float-right min-h-11 border border-[#c89a40] px-4" onClick={()=>action("FoodClose")}>Close</button>
+    <h2 className="text-2xl text-[#e0b33a]">{spec.name}</h2>
+    <img src={spec.logo} alt={`${spec.name} original logo`} className="mx-auto my-4 max-h-64 max-w-full" />
+    <p className="mb-3 text-sm">Game menu · pay with your Sack</p>
+    <div className="grid gap-3">{spec.menu.map((item,i)=><button key={item.name} type="button" data-testid={`food-order-${i}`} className="min-h-12 rounded border border-[#c89a40] p-3 text-left hover:bg-[#4b3b1d]" onClick={()=>action(`FoodOrder:${vendor}:${i}`)}>{item.name} · ${item.cost}</button>)}</div>
   </div>;
 }

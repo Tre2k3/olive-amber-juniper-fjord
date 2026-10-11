@@ -32,7 +32,7 @@ jobs:
   verify:
     name: verify
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -93,6 +93,17 @@ jobs:
           else
             node scripts/vendor-race-visual-smoke.mjs
           fi
+
+      - name: Food trucks and music TV
+        run: node scripts/food-truck-smoke.mjs
+
+      - name: Upload food truck gameplay views
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: food-truck-qa
+          path: artifacts/food-court/
+          if-no-files-found: warn
 
       - name: Upload rendered haunted house views
         uses: actions/upload-artifact@v4

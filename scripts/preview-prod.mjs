@@ -54,6 +54,21 @@ const server = createServer(async (req, res) => {
         if (info.isFile()) {
           res.statusCode = 200;
           res.setHeader("content-type", MIME[extname(filePath).toLowerCase()] || "application/octet-stream");
+          res.setHeader("accept-ranges", "bytes");
+          if (req.headers.range) {
+            const match = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range);
+            const start = match && match[1] ? Number(match[1]) : match && match[2] ? Math.max(0,info.size-Number(match[2])) : NaN;
+            const end = match && match[1] && match[2] ? Math.min(info.size-1,Number(match[2])) : info.size-1;
+            if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start<0 || start>end || start>=info.size) {
+              res.statusCode=416;res.setHeader("content-range",`bytes */${info.size}`);res.end();return;
+            }
+            res.statusCode=206;res.setHeader("content-range",`bytes ${start}-${end}/${info.size}`);
+            res.setHeader("content-length",end-start+1);
+            if(req.method === "HEAD") { res.end();return; }
+            createReadStream(filePath,{start,end}).pipe(res);return;
+          }
+          res.setHeader("content-length",info.size);
+          if(req.method === "HEAD") { res.end();return; }
           createReadStream(filePath).pipe(res);
           return;
         }

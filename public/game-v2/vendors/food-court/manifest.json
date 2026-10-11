@@ -1,0 +1,25 @@
+{
+  "source_repository": "Tre2k3/blue-delta-palm-craft",
+  "source_ref": "feat/halloween-after-dark",
+  "original_assets": [
+    {
+      "path": "public/game-v2/vendors/food-court/brothers-wingz.webp",
+      "sha256": "badcafbb11cf348b750cdb44aa2b201bd49eea4597c197caf35bf28c2c956052"
+    },
+    {
+      "path": "public/game-v2/vendors/food-court/901-catch.png",
+      "sha256": "39e0fa6250db8251abf9c75c16a81d649118785014fcf37ae14e421fa1875cd1"
+    },
+    {
+      "path": "public/game-v2/vendors/veli/yung-veli.mp4",
+      "sha256": "7ca06219dd0bec4bff95881ae575ae68d2e88064f43cd1c7b832cb7a764bb8ec"
+    }
+  ],
+  "characters": {
+    "brother-1": "Left logo man: cropped hair, goatee, gold crown.",
+    "brother-2": "Right logo man: long dark hair, thin mustache, gold crown.",
+    "method": "Built-in imagegen, logo identity reference and Veli art style; deterministic alpha-preserving foot alignment. Supplemental vendors, not canonical replacements.",
+    "poses": "Front idle only. No dedicated serving arm frames yet."
+  },
+  "pricing": "Brotherz and 901 Catch use game-economy sample prices, not verified restaurant menus."
+}

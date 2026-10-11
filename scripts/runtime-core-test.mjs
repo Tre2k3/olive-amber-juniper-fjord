@@ -261,3 +261,20 @@ const otherFood=freshCity();
 assert.equal(triggerSpot(otherFood,'truck',240).dollars,-12);
 assert.equal(triggerSpot(otherFood,'truck',240).dollars,-10);
 console.log('PASS: remaining shared stalls sell 901 plates/Soul bowls, not the removed Crown menu');
+
+const {freshFoodCourt,orderFood}=await load('../src/game-v2/play/food-court.ts');
+const trucks=freshFoodCourt();trucks.open='brothers';
+assert.equal(orderFood(trucks,11,'brothers',0).dollars,undefined);
+assert.equal(trucks.left,0);assert.equal(trucks.open,'brothers');
+assert.equal(orderFood(trucks,30,'catch901',0),null,'Cannot order at a different truck');
+assert.equal(orderFood(trucks,30,'brothers',NaN),null);
+assert.equal(orderFood(trucks,30,'brothers',0).dollars,-12);
+assert.equal(trucks.left,3);assert.equal(trucks.open,null);
+assert.equal(orderFood(trucks,30,'brothers',0),null,'No duplicate serving charge');
+console.log('PASS: separate truck menus, insufficient funds, invalid input and duplicate order protection');
+const foodManifest=JSON.parse(await readFile(new URL('../public/game-v2/vendors/food-court/manifest.json',import.meta.url),'utf8'));
+for(const asset of foodManifest.original_assets) {
+ const bytes=await readFile(new URL('../'+asset.path,import.meta.url));
+ assert.equal(createHash('sha256').update(bytes).digest('hex'),asset.sha256);
+}
+console.log('PASS: source Brotherz/901 logos and music clip remain byte-identical');

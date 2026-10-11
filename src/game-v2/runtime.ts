@@ -18,6 +18,9 @@ import { presentVehicles } from "./world/kits/vehicles";
 import { faceFoliage } from "./world/kits/trees";
 import { buildVeliTruck, animateVeliTruck, VELI_ANCHOR } from "./world/veli";
 import { freshVeli, veliOrder } from "./play/veli";
+import { createVendorTv } from "./world/vendor-tv";
+import { buildFoodCourt, animateFoodCourt } from "./world/food-court";
+import { FOOD_VENDORS, freshFoodCourt, orderFood, type FoodVendor } from "./play/food-court";
 import { tickRace, sampleRace, RACE_LENGTH } from "./play/racing";
 import { buildRaceCircuit, animateHauntAtmosphere } from "./world/activities";
 import { animateRiverfront } from "./world/riverfront-production";
@@ -51,6 +54,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   const circuit = buildRaceCircuit(world.scene);
   const veliTruck = buildVeliTruck(world.exterior);
   const veli = freshVeli();
+  const veliTv = createVendorTv(veliTruck);
+  const foodTrucks = buildFoodCourt(world.exterior);
+  const foodCourt = freshFoodCourt();
   let raceOverview = false;
   let lastBowlRack = 0;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
@@ -339,7 +345,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   const onKey = (e: KeyboardEvent, down: boolean) => {
     const code = e.code || e.key;
     if (veli.open && e.target instanceof HTMLSelectElement) return;
-    if (veli.open && code !== "KeyE") { if(down && code === "Escape") { veli.open=false; e.preventDefault(); } return; }
+    if ((veli.open || foodCourt.open) && code !== "KeyE") { if(down && code === "Escape") { veli.open=false; foodCourt.open=null; e.preventDefault(); push(hud()); } return; }
     if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyN", "KeyE", "KeyM", "KeyQ", "KeyR", "ShiftLeft", "ShiftRight"].includes(code) || ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
     if (down && e.repeat) return;
     if (down && courtCommand(code)) { e.preventDefault(); return; }
@@ -347,7 +353,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (down) names.forEach((name) => keys.add(name));
     else names.forEach((name) => keys.delete(name));
     // A quick interaction tap may start and end between two rendered frames.
-    if (down && (code === "KeyE" || e.key === "e" || e.key === "E")) interactQueued = true;
+    if (down && (code === "KeyE" || e.key === "e" || e.key === "E")) {
+      if (place === "street" && near(VELI_ANCHOR,2) && !veli.open && veli.serving<=0) veliTv.play();
+      interactQueued = true;
+    }
     if (down && (code === "KeyN" || e.key === "n" || e.key === "N")) cycleLight();
     if (down && (code === "KeyM" || e.key === "m" || e.key === "M")) logOpen = !logOpen;
   };
@@ -367,7 +376,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     }
   };
   const onVisibility = () => {
-    if (document.hidden) clearKeys();
+    if (document.hidden) { clearKeys(); veliTv.pause(); }
   };
   window.addEventListener("keydown", kd);
   window.addEventListener("keyup", ku);
@@ -456,8 +465,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     interactHeld = interact;
     if (veli.serving > 0) veli.serving = Math.max(0,veli.serving-dt);
     animateVeliTruck(veliTruck,veli.serving,player.position);
-    const menuWasOpen = veli.open;
-    if (menuWasOpen) { if(interactEdge) veli.open=false; glideX=glideZ=0; }
+    if (place !== "street" || !near(VELI_ANCHOR,8)) veliTv.pause();
+    if (foodCourt.left>0) { foodCourt.left=Math.max(0,foodCourt.left-dt); if(foodCourt.left===0) foodCourt.serving=null; }
+    animateFoodCourt(foodTrucks,foodCourt.serving,foodCourt.left,player.position);
+    const menuWasOpen = veli.open || Boolean(foodCourt.open);
+    if (menuWasOpen) { if(interactEdge) { veli.open=false; foodCourt.open=null; } glideX=glideZ=0; }
     step(dt, hold, interactEdge && !menuWasOpen);
     if (!hold) charging = false;
 
@@ -489,6 +501,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       taken,
       activity: city.race ? "race" : city.bowl ? "bowl" : city.fish ? "fish" : undefined,
       veli: { ...veli, near: place === "street" && near(VELI_ANCHOR,2.5) },
+      foodCourt: { ...foodCourt, near: place === "street" && Boolean(nearFoodVendor()) },
+      veliTv: { ...veliTv.state(), near: place === "street" && near(VELI_ANCHOR,4) },
       basketball: courtMatch ? { mode: courtMatch.mode, score: [...courtMatch.score], clock: Math.ceil(courtMatch.clock),
         feedback: courtMatch.feedback, phase: courtMatch.phase } : undefined,
       dialogue,
@@ -506,7 +520,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   }
 
   function promptFor() {
-    if (veli.open) return "";
+    if (veli.open || foodCourt.open) return "";
+    if (foodCourt.left>0) return "Your food is coming from the window.";
+    const vendor=nearFoodVendor();
+    if (place === "street" && vendor) return `E  ${FOOD_VENDORS[vendor].name} · order at the window`;
     if (veli.serving > 0) return "Yungveli is serving your order.";
     if (place === "street" && near(VELI_ANCHOR,2)) return "E  Veli’s Wings · order from Yungveli";
     if (courtMatch) return courtMatch.feedback;
@@ -523,7 +540,6 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (place === "street" && near(world.districts.pier, 2.2)) return city.bait > 0 ? "E  Cast (bait on)" : "E  Cast a line";
     if (place === "street" && near(world.districts.bait, 2.2)) return "E  Buy bait  $15";
     if (place === "street" && near(world.districts.meetStart, 2.6)) return "E  Race Nitro · three-lap circuit";
-    if (place === "street" && near(world.districts.truckOrder, 2.4)) return "E  Order at the window";
     if (place === "street" && near(world.haunt.ticket, 1.8)) return hauntTicket ? "E  Ticket punched" : "E  Buy a ticket  $10";
     if (place === "street" && near(world.haunt.gate, 1.8)) return hauntTicket ? "E  Enter the house" : "E  Need a ticket";
     if (place === "haunt" && nearLocal(world.haunt.exit, 1.5, 0, 500)) return "E  Leave the house";
@@ -581,7 +597,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       say("River — Line is in. Come back whenever you want to fish.");
       glideX = glideZ = 0;
     }
-    const busy = locked(city) || veli.open || veli.serving > 0;
+    const busy = locked(city) || veli.open || veli.serving > 0 || Boolean(foodCourt.open) || foodCourt.left>0;
     const wantsMove = !busy && len > 0.15;
     if (wantsMove) {
       camDist = null;
@@ -791,8 +807,14 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     glideZ = 0;
   }
 
+  function nearFoodVendor(): FoodVendor | null {
+    return (["brothers","catch901"] as const).find(id => near(FOOD_VENDORS[id],2)) ?? null;
+  }
+
   function tryEnter() {
-    if (veli.serving > 0) return;
+    if (veli.serving > 0 || foodCourt.left>0) return;
+    const foodVendor=nearFoodVendor();
+    if(place === "street" && foodVendor) { foodCourt.open=foodVendor; touchX=touchY=0; keys.clear(); glideX=glideZ=0; return; }
     if (place === "street" && near(VELI_ANCHOR,2)) {
       veli.open=!veli.open; touchX=touchY=0; keys.clear(); glideX=glideZ=0; return;
     }
@@ -894,10 +916,6 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       const play = triggerSpot(city, "meet", dollars);
       if (play.teleport) player.position.set(play.teleport.x, 0, play.teleport.z);
       grant(play);
-      return;
-    }
-    if (place === "street" && near(world.districts.truckOrder, 2.4)) {
-      grant(triggerSpot(city, "truck", dollars));
       return;
     }
     if (near(world.courtOg, 1.8)) {
@@ -1525,6 +1543,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       facing = Math.abs(side) > Math.abs(depth) ? side > 0 ? "right" : "left" : depth > 0 ? "back" : "front";
       return;
     }
+    if (foodCourt.left>0 && foodCourt.serving) {
+      const spec=FOOD_VENDORS[foodCourt.serving], follow=1-Math.exp(-5*dt);
+      const framing=cameraFraming(camera.aspect,54,false);
+      camera.position.lerp(new THREE.Vector3(spec.x-1.2,2.65,24.6-6.1*framing.distanceScale),follow);
+      camera.fov+=(framing.fov-camera.fov)*follow;camera.updateProjectionMatrix();
+      camera.lookAt(spec.x-.4,1.85,24.3); facing="back"; return;
+    }
     if (veli.serving > 0) {
       const follow=1-Math.exp(-5*dt);
       const framing=cameraFraming(camera.aspect,54,false);
@@ -1681,6 +1706,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   camera.lookAt(player.position.x + 1.15, 1.22, player.position.z);
 
   const touchApi = {
+    foodCourtState() {
+      const vendors=(foodTrucks.brothers.userData.vendors as THREE.Mesh[]);
+      return { ...foodCourt, vendors:vendors.length, loaded:vendors.every(v=>Boolean(((v.material as THREE.MeshBasicMaterial).map?.image as HTMLImageElement)?.naturalWidth)) };
+    },
+    tvState() { return veliTv.state(); },
     veliState() {
       const frames=veliTruck.userData.textures as THREE.Texture[];
       return { ...veli, frame:veliTruck.userData.frame as number, loaded:frames.every(t=>Boolean((t.image as HTMLImageElement)?.naturalWidth)),
@@ -1775,6 +1805,20 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       charging = next;
     },
     press(code: string) {
+      if (code === "VeliTVToggle" || code === "VeliTVMute") {
+        if(place === "street" && near(VELI_ANCHOR,4)) { if(code === "VeliTVToggle") veliTv.toggle(); else veliTv.mute(); push(hud()); }
+        return;
+      }
+      if (code === "FoodClose") { foodCourt.open=null; push(hud()); return; }
+      if (code.startsWith("FoodOrder:")) {
+        const [,id,index]=code.split(":");
+        if(id !== "brothers" && id !== "catch901") return;
+        if(place !== "street" || !near(FOOD_VENDORS[id],2)) { foodCourt.open=null; return; }
+        const event=orderFood(foodCourt,dollars,id,Number(index));
+        if(event?.dollars) { city.fed=true; city.boost=35; }
+        if(event) grant(event);
+        push(hud()); return;
+      }
       if (code === "VeliClose") { veli.open=false; push(hud()); return; }
       if (code.startsWith("VeliOrder:")) {
         if (place !== "street" || !near(VELI_ANCHOR,2)) { veli.open=false; return; }
@@ -1786,6 +1830,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       }
       if (courtCommand(code)) return;
       if (code === "KeyE") {
+        if(place === "street" && near(VELI_ANCHOR,2) && !veli.open && veli.serving<=0) veliTv.play();
         interactQueued = true;
         return;
       }
@@ -1832,7 +1877,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         golden = false;
       }
       if (opts.facing) facing = opts.facing;
-      veli.open=false; veli.serving=0;
+      veli.open=false; veli.serving=0; foodCourt.open=null; foodCourt.serving=null; foodCourt.left=0;
       city.fish = null;
       city.bowl = null;
       city.race = null; circuit.group.visible = false; player.visible = true; raceOverview = false;
@@ -2045,6 +2090,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     canvas.removeEventListener("pointerup", orbitEnd);
     canvas.removeEventListener("pointercancel", orbitEnd);
     canvas.removeEventListener("lostpointercapture", orbitEnd);
+    veliTv.dispose();
     courtAnimation.dispose();
     bloom.dispose();
     composer.dispose();

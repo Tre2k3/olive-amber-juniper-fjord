@@ -273,38 +273,12 @@ function trucks(
 ) {
   walk(parent, 72, 13, 4, 10);
   walk(parent, 72, 22, 22, 14);
-  const colors = [0xe0b33a, 0xc4473a, 0x2f6a4a];
-  const names = ["CROWN", "901", "SOUL"];
-  names.forEach((name, i) => {
-    if (i === 0) { solid(solids,60.3,63.7,24.4,31.6); solid(solids,59.3,60.6,23.3,23.9); return; }
-    const x = 62 + i * 8;
-    const body = new THREE.MeshStandardMaterial({ color: colors[i], roughness: 0.55, metalness: 0.15 });
-    const cab = new THREE.MeshStandardMaterial({ color: 0xe8e2d6, roughness: 0.6 });
-    box(3.1, 2.35, 5.2, x, 1.55, 27.2, body, parent);
-    box(2.5, 1.55, 1.7, x, 1.15, 24.1, cab, parent);
-    box(2.7, 0.9, 0.08, x, 1.35, 23.22, new THREE.MeshStandardMaterial({ color: 0x14202c, roughness: 0.15, metalness: 0.2, emissive: 0xffb45a, emissiveIntensity: 0.15 }), parent);
-    box(3.3, 0.08, 1.6, x, 2.7, 23.4, warm, parent);
-    for (const wz of [25.4, 29.1]) {
-      for (const wx of [-1.35, 1.35]) {
-        const wheel = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.38, 0.38, 0.24, 10),
-          new THREE.MeshStandardMaterial({ color: 0x161616, roughness: 0.85 }),
-        );
-        wheel.rotation.z = Math.PI / 2;
-        wheel.position.set(x + wx, 0.38, wz);
-        parent.add(wheel);
-      }
-    }
-    solid(solids, x - 1.7, x + 1.7, 24.4, 29.8);
-    const mat = sign(name, "ORDER", "#1a1208", "#e0b33a");
-    glow.push(mat);
-    const board = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.15), mat);
-    board.position.set(x, 2.35, 23.12);
-    parent.add(board);
-    lamp(x, 3.4, 24, 0xffb45a, parent, lamps);
-  });
+  // Modeled vendor trucks are assembled by runtime; keep their collision aligned.
+  for (const x of [62,70,78]) solid(solids,x-1.8,x+1.8,24.4,31.6);
+  solid(solids,59.3,60.6,23.3,23.9);
+  for (const x of [62,70,78]) lamp(x,3.4,24,0xffb45a,parent,lamps);
   const table = new THREE.MeshStandardMaterial({ color: 0x6a4328, roughness: 0.75 });
-  for (const tx of [66, 76]) {
+  for (const tx of [66, 74]) {
     box(2.4, 0.08, 1.1, tx, 0.78, 18.5, table, parent);
     box(0.12, 0.7, 0.12, tx - 1, 0.4, 18.1, table, parent);
     box(0.12, 0.7, 0.12, tx + 1, 0.4, 18.1, table, parent);
