@@ -46,9 +46,9 @@ export function buildRaceCircuit(scene: THREE.Scene) {
   }
   checks.instanceMatrix.needsUpdate=true;group.add(checks);
   const iron=new THREE.MeshStandardMaterial({color:0x2e3236,roughness:.6,metalness:.3});
-  for(const z of [-172,-164]) {const pole=new THREE.Mesh(new THREE.BoxGeometry(.2,4.5,.2),iron);pole.position.set(-32,2.25,z);group.add(pole);}
-  const beam=new THREE.Mesh(new THREE.BoxGeometry(.22,.25,8.2),iron);beam.position.set(-32,4.5,-168);group.add(beam);
-  const logo=flagshipLogo(3);logo.rotation.y=-Math.PI/2;logo.position.set(-32.18,3.85,-168);group.add(logo);
+  for(const z of [-172,-164]) {const pole=new THREE.Mesh(new THREE.BoxGeometry(.2,7.5,.2),iron);pole.position.set(-32,3.75,z);group.add(pole);}
+  const beam=new THREE.Mesh(new THREE.BoxGeometry(.22,.25,8.2),iron);beam.position.set(-32,7.5,-168);group.add(beam);
+  const logo=flagshipLogo(3);logo.rotation.y=-Math.PI/2;logo.position.set(-32.18,6.8,-168);group.add(logo);
   const human=carBody("coupe"),nitro=carBody("sedan");group.add(human,nitro);
   const glow=new THREE.MeshBasicMaterial({color:0xffb940,transparent:true,opacity:.75,depthWrite:false});
   const sparks=new THREE.Points(new THREE.BufferGeometry().setAttribute("position",new THREE.Float32BufferAttribute(new Float32Array(18),3)),

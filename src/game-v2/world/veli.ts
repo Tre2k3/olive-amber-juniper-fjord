@@ -34,7 +34,7 @@ export function buildVeliTruck(parent: THREE.Object3D) {
   const menu=loader.load(root+"menu-original.png"); menu.colorSpace=THREE.SRGBColorSpace;
   // Original portrait menu includes the actual logo; no redesigned brand art.
   const menuMat=new THREE.MeshBasicMaterial({map:menu,toneMapped:false});
-  const board=new THREE.Mesh(new THREE.PlaneGeometry(1.12,1.68),menuMat); board.name="veli-original-menu";board.rotation.y=Math.PI;board.position.set(-2.05,1.52,-3.65);group.add(board);
+  const board=new THREE.Mesh(new THREE.PlaneGeometry(1.12,1.68),menuMat); board.name="veli-original-menu";board.rotation.y=Math.PI;board.position.set(-2.05,1.52,-3.68);group.add(board);
   box(1.23,1.8,.12,-2.05,1.52,-3.59,dark);box(.12,.7,.12,-2.05,.35,-3.6,steel);
   const side=new THREE.Mesh(new THREE.PlaneGeometry(1.5,2.25),menuMat);side.position.set(1.59,2.01,0);side.rotation.y=Math.PI/2;group.add(side);
   // Exact original logo crop, with UVs limiting the supplied menu texture.

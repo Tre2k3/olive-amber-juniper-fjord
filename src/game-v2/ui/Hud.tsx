@@ -17,18 +17,18 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
         {state.fit !== "default" && <Chip label="FIT" value={state.fit.toUpperCase()} />}
       </div>
       <div className="absolute right-3 top-3 w-24 rounded-md border border-[#e0b33a55] bg-[#0d0d0dcc] p-2 sm:top-4 sm:w-36">
-        <div className="text-[10px] tracking-[0.18em] text-[#e0b33a]">MEMPHIS</div>
+        <div className="text-[10px] tracking-[0.18em] text-[#e0b33a]">{state.activity === "race" ? "NITRO" : "MEMPHIS"}</div>
         <Mini state={state} />
       </div>
-      <div className="hud-mission absolute left-3 right-[7.5rem] top-[7.15rem] rounded-md bg-[#0d0d0dcc] px-3 py-2 text-center text-sm sm:left-1/2 sm:right-auto sm:top-4 sm:max-w-[70vw] sm:-translate-x-1/2">
-        {state.mission}
-      </div>
-      <div className="hud-marks absolute left-3 top-[10.6rem] flex gap-1 text-[10px] tracking-[0.14em] sm:left-1/2 sm:top-14 sm:-translate-x-1/2">
+      {!state.veli?.near && <div className="hud-mission absolute left-3 right-[7.5rem] top-[7.15rem] rounded-md bg-[#0d0d0dcc] px-3 py-2 text-center text-sm sm:left-1/2 sm:right-auto sm:top-4 sm:max-w-[70vw] sm:-translate-x-1/2">
+        {state.activity === "race" ? "NITRO CIRCUIT · 3 LAPS" : state.mission}
+      </div>}
+      {!state.veli?.near && state.activity !== "race" && <div className="hud-marks absolute left-3 top-[10.6rem] flex gap-1 text-[10px] tracking-[0.14em] sm:left-1/2 sm:top-14 sm:-translate-x-1/2">
         <Mark on={state.marks.fish} label="FISH" />
         <Mark on={state.marks.bowl} label="BOWL" />
         <Mark on={state.marks.food} label="EAT" />
         <Mark on={state.marks.race} label="RACE" />
-      </div>
+      </div>}
       {state.log && <Log state={state} />}
       {state.dialogue && <Dialogue line={state.dialogue} />}
       {state.charge > 0 && (
@@ -63,7 +63,7 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
         <Round label={state.activity === "race" ? "DRIFT" : state.activity === "bowl" ? "ROLL" : "SHOT"} onPointerDown={() => action("SpaceDown")} onPointerUp={() => action("SpaceUp")} />
       </div>
       <div className="absolute bottom-3 right-4 hidden text-[11px] tracking-wide text-[#f4efe4aa] sm:block">
-        {state.basketball ? "WASD move · Space timing shot · F pass · C cross · V dunk · L layup · E steal · Esc exit" : "Arrows / WASD move · Q/R orbit · drag or swipe camera · E interact · Space shoot · Shift run"}
+        {state.activity === "race" ? "W gas · S brake · A/D steer · Space drift · E exit" : state.basketball ? "WASD move · Space timing shot · F pass · C cross · V dunk · L layup · E steal · Esc exit" : "Arrows / WASD move · Q/R orbit · drag or swipe camera · E interact · Space shoot · Shift run"}
       </div>
     </div>
   );
@@ -132,6 +132,7 @@ function Chip({ label, value }: { label: string; value: string }) {
 }
 
 function Mini({ state }: { state: HudState }) {
+  if (state.activity === "race") return <svg viewBox="0 0 120 60" className="mt-1 h-16 w-full"><rect width="120" height="60" fill="#1a1c1b" /><rect x="10" y="12" width="100" height="36" rx="18" fill="none" stroke="#ded3ad" strokeWidth="4" /><circle cx={state.x+60} cy={state.z+180} r="3" fill="#39ff14" /></svg>;
   const x = state.place === "home" ? 28 : state.place === "hq" ? 55 : state.place === "haunt" ? 18 : Math.max(4, Math.min(96, ((state.x + 80) / 190) * 100));
   const y = state.place === "home" || state.place === "hq" || state.place === "haunt" ? 34 : Math.max(4, Math.min(66, ((30 - state.z) / 130) * 70));
   return (

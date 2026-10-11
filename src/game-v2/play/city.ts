@@ -37,7 +37,6 @@ const FIT_LINE: Record<Fit, string> = {
   night: "Wardrobe — Night fit. The strip gives you more time and more speed.",
 };
 const MENU = [
-  { name: "Crown wings", cost: 8, respect: 2 },
   { name: "901 plate", cost: 12, respect: 3 },
   { name: "Soul bowl", cost: 10, respect: 2 },
 ];

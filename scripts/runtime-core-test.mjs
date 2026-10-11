@@ -256,3 +256,8 @@ const {createHash}=await import('node:crypto');
 const menuBytes=await readFile(new URL('../public/game-v2/vendors/veli/menu-original.png',import.meta.url));
 assert.equal(createHash('sha256').update(menuBytes).digest('hex'),'e3cd0592b33b863ad8dc52c1f332bf2b34690ab6cbd18191341443419ed7178f','Original Veli menu must upload completely and remain unchanged');
 console.log('PASS: exact original Veli menu byte integrity');
+
+const otherFood=freshCity();
+assert.equal(triggerSpot(otherFood,'truck',240).dollars,-12);
+assert.equal(triggerSpot(otherFood,'truck',240).dollars,-10);
+console.log('PASS: remaining shared stalls sell 901 plates/Soul bowls, not the removed Crown menu');

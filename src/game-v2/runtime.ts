@@ -488,7 +488,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       made,
       taken,
       activity: city.race ? "race" : city.bowl ? "bowl" : city.fish ? "fish" : undefined,
-      veli: { ...veli },
+      veli: { ...veli, near: place === "street" && near(VELI_ANCHOR,2.5) },
       basketball: courtMatch ? { mode: courtMatch.mode, score: [...courtMatch.score], clock: Math.ceil(courtMatch.clock),
         feedback: courtMatch.feedback, phase: courtMatch.phase } : undefined,
       dialogue,
@@ -732,6 +732,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   function stepRace(dt: number, sx: number, sy: number, drift: boolean, interact: boolean) {
     const race = city.race!;
+    const raceFog = world.scene.fog as THREE.Fog; raceFog.near=80; raceFog.far=280;
     if (interact) { stopRace(); return; }
     world.exterior.visible = false; player.visible = false; circuit.group.visible = true;
     tickRace(race,dt,THREE.MathUtils.clamp(sy,-1,1),THREE.MathUtils.clamp(-sx,-1,1),drift);
@@ -1736,7 +1737,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     },
     raceState() {
       return city.race ? { ...city.race, length: RACE_LENGTH, visible: circuit.group.visible,
-        vehicle: circuit.human.userData.kind, view: circuit.human.userData.card?.face } : null;
+        vehicle: circuit.human.userData.kind, view: circuit.human.userData.card?.face,
+        fog: {near:(world.scene.fog as THREE.Fog).near,far:(world.scene.fog as THREE.Fog).far},
+        gantryY:circuit.group.getObjectByName("flagship-brand-logo")?.position.y } : null;
     },
     raceOverview(value: boolean) { raceOverview = value; },
     atmosphereState() {
