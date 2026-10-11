@@ -163,7 +163,7 @@ try {
   await page.getByTestId('veli-menu').waitFor({timeout:60000});
   await page.screenshot({path:'artifacts/haunt/veli-menu-mobile.png',timeout:60000});
   await page.getByRole('button',{name:'Close',exact:true}).click();
-  assert.equal(await page.getByTestId('veli-menu').count(),0);
+  await page.getByTestId('veli-menu').waitFor({state:'hidden',timeout:15000});
   await page.setViewportSize({width:1280,height:800});
   // Race requires throttle and steering; no walking finish trigger.
   await set({place:'street',x:-40,z:-36,yaw:Math.PI,dialogue:''});

@@ -338,6 +338,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   const onKey = (e: KeyboardEvent, down: boolean) => {
     const code = e.code || e.key;
+    if (veli.open && e.target instanceof HTMLSelectElement) return;
     if (veli.open && code !== "KeyE") { if(down && code === "Escape") { veli.open=false; e.preventDefault(); } return; }
     if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyN", "KeyE", "KeyM", "KeyQ", "KeyR", "ShiftLeft", "ShiftRight"].includes(code) || ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
     if (down && e.repeat) return;
@@ -1771,7 +1772,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       charging = next;
     },
     press(code: string) {
-      if (code === "VeliClose") { veli.open=false; return; }
+      if (code === "VeliClose") { veli.open=false; push(hud()); return; }
       if (code.startsWith("VeliOrder:")) {
         if (place !== "street" || !near(VELI_ANCHOR,2)) { veli.open=false; return; }
         const [,index,flavor,okra,parts] = code.split(":");

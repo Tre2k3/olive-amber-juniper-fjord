@@ -251,3 +251,8 @@ for(let i=0;i<12;i++) {
 assert.equal(fullBowl.bowl.phase,'finished');assert.equal(fullBowl.bowl.score,300);assert.equal(fullBowl.bowl.throws[9].length,3);
 const finishedCity=freshCity();finishedCity.race=drive;assert.equal(crossFinish(finishedCity).dollars,110);assert.equal(crossFinish(finishedCity),null);
 console.log('PASS: full bowling game including tenth bonuses, race reward only once');
+
+const {createHash}=await import('node:crypto');
+const menuBytes=await readFile(new URL('../public/game-v2/vendors/veli/menu-original.png',import.meta.url));
+assert.equal(createHash('sha256').update(menuBytes).digest('hex'),'e3cd0592b33b863ad8dc52c1f332bf2b34690ab6cbd18191341443419ed7178f','Original Veli menu must upload completely and remain unchanged');
+console.log('PASS: exact original Veli menu byte integrity');

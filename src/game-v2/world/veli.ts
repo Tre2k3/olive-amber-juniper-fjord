@@ -34,19 +34,19 @@ export function buildVeliTruck(parent: THREE.Object3D) {
   const menu=loader.load(root+"menu-original.png"); menu.colorSpace=THREE.SRGBColorSpace;
   // Original portrait menu includes the actual logo; no redesigned brand art.
   const menuMat=new THREE.MeshBasicMaterial({map:menu,toneMapped:false});
-  const board=new THREE.Mesh(new THREE.PlaneGeometry(1.12,1.68),menuMat); board.name="veli-original-menu";board.position.set(-2.05,1.52,-3.65);group.add(board);
+  const board=new THREE.Mesh(new THREE.PlaneGeometry(1.12,1.68),menuMat); board.name="veli-original-menu";board.rotation.y=Math.PI;board.position.set(-2.05,1.52,-3.65);group.add(board);
   box(1.23,1.8,.12,-2.05,1.52,-3.59,dark);box(.12,.7,.12,-2.05,.35,-3.6,steel);
   const side=new THREE.Mesh(new THREE.PlaneGeometry(1.5,2.25),menuMat);side.position.set(1.59,2.01,0);side.rotation.y=Math.PI/2;group.add(side);
   // Exact original logo crop, with UVs limiting the supplied menu texture.
-  const logo=menu.clone();logo.repeat.set(1,.245);logo.offset.set(0,.755);
-  const logoPanel=new THREE.Mesh(new THREE.PlaneGeometry(2.8,1.03),new THREE.MeshBasicMaterial({map:logo,toneMapped:false}));
-  logoPanel.name="veli-original-logo";logoPanel.position.set(0,3.97,-2.59);group.add(logoPanel);
-  box(2.88,1.1,.1,0,3.97,-2.53,cream);
+  const logo=menu.clone();logo.repeat.set(1,.405);logo.offset.set(0,.595);
+  const logoPanel=new THREE.Mesh(new THREE.PlaneGeometry(2.2,1.34),new THREE.MeshBasicMaterial({map:logo,toneMapped:false}));
+  logoPanel.name="veli-original-logo";logoPanel.rotation.y=Math.PI;logoPanel.position.set(0,4.02,-2.59);group.add(logoPanel);
+  box(2.28,1.42,.1,0,4.02,-2.53,cream);
   const textures=["idle.png","serve-1.png","serve-2.png","serve-3.png","serve-4.png"].map(p=>{const t=loader.load(root+p);t.colorSpace=THREE.SRGBColorSpace;return t;});
   const mat=new THREE.MeshBasicMaterial({map:textures[0],transparent:true,alphaTest:.25,depthWrite:true,toneMapped:false});
   // Processed frames use 512px cells, 460px visible bodies and a 487px sole.
   const vendor=new THREE.Mesh(new THREE.PlaneGeometry(512*1.9/460,512*1.9/460),mat);
-  vendor.name="yungveli";vendor.position.set(0,.8+(487-256)*1.9/460,-2.46);group.add(vendor);
+  vendor.name="yungveli";vendor.rotation.y=Math.PI;vendor.position.set(0,.8+(487-256)*1.9/460,-2.46);group.add(vendor);
   const handoff=new THREE.Group();handoff.name="veli-customer-box";group.add(handoff);handoff.visible=false;
   const food=new THREE.Mesh(new THREE.BoxGeometry(.33,.12,.23),cream);handoff.add(food);
   const lid=new THREE.Mesh(new THREE.BoxGeometry(.35,.025,.25),gold);lid.position.y=.072;handoff.add(lid);
@@ -64,6 +64,6 @@ export function animateVeliTruck(group:THREE.Group, serving:number, customer:THR
   parcel.visible=serving>0&&elapsed>=2.3&&elapsed<3.65;
   if(parcel.visible) {
     const p=Math.min(1,(elapsed-2.3)/.75);
-    parcel.position.set(THREE.MathUtils.lerp(0,customer.x-62,p),THREE.MathUtils.lerp(1.9,customer.y+.74,p),THREE.MathUtils.lerp(-3,customer.z-27.2,p));
+    parcel.position.set(THREE.MathUtils.lerp(0,customer.x-62,p),THREE.MathUtils.lerp(1.9,customer.y+.74,p),THREE.MathUtils.lerp(-2.46,customer.z-27.2,p));
   }
 }
