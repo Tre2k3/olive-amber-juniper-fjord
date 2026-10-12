@@ -15,7 +15,7 @@ try {
  const capture=async name=>{await page.evaluate(()=>window.__SACK_V2_INPUT__.freezeCapture(true));await page.screenshot({path:`${out}/${name}.png`,timeout:60000});await page.evaluate(()=>window.__SACK_V2_INPUT__.freezeCapture(false));console.log('Captured',name);};
  await set({place:'court',x:64,z:-26,yaw:Math.PI,ballHeld:true,dialogue:''});
  await page.evaluate(()=>window.__SACK_V2_INPUT__.startBasketball('half'));await frames(16);
- await page.waitForFunction(()=>window.__SACK_V2_INPUT__.basketballState()?.animation.loaded===8&&window.__SACK_V2_INPUT__.brandState().loaded===window.__SACK_V2_INPUT__.brandState().logos,null,{timeout:90000});
+ await page.waitForFunction(()=>window.__SACK_V2_INPUT__.basketballState()?.animation.loaded===8&&window.__SACK_V2_INPUT__.basketballState()?.uniformTextures===24&&window.__SACK_V2_INPUT__.brandState().loaded===window.__SACK_V2_INPUT__.brandState().logos,null,{timeout:90000});
  assert.equal((await state()).jerseys,4);assert.equal((await state()).spectators,6);
  await page.evaluate(()=>window.__SACK_V2_INPUT__.setShot({place:'court',x:64,z:-26,yaw:Math.PI,ballHeld:true,dialogue:''}));
  await page.evaluate(()=>window.__SACK_V2_INPUT__.setCharge(true));await frames(12);
@@ -25,8 +25,10 @@ try {
  await page.evaluate(()=>window.__SACK_V2_INPUT__.setCharge(false));await frames(8);await capture('hand-release');
  await page.evaluate(()=>window.__SACK_V2_INPUT__.startBasketball('half'));await page.keyboard.press('KeyB');await frames(20);
  await capture('team-jerseys-sideline');
- await page.getByRole('button',{name:'KIT: ON',exact:true}).click();await frames(2);assert.equal((await state()).jerseys,0);
- await page.getByRole('button',{name:'KIT: OFF',exact:true}).click();await frames(2);assert.equal((await state()).jerseys,4);
+ assert.equal((await state()).jerseyOverlays,0);
+ for(const label of ['FRESH BLACK','FRESH BLUE','224']) { await page.getByRole('button',{name:`KIT: ${label}`,exact:true}).click();await frames(2); }
+ assert.equal((await state()).jerseys,0);
+ await page.getByRole('button',{name:'KIT: STREET',exact:true}).click();await frames(2);assert.equal((await state()).jerseys,4);
  await page.keyboard.press('KeyB');await frames(16);await page.keyboard.press('KeyB');await frames(16);
  await page.evaluate(()=>window.__SACK_V2_INPUT__.startBasketball('half'));await set({place:'court',x:58,z:-22,yaw:Math.PI,ballHeld:true,dialogue:''});
  await page.keyboard.press('KeyV');await frames(15);assert.equal((await state()).animation.action,'dunk-back');await capture('jersey-dunk');

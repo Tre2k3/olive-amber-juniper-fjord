@@ -53,7 +53,9 @@ jobs:
         run: node scripts/runtime-core-test.mjs
 
       - name: Verify approved canonical artwork
-        run: python3 scripts/verify-claude-assets.py
+        run: |
+          python3 scripts/verify-claude-assets.py
+          python3 scripts/verify-court-uniforms.py
 
       - name: Lint
         run: npm run lint
@@ -102,6 +104,17 @@ jobs:
 
       - name: Basketball animation, uniforms and court polish
         run: node scripts/basketball-polish-smoke.mjs
+
+      - name: Complete basketball outfit sprites
+        run: node scripts/basketball-uniform-smoke.mjs
+
+      - name: Upload full basketball outfit views
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: basketball-uniform-qa
+          path: screenshots/basketball-uniforms/
+          if-no-files-found: warn
 
       - name: Upload basketball polish views
         if: always()

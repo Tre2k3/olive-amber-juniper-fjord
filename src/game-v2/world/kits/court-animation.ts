@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { CourtMatch } from "../../core/basketball-match";
 import { solidCutout } from "../feet";
+import type { CourtKit } from "./court-uniforms";
 
 type Action = "dribble" | "shoot" | "dunk" | "shoot-back" | "dunk-back" | "cross-back" | "cross" | "layup-back";
 const actions: Action[] = ["dribble", "shoot", "dunk", "shoot-back", "dunk-back", "cross-back", "cross", "layup-back"];
@@ -41,22 +42,50 @@ export function createCourtAnimation(parent: THREE.Object3D) {
     side: THREE.DoubleSide, depthTest: false, depthWrite: false });
   const grip = new THREE.Mesh(new THREE.PlaneGeometry(1,1), gripMaterial);
   grip.name = "benji-ball-grip"; grip.renderOrder = 8; grip.visible = false; mesh.add(grip);
+  let kit: CourtKit | null = null;
+  const kitMaps: Record<string, Partial<Record<Action, THREE.Texture[]>>> = {};
+  const kitGripMaps: Record<string, Partial<Record<Action, THREE.Texture[]>>> = {};
   const gripMaps: Partial<Record<Action, THREE.Texture[]>> = {};
   const maps: Partial<Record<Action, THREE.Texture[]>> = {};
   const sources: THREE.Texture[] = [];
   const geometry = {} as Record<Action, THREE.PlaneGeometry[]>;
   let disposed = false, action: Action | null = null, frame = 0, previousAction:Action|null=null,previousFrame=-1;
   let shapeX=1,shapeY=1;
+  const generations = new Map<string, number>();
+  const atlasBanks = new Map<string, THREE.Texture[]>();
+  let generationCounter = 0;
   for (const key of actions) {
-    geometry[key] = regions[key].map((r) => {
+    geometry[key] = regions[key].map(r => {
       const geo = new THREE.PlaneGeometry(r[2]! * scale[key], r[3]! * scale[key]);
       geo.translate(0, r[3]! * scale[key] / 2, 0); return geo;
     });
-    new THREE.TextureLoader().load(`/game-v2/actions/benji/${key}.png`, (source) => {
-      if (disposed) { source.dispose(); return; }
-      solidCutout(source); sources.push(source);
+  }
+  function clearBank(outfit: CourtKit | null) {
+    const bank = outfit ?? "street";
+    generations.delete(bank);
+    const targetMaps = outfit ? kitMaps[outfit] : maps;
+    const targetGrips = outfit ? kitGripMaps[outfit] : gripMaps;
+    for(const record of [targetMaps,targetGrips]) if(record) for(const key of actions) {
+      record[key]?.forEach(texture=>texture.dispose()); delete record[key];
+    }
+    for(const texture of atlasBanks.get(bank) ?? []) { texture.dispose(); const i=sources.indexOf(texture); if(i>=0)sources.splice(i,1); }
+    atlasBanks.delete(bank);
+  }
+  function loadBank(outfit: CourtKit | null) {
+    const bank = outfit ?? "street";
+    if(generations.has(bank)) return;
+    const generation = ++generationCounter;
+    generations.set(bank,generation);
+    const bankSources: THREE.Texture[] = []; atlasBanks.set(bank,bankSources);
+    const targetMaps = outfit ? kitMaps[outfit] ??= {} : maps;
+    const targetGrips = outfit ? kitGripMaps[outfit] ??= {} : gripMaps;
+    for(const key of actions) {
+      const path = outfit ? `/game-v2/basketball/actions/benji/${outfit}/${key}.webp` : `/game-v2/actions/benji/${key}.png`;
+    new THREE.TextureLoader().load(path, (source) => {
+      if (disposed || generations.get(bank) !== generation) { source.dispose(); return; }
+      solidCutout(source); sources.push(source); bankSources.push(source);
       if (key === "dunk" || key === "dunk-back" || key === "layup-back") {
-        gripMaps[key] = regions[key].map((r, i) => {
+        targetGrips[key] = regions[key].map((r, i) => {
           const h = hands[key][i]!, texture = source.clone();
           const gx = Math.max(0, h[0]! - 20), gy = Math.max(0, h[1]! - 20);
           const width = Math.min(40, r[2]! - gx), height = Math.min(42, r[3]! - gy);
@@ -65,17 +94,19 @@ export function createCourtAnimation(parent: THREE.Object3D) {
           texture.needsUpdate = true; return texture;
         });
       }
-      maps[key] = regions[key].map((r) => {
+      targetMaps[key] = regions[key].map((r) => {
         const texture = source.clone();
         texture.repeat.set(r[2]! / 1254, r[3]! / 1254);
         texture.offset.set(r[0]! / 1254, 1 - (r[1]! + r[3]!) / 1254);
         texture.needsUpdate = true; return texture;
       });
     });
+    }
   }
   const hand = new THREE.Vector3();
   return {
     mesh,
+    setKit(next: CourtKit | null) { if(next !== kit) { clearBank(kit); previousAction = null; previousFrame = -1; } kit = next; loadBank(kit); },
     update(match: CourtMatch | null, direction: number, yaw: number, rear: boolean,dt=1/60) {
       action = null; grip.visible = false;
       if (match && match.phase !== "finished") {
@@ -99,7 +130,8 @@ export function createCourtAnimation(parent: THREE.Object3D) {
           action = "dribble"; frame = [3,0,1,2][Math.floor(((match.time * 7 / Math.PI) % 1) * 4)]!;
         }
       }
-      const texture = action ? maps[action]?.[frame] : undefined;
+      const activeMaps = kit ? kitMaps[kit] : maps;
+      const texture = action ? activeMaps?.[action]?.[frame] : undefined;
       mesh.visible = Boolean(texture);
       if (!action || !texture) return false;
       const nextGeometry=geometry[action][frame]!;
@@ -116,7 +148,7 @@ export function createCourtAnimation(parent: THREE.Object3D) {
       const r = regions[action][frame]!, h = hands[action][frame]!;
       hand.set((h[0]! - r[2]! / 2) * scale[action], (r[3]! - h[1]!) * scale[action], action.endsWith("-back") ? -0.04 : 0.04);
       const holdingFinish = match?.owner === 0 && !match.scored && (match.dunk === 0 || match.layup === 0);
-      const gripTexture = gripMaps[action]?.[frame];
+      const gripTexture = (kit ? kitGripMaps[kit] : gripMaps)?.[action]?.[frame];
       if (holdingFinish && gripTexture && frame < 3) {
         const gx = Math.max(0, h[0]! - 20), gy = Math.max(0, h[1]! - 20);
         const width = Math.min(40, r[2]! - gx), height = Math.min(42, r[3]! - gy);
@@ -140,13 +172,14 @@ export function createCourtAnimation(parent: THREE.Object3D) {
       const ys:Partial<Record<Action,number[]>>={dribble:[.78,.76,.86,.86],shoot:[.81,.87,1.02,.89],"shoot-back":[.73,.8,1.08,.99],dunk:[.78,1.06,1.16,.9],"dunk-back":[.65,1.02,1.13,.62],"layup-back":[.88,.95,1.15,.8],cross:[.66,.74,.73,.7],"cross-back":[.75,.78,.71,.75]};
       return action?ys[action]?.[frame]??.88:1.02;
     },
-    state() { return { action, frame, visible: mesh.visible, loaded: Object.keys(maps).length, gripVisible: grip.visible }; },
+    state() { return { action, frame, visible: mesh.visible, loaded: Object.keys(kit ? kitMaps[kit] ?? {} : maps).length, kit, residentAtlases:sources.length, src:(material.map?.image as HTMLImageElement|undefined)?.src??"", gripVisible: grip.visible }; },
     dispose() {
       disposed = true; material.dispose(); gripMaterial.dispose(); grip.geometry.dispose();
       initialGeometry.dispose();
       for (const key of actions) {
         geometry[key].forEach(g => g.dispose()); maps[key]?.forEach(t => t.dispose()); gripMaps[key]?.forEach(t => t.dispose());
       }
+      for(const bank of [...Object.values(kitMaps), ...Object.values(kitGripMaps)]) for(const frames of Object.values(bank)) frames?.forEach(t=>t.dispose());
       sources.forEach(t => t.dispose()); parent.remove(mesh);
     },
   };

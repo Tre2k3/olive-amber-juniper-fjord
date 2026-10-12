@@ -31,6 +31,7 @@ export type HudState = {
   basketball?: { mode: "half" | "full"; score: number[]; clock: number; feedback: string; phase: string };
   basketballCamera?: "behind" | "sideline" | "baseline";
   teamJerseys?: boolean;
+  basketballKit?: string;
   dialogue: string;
   carrying: boolean;
   x: number;

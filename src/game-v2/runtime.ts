@@ -14,7 +14,7 @@ import { createCourtCameraCutaway } from "./core/court-camera-cutaway";
 import { BALL_GRAVITY, rimCrossing, shotVelocity } from "./core/basketball";
 import { createCourtMatch, courtAction, matchRim, tickCourtMatch, type CourtMatch, type CourtMode } from "./core/basketball-match";
 import { createCourtAnimation } from "./world/kits/court-animation";
-import { createCourtJersey } from "./world/kits/court-jersey";
+import { createCourtUniforms, COURT_KITS, COURT_KIT_NAMES } from "./world/kits/court-uniforms";
 import { animateNets, exciteNet } from "./world/kits/hoop";
 import { buildSlice, carBody, spawnCourtActor, type SliceWorld } from "./world/slice";
 import { presentVehicles } from "./world/kits/vehicles";
@@ -265,7 +265,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   ] as const){const fan=spawnCourtActor(asset,x,z,world.exterior);fan.name="901-court-fan";fan.userData.heading=Math.atan2(66-x,-22-z);fan.userData.idle=true;courtFans.push(fan);world.billboards.push(fan);}
   let practiceYaw = camYaw;
   const courtAnimation = createCourtAnimation(player);
-  const courtJerseys=[createCourtJersey(0,0),createCourtJersey(23,0),createCourtJersey(9,1),createCourtJersey(1,1)];
+  const courtUniforms = createCourtUniforms();
+  let courtKitIndex = 0;
   let teamJerseys=true;
   const actionHand = new THREE.Vector3();
   const hiddenCourtCast = new Map<THREE.Object3D, boolean>();
@@ -282,7 +283,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   function courtCommand(code: string) {
     if (place !== "court") return false;
-    if(code === "KeyJ"){teamJerseys=!teamJerseys;push(hud());return true;}
+    if(code === "KeyJ"){courtKitIndex=(courtKitIndex+1)%4;teamJerseys=courtKitIndex<3;push(hud());return true;}
     if (code === "KeyB") {
       basketballCameraMode = BASKETBALL_CAMERAS[(BASKETBALL_CAMERAS.indexOf(basketballCameraMode)+1)%BASKETBALL_CAMERAS.length]!;
       push(hud()); return true;
@@ -534,6 +535,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         feedback: courtMatch.feedback, phase: courtMatch.phase } : undefined,
       basketballCamera: basketballCameraMode,
       teamJerseys,
+      basketballKit: COURT_KIT_NAMES[courtKitIndex],
       dialogue,
       carrying,
       x: player.position.x,
@@ -1295,6 +1297,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   }
 
   function applyBenji(face: Facing) {
+    if(courtUniforms.apply(avatar,"benji",Boolean(courtMatch)&&teamJerseys,face,COURT_KITS[courtKitIndex%3]!)) return;
     const mat = avatar.material as THREE.MeshBasicMaterial;
     const speed = Math.hypot(glideX, glideZ);
     const stepping = speed > 0.28 && (travel / 1.9) % 1 >= 0.5;
@@ -1329,7 +1332,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   function applyCard(sprite: THREE.Object3D, host: THREE.Object3D) {
     const mesh = sprite as THREE.Mesh;
     const mat = mesh.material as THREE.MeshBasicMaterial;
-    const asset = host.userData.asset as Parameters<typeof frameSize>[0] | undefined;
+    const asset = host.userData.asset as (Parameters<typeof frameSize>[0] & { id?: string }) | undefined;
     const tex = host.userData.tex as Partial<Record<Facing | "walk", THREE.Texture>> | undefined;
     const heading = (host.userData.heading as number) ?? Math.PI;
     const toCam = yawTo(host, camera.position);
@@ -1347,7 +1350,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const walkMap = face === "front" ? tex?.walk : undefined;
     const stepping = Boolean(walkMap) && gait > 0.22 && ((phase % 1) + 1) % 1 >= 0.5;
     const pose = stepping ? `${face}-walk` : face;
-    if (asset && mesh.userData.pose !== pose) {
+    const uniform = courtUniforms.apply(mesh,asset?.id??"",host.name==="basketball-match-athlete"&&teamJerseys,face,COURT_KITS[courtKitIndex%3]!);
+    if (!uniform && asset && mesh.userData.pose !== pose) {
       const map = stepping ? walkMap : tex?.[face];
       if (map) {
         if (mesh.userData.box !== pose) {
@@ -1422,6 +1426,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const attackX = rim.x - player.position.x, attackZ = rim.z - player.position.z;
     const viewX = camera.position.x - player.position.x, viewZ = camera.position.z - player.position.z;
     const rear = attackX * viewX + attackZ * viewZ < -0.55 * Math.hypot(attackX, attackZ) * Math.hypot(viewX, viewZ);
+    courtAnimation.setKit(teamJerseys ? COURT_KITS[courtKitIndex%3]! : null);
     const animated = courtAnimation.update(courtMatch, rim.x >= player.position.x ? 1 : -1, yawTo(avatar, camera.position), rear,dt);
     avatar.visible = !animated;
     // Keep the reach pose at the rim through release; only the ball detaches.
@@ -1458,7 +1463,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       ball.position.y=.17+Math.max(0,height-.17)*Math.cos(progress*Math.PI)**2;
       courtMatch.ball={x:ball.position.x,y:ball.position.y,z:ball.position.z};
     }
-    courtJerseys[0]!.update(animated?courtAnimation.mesh:avatar,Boolean(courtMatch)&&teamJerseys,rear,1,animated?courtAnimation.torso():1.02);
+
     avatar.scale.set(presentScale(player), presentScale(player), 1);
     for (const board of world.billboards) {
       plantFeet(board);
@@ -1486,9 +1491,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       const sprite = host.getObjectByName("sprite");
       if (sprite) {
         applyCard(sprite,host);sprite.position.y=athlete.jump+(athlete.action==='run'?Math.sin(courtMatch!.time*13+i)*.018:0);
-        const mesh=sprite as THREE.Mesh,heading=host.userData.heading as number,view=yawTo(host,camera.position);
-        const relative=heading-view,back=Math.cos(relative)<-.55;
-        courtJerseys[i+1]!.update(mesh,teamJerseys,back,.35+.65*Math.abs(Math.cos(relative)),i===0?1.25:1.16,0,i===0?1.32:1.08);
+
       }
     }
   }
@@ -1769,7 +1772,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     basketballState() {
       return courtMatch ? { ...courtMatch, players: courtMatch.players.map(p => ({ ...p })),
         animation: courtAnimation.state(),
-        jerseys:teamJerseys?courtJerseys.filter(j=>j.group.visible).length:0,
+        jerseys:teamJerseys?(courtAnimation.state().visible&&courtAnimation.state().kit?1:avatar.userData.uniformKit?1:0)+courtActors.filter(a=>a.getObjectByName("sprite")?.userData.uniformKit).length:0,
+        kit: teamJerseys?COURT_KITS[courtKitIndex%3]:"street", uniformTextures: courtUniforms.loaded,
+        uniformPlayers: [{id:"benji",kit:avatar.userData.uniformKit,face:avatar.userData.face},...courtActors.map(a=>({id:a.userData.asset?.id,kit:a.getObjectByName("sprite")?.userData.uniformKit,face:a.getObjectByName("sprite")?.userData.face}))],
+        jerseyOverlays: player.getObjectByName("sack-court-jersey")?1:0,
         spectators:courtFans.length,cheerLeft,
         hand: courtAnimation.handWorld(new THREE.Vector3()).toArray(),
         rim: { ...matchRim(courtMatch, world.hoops) },
@@ -2116,7 +2122,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     courtCameraCutaway.dispose();
     veliTv.dispose();
     courtAnimation.dispose();
-    courtJerseys.forEach(j=>j.dispose());
+    courtUniforms.dispose();
     bloom.dispose();
     composer.dispose();
     renderer.dispose();

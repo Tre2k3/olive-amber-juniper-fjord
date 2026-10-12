@@ -1,0 +1,407 @@
+{
+  "method": "built-in image_gen; supplemental full outfit edits; deterministic alpha/crop/registration",
+  "outfits": [
+    {
+      "id": "benji/black-fresh/shoot-back",
+      "raw_sha256": "2b815d702b69cbd95c36c25c1a445ce35d4870fda35757f295a7c111e869804b",
+      "prompt": "Initial black Fresh rear shooting edit using the original pose sheet and approved jersey reference.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/black-fresh/shoot-back.webp",
+          "sha256": "d25792f6f9813211c8af126fbd12f70b749fa560ae2f9bf292a6a93af7a794b8"
+        }
+      ]
+    },
+    {
+      "id": "benji/black-fresh/dribble",
+      "raw_sha256": "fec99ed42b7e815aa783e441519602ad73ef727cd7567b7137ff3b8f1c94fe0e",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn black sleeveless Fresh jersey: curved yellow trim, red SackReligious arched chest lettering and red sack mascot; back red flagship wordmark, FRESH, 38127, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/black-fresh/dribble.webp",
+          "sha256": "574ce536697b2eb9580efbe38f82558607df8ac839389c8f0e09ba8ed7c3e8bf"
+        }
+      ]
+    },
+    {
+      "id": "benji/black-fresh/shoot",
+      "raw_sha256": "9891fd27b7a4fe865ba07575c307c5d9bf3c1e7c7ec14328f543f3cdebc74755",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn black sleeveless Fresh jersey: curved yellow trim, red SackReligious arched chest lettering and red sack mascot; back red flagship wordmark, FRESH, 38127, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/black-fresh/shoot.webp",
+          "sha256": "1f11f6635dfb6510b65ca8cbdebcf249c65f1b21a049d386cf94bdab241c9048"
+        }
+      ]
+    },
+    {
+      "id": "benji/black-fresh/dunk",
+      "raw_sha256": "f7503067d4edadbc3d1b9ad7ccc9ae709b1bf062ef10f59f0456f608ba7ce276",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn black sleeveless Fresh jersey: curved yellow trim, red SackReligious arched chest lettering and red sack mascot; back red flagship wordmark, FRESH, 38127, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/black-fresh/dunk.webp",
+          "sha256": "4d0416ed7689a0255587d499dc0bac8c9ccc396d37a4771b2094848eaab7f63d"
+        }
+      ]
+    },
+    {
+      "id": "benji/black-fresh/dunk-back",
+      "raw_sha256": "007303815781bb733f6047cd6978ac8e9a282d3510f6084d0277050aba70c53f",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn black sleeveless Fresh jersey: curved yellow trim, red SackReligious arched chest lettering and red sack mascot; back red flagship wordmark, FRESH, 38127, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/black-fresh/dunk-back.webp",
+          "sha256": "7a1ad56d0ca6efa28ea195f2d798367bb31d084d72453add05c063989b175697"
+        }
+      ]
+    },
+    {
+      "id": "benji/black-fresh/cross-back",
+      "raw_sha256": "3fd9840269fef64cda7ea7c2d83e22f7a7531e76d36c3be71704e9d7614fb77e",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn black sleeveless Fresh jersey: curved yellow trim, red SackReligious arched chest lettering and red sack mascot; back red flagship wordmark, FRESH, 38127, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/black-fresh/cross-back.webp",
+          "sha256": "b3d35a03284b8b9b1992ff4454468250617bff30da8e735dde2e35a8c3ed379d"
+        }
+      ]
+    },
+    {
+      "id": "benji/black-fresh/cross",
+      "raw_sha256": "8d02ad060b63159aadd42e7d404ad7c3167091aa52b5b6f8df9aeed08e804d8b",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn black sleeveless Fresh jersey: curved yellow trim, red SackReligious arched chest lettering and red sack mascot; back red flagship wordmark, FRESH, 38127, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/black-fresh/cross.webp",
+          "sha256": "e6d696db6bd340af55a5c4b8e903317ada056c2f843e182356659b6a40674409"
+        }
+      ]
+    },
+    {
+      "id": "benji/black-fresh/layup-back",
+      "raw_sha256": "7f8a9b7ac4156821bdd8690b8c11a565cca44ad7fc5180032bdcbe12d9b07ea8",
+      "prompt": "Precise object edit: Image 1 is a full 2x2 rear-view basketball action sheet. KEEP ALL FOUR SPRITES' EXACT POSES, LIMBS, HAND LOCATIONS, HAIR, CAP, JEANS, SHOES, SCALE, FACE/ANATOMY AND LAYOUT UNCHANGED. Fix ONLY the jersey printing. EVERY SINGLE ONE OF THE FOUR POSES is viewed from BEHIND. ALL FOUR torsos must use ONLY the back-of-jersey design in Image 2, including the top-left pose and bottom-left pose. Never put chest lettering or the front mascot/NCO graphic on his back. Image 2 contains only the approved BACK jersey and supplies the exact back printing and colors. Wrap that BACK design naturally over the fabric in each pose: curved, folded, fully illustrated garment. Small flagship wordmark at upper back, FRESH then 38127. NO FRONT CHEST MASCOT. Preserve real transparency and original square 2x2 grid. Change no other pixels outside the jersey artwork. No ball, hoop, labels, shadow, background, extra frames or extra people. Same exact clean high resolution shaded cartoon style as the original.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/black-fresh/layup-back.webp",
+          "sha256": "c8d2319caf8a8297a2521bb3959da3a4ebafe3cab8305747a214f82e106ac278"
+        }
+      ]
+    },
+    {
+      "id": "benji/blue-fresh/dribble",
+      "raw_sha256": "b4b42c558bfe476a73e34a2e6588e42f14628c288552367fa945e415931ed1f2",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn blue sleeveless Fresh jersey: curved yellow trim, gold SackReligious chest lettering and gold sack mascot; back dark navy flagship wordmark, FRESH, 38127, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/blue-fresh/dribble.webp",
+          "sha256": "1fa34ebd432168552aa711866fb4b8e91a86d772f79d945fb174cf99eff6196d"
+        }
+      ]
+    },
+    {
+      "id": "benji/blue-fresh/shoot",
+      "raw_sha256": "6d59f2b768159449dc6652956d6ea2367ce9b1109e0347c31d2776ec97539a30",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn blue sleeveless Fresh jersey: curved yellow trim, gold SackReligious chest lettering and gold sack mascot; back dark navy flagship wordmark, FRESH, 38127, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/blue-fresh/shoot.webp",
+          "sha256": "2617f48f7e299df6ec158a9df684caf17804fa8ba17723f13d02378b5233b953"
+        }
+      ]
+    },
+    {
+      "id": "benji/blue-fresh/dunk",
+      "raw_sha256": "905e20f2b3fa910d12f34be3b90def209326243c371edec9ce7dd558cda26b3f",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn blue sleeveless Fresh jersey: curved yellow trim, gold SackReligious chest lettering and gold sack mascot; back dark navy flagship wordmark, FRESH, 38127, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/blue-fresh/dunk.webp",
+          "sha256": "40fd82b242d9d1e95ec8610b32e9ef2de787bf40f96d7f386ff11311b2e8891f"
+        }
+      ]
+    },
+    {
+      "id": "benji/blue-fresh/shoot-back",
+      "raw_sha256": "7b96e1031df7aa476e405366b7b7574bc1af77b2a26586c86fd73653a4073aa8",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn blue sleeveless Fresh jersey: curved yellow trim, gold SackReligious chest lettering and gold sack mascot; back dark navy flagship wordmark, FRESH, 38127, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/blue-fresh/shoot-back.webp",
+          "sha256": "50d3d0c92920b4754193a6d9231714682b9f1d60b52c38c516684d9d7effa7a2"
+        }
+      ]
+    },
+    {
+      "id": "benji/blue-fresh/dunk-back",
+      "raw_sha256": "06ecb0d2b98264efe8cc79d06e2cef8d3023b46fae36e880c604142981c41b07",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn blue sleeveless Fresh jersey: curved yellow trim, gold SackReligious chest lettering and gold sack mascot; back dark navy flagship wordmark, FRESH, 38127, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/blue-fresh/dunk-back.webp",
+          "sha256": "62db85811e064373af1242b415fbe6b94840089e81569e8bc356eb791117ade2"
+        }
+      ]
+    },
+    {
+      "id": "benji/blue-fresh/cross-back",
+      "raw_sha256": "2a265451596965c1679c10f5f2e002c2dbe8f28d6882e05c801268e2dd140f7a",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn blue sleeveless Fresh jersey: curved yellow trim, gold SackReligious chest lettering and gold sack mascot; back dark navy flagship wordmark, FRESH, 38127, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/blue-fresh/cross-back.webp",
+          "sha256": "a6bbbb95ee451e9acdc93c07cfccb1ccc6c32b5bd0e5263b5e68fd1f7b9f8ba8"
+        }
+      ]
+    },
+    {
+      "id": "benji/blue-fresh/cross",
+      "raw_sha256": "8636ef3183e84aa19e0e27a1e2f6dc7566c8592eec97656891a5d6c2fd0d733d",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn blue sleeveless Fresh jersey: curved yellow trim, gold SackReligious chest lettering and gold sack mascot; back dark navy flagship wordmark, FRESH, 38127, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/blue-fresh/cross.webp",
+          "sha256": "f09725129ddaa302c159464550193bd2b2df3d07b49c4ffdc28e6d399e1b75d2"
+        }
+      ]
+    },
+    {
+      "id": "benji/blue-fresh/layup-back",
+      "raw_sha256": "0bcaba26c6aa9fb23b6e6b20ab028b7e62e537bb54579e5b6f37f0f10c82c578",
+      "prompt": "Precise object edit: Image 1 is a full 2x2 rear-view basketball action sheet. KEEP ALL FOUR SPRITES' EXACT POSES, LIMBS, HAND LOCATIONS, HAIR, CAP, JEANS, SHOES, SCALE, FACE/ANATOMY AND LAYOUT UNCHANGED. Fix ONLY the jersey printing. EVERY SINGLE ONE OF THE FOUR POSES is viewed from BEHIND. ALL FOUR torsos must use ONLY the back-of-jersey design in Image 2, including the top-left pose and bottom-left pose. Never put chest lettering or the front mascot/NCO graphic on his back. Image 2 contains only the approved BACK jersey and supplies the exact back printing and colors. Wrap that BACK design naturally over the fabric in each pose: curved, folded, fully illustrated garment. Small flagship wordmark at upper back, FRESH then 38127. NO FRONT CHEST MASCOT. Preserve real transparency and original square 2x2 grid. Change no other pixels outside the jersey artwork. No ball, hoop, labels, shadow, background, extra frames or extra people. Same exact clean high resolution shaded cartoon style as the original.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/blue-fresh/layup-back.webp",
+          "sha256": "4176049f4bb2c099b4064f4aa5a76f5245913e3d779324ef137237f0a6f5dd16"
+        }
+      ]
+    },
+    {
+      "id": "benji/white-224/dribble",
+      "raw_sha256": "72094006c0a8ae53ceb0f4a11971267055bc81299e151d1ba2397feeded44f71",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn white sleeveless 224 jersey: curved red trim, red front NCO graphic with watch details and small hem lettering; back small red mascot, green BIG DRE LIVING, red 224, green NEVER CLOCK OUT, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/white-224/dribble.webp",
+          "sha256": "649449e4ae8ca2d2f52169836c3415b8e036f905e96daaad7e11bcded22d2766"
+        }
+      ]
+    },
+    {
+      "id": "benji/white-224/shoot",
+      "raw_sha256": "40c7a894aace05eacb31c737c0b8e9063818f86966e8b070240382755266ca0c",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn white sleeveless 224 jersey: curved red trim, red front NCO graphic with watch details and small hem lettering; back small red mascot, green BIG DRE LIVING, red 224, green NEVER CLOCK OUT, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/white-224/shoot.webp",
+          "sha256": "a9828007a49ef0f86600c78d461949d7b535d762ddfde5bc85e81491cf879560"
+        }
+      ]
+    },
+    {
+      "id": "benji/white-224/dunk",
+      "raw_sha256": "8ee4e3c464cb6e04aed166ef469fcb3db183002fe59e397c5790a10308a4967d",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn white sleeveless 224 jersey: curved red trim, red front NCO graphic with watch details and small hem lettering; back small red mascot, green BIG DRE LIVING, red 224, green NEVER CLOCK OUT, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/white-224/dunk.webp",
+          "sha256": "506f1ad5de28478e4414c35552929363e80c2e0112995996c62a516eeaf1b494"
+        }
+      ]
+    },
+    {
+      "id": "benji/white-224/shoot-back",
+      "raw_sha256": "abecb1578aec96962121b9135d4aecc50421c2691d0c41bfd8542ce4b1de6228",
+      "prompt": "Precise object edit: Image 1 is a full 2x2 rear-view basketball action sheet. KEEP ALL FOUR SPRITES' EXACT POSES, LIMBS, HAND LOCATIONS, HAIR, CAP, JEANS, SHOES, SCALE, FACE/ANATOMY AND LAYOUT UNCHANGED. Fix ONLY the jersey printing. EVERY SINGLE ONE OF THE FOUR POSES is viewed from BEHIND. ALL FOUR torsos must use ONLY the back-of-jersey design in Image 2, including the top-left pose and bottom-left pose. Never put chest lettering or the front mascot/NCO graphic on his back. Image 2 contains only the approved BACK jersey and supplies the exact back printing and colors. Wrap that BACK design naturally over the fabric in each pose: curved, folded, fully illustrated garment. Small red mascot at upper back, green BIG DRE LIVING, large red 224, green NEVER CLOCK OUT. NO FRONT NCO GRAPHIC. Preserve real transparency and original square 2x2 grid. Change no other pixels outside the jersey artwork. No ball, hoop, labels, shadow, background, extra frames or extra people. Same exact clean high resolution shaded cartoon style as the original.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/white-224/shoot-back.webp",
+          "sha256": "cbfe961cb664c4afeceea2d868c27973d6142b8bdc6f692814c1d1fc05e3988c"
+        }
+      ]
+    },
+    {
+      "id": "benji/white-224/dunk-back",
+      "raw_sha256": "300f00c1ef20c69d4cf2740d83fc12401ba8de338891564a2e9e4c2166dc8abe",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn white sleeveless 224 jersey: curved red trim, red front NCO graphic with watch details and small hem lettering; back small red mascot, green BIG DRE LIVING, red 224, green NEVER CLOCK OUT, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/white-224/dunk-back.webp",
+          "sha256": "e4e540238f13506696dbabd2a87dd65b05556d98c888eb3b29e9e5004447540f"
+        }
+      ]
+    },
+    {
+      "id": "benji/white-224/cross-back",
+      "raw_sha256": "8ae12adef3ef454f12f601759c020122b7cf7b03b6c3b04d8df7b0e222617fc6",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn white sleeveless 224 jersey: curved red trim, red front NCO graphic with watch details and small hem lettering; back small red mascot, green BIG DRE LIVING, red 224, green NEVER CLOCK OUT, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/white-224/cross-back.webp",
+          "sha256": "fefd67c0d397b5f39a4e81aa5174a79fc02a431f9206f770c34b878626b90b7e"
+        }
+      ]
+    },
+    {
+      "id": "benji/white-224/cross",
+      "raw_sha256": "e14566da6559dd1a3399648dbf272bbc29b9b6d34aabcb2703308cde00aa48ee",
+      "prompt": "Use case: identity-preserve. Production full-body basketball action sprite EDIT. Image 1 is the EXACT pose/layout target: four frames of one action, square 2x2 grid. Image 2 is the verified complete outfit identity reference. Keep Image 1's exact four poses, silhouettes, hands/arm angles and hand locations, face/skin/hair, cap, tattoos, chain, jeans, shoes, lighting, positions, scale and square transparent canvas. Change ONLY the green tee into the naturally drawn white sleeveless 224 jersey: curved red trim, red front NCO graphic with watch details and small hem lettering; back small red mascot, green BIG DRE LIVING, red 224, green NEVER CLOCK OUT, exactly matching Image 2's complete sleeveless jersey. Bare tattooed upper arms and shoulders; natural curved armholes, neckline, fitted folds and hem conforming to the pose. This is four COMPLETE redrawn character sprites, never a rectangular clothing patch, never clothing on top of a shirt. Match original high-resolution cartoon illustration. Never add a ball or hoop: the game renders these physically. Preserve the exact limb/hand geometry for ball contact and rim insertion. Do not change the grid or crop anything. Rear views show ONLY the jersey back design, front views show ONLY front design; profile shows naturally wrapped fabric. No labels, shadows, floor, FX.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/white-224/cross.webp",
+          "sha256": "3a2f9dc7b397f9200aa9496c21274100c7d9fbc7a8c02f3fedbe303fddc91ccf"
+        }
+      ]
+    },
+    {
+      "id": "benji/white-224/layup-back",
+      "raw_sha256": "0a0c21198f3e7f6f0962e4d12c1da3560231ce519e8b60b6062022d711e25ae6",
+      "prompt": "Precise object edit: Image 1 is a full 2x2 rear-view basketball action sheet. KEEP ALL FOUR SPRITES' EXACT POSES, LIMBS, HAND LOCATIONS, HAIR, CAP, JEANS, SHOES, SCALE, FACE/ANATOMY AND LAYOUT UNCHANGED. Fix ONLY the jersey printing. EVERY SINGLE ONE OF THE FOUR POSES is viewed from BEHIND. ALL FOUR torsos must use ONLY the back-of-jersey design in Image 2, including the top-left pose and bottom-left pose. Never put chest lettering or the front mascot/NCO graphic on his back. Image 2 contains only the approved BACK jersey and supplies the exact back printing and colors. Wrap that BACK design naturally over the fabric in each pose: curved, folded, fully illustrated garment. Small red mascot at upper back, green BIG DRE LIVING, large red 224, green NEVER CLOCK OUT. NO FRONT NCO GRAPHIC. Preserve real transparency and original square 2x2 grid. Change no other pixels outside the jersey artwork. No ball, hoop, labels, shadow, background, extra frames or extra people. Same exact clean high resolution shaded cartoon style as the original.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/actions/benji/white-224/layup-back.webp",
+          "sha256": "c1d8d3827b4f7bdce126918a691d6cdc1673c7f8aa6feb2ea0f046978f25bf39"
+        }
+      ]
+    },
+    {
+      "id": "court-og/directions",
+      "raw_sha256": "b56f5658e9aac863dfbde16b5b2e5e2e2a7c73b020e93673477acb02915a4e6f",
+      "prompt": "Use case: identity-preserve. Edit Image 1, an exact four-view character turnaround sheet, into complete fully illustrated basketball outfit sprites. Image 2 is the outfit reference: blue sleeveless Fresh jersey: curved yellow trim, gold SackReligious chest lettering and gold sack mascot; back dark navy flagship wordmark, FRESH, 38127. Preserve Image 1's exact character identity, face, skin tone, hair, tattoos, accessories, age, body proportions, heights and all four view poses and exact cell positions. Replace only the top and its sleeves with this sleeveless jersey naturally tailored to this character, bare shoulders/arms, coherent curved neckline and armholes, real folds and original outfit shorts/pants/shoes. All four views must match one another with consistent front/back branding. DO NOT turn the character into Benji from Image 2; Image 2 supplies only the jersey design. Keep the exact square 2x2 layout front/back/left/right, transparent background, full bodies safely inside each cell. High-resolution shaded cartoon art matching Image 1, no body patch, no overlapping jacket, no labels, no balls, no scenery.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/outfits/court-og/blue-fresh/front.png",
+          "sha256": "af37e766412bafecb1ff6535f45e21f78b6dcd335a04c8dccd763c19f86306a7"
+        },
+        {
+          "path": "public/game-v2/basketball/outfits/court-og/blue-fresh/back.png",
+          "sha256": "3fa70d06c3c1c952d85400b08072ee7da0ec103dd17a96fa5cc307fcd80b4093"
+        },
+        {
+          "path": "public/game-v2/basketball/outfits/court-og/blue-fresh/left.png",
+          "sha256": "e2d96b76efb9a5f0320909a4e64b2d423511247025a99e9f6b20e910c44f5759"
+        },
+        {
+          "path": "public/game-v2/basketball/outfits/court-og/blue-fresh/right.png",
+          "sha256": "799cc9247dd26272ddf19091d7cc34cd2956cd81ae5621f5b73752b7b0ca1787"
+        }
+      ]
+    },
+    {
+      "id": "nitro/directions",
+      "raw_sha256": "cd36d448dfa441ff3e9c01ff151aa74215270f281fb39b2e655d9616d873f8f3",
+      "prompt": "Use case: identity-preserve. Edit Image 1, an exact four-view character turnaround sheet, into complete fully illustrated basketball outfit sprites. Image 2 is the outfit reference: white sleeveless 224 jersey: curved red trim, red front NCO graphic with watch details and small hem lettering; back small red mascot, green BIG DRE LIVING, red 224, green NEVER CLOCK OUT. Preserve Image 1's exact character identity, face, skin tone, hair, tattoos, accessories, age, body proportions, heights and all four view poses and exact cell positions. Replace only the top and its sleeves with this sleeveless jersey naturally tailored to this character, bare shoulders/arms, coherent curved neckline and armholes, real folds and original outfit shorts/pants/shoes. All four views must match one another with consistent front/back branding. DO NOT turn the character into Benji from Image 2; Image 2 supplies only the jersey design. Keep the exact square 2x2 layout front/back/left/right, transparent background, full bodies safely inside each cell. High-resolution shaded cartoon art matching Image 1, no body patch, no overlapping jacket, no labels, no balls, no scenery.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/outfits/nitro/white-224/front.png",
+          "sha256": "1d51c3cb0d299b86760dbd99a13a25527398ca8295e46a65d558163d6632cda4"
+        },
+        {
+          "path": "public/game-v2/basketball/outfits/nitro/white-224/back.png",
+          "sha256": "d9fdbc8b0461cdf16b00eeacefc84800291efea5aac345cb973d569b57c185e3"
+        },
+        {
+          "path": "public/game-v2/basketball/outfits/nitro/white-224/left.png",
+          "sha256": "795679a67f4d8b0efb32a4789f1f5f59ad03edf45cb747ef13940ae765a8afb4"
+        },
+        {
+          "path": "public/game-v2/basketball/outfits/nitro/white-224/right.png",
+          "sha256": "db583cdaf4e7949a8fa4976879bfc07f251131fa1e1d8661b02db4e0dcae4256"
+        }
+      ]
+    },
+    {
+      "id": "strike/directions",
+      "raw_sha256": "415fee12b5392277fa1b31fc194059e94a3e019234d4941e400d37aec631153f",
+      "prompt": "Use case: identity-preserve. Edit Image 1, an exact four-view character turnaround sheet, into complete fully illustrated basketball outfit sprites. Image 2 is the outfit reference: white sleeveless 224 jersey: curved red trim, red front NCO graphic with watch details and small hem lettering; back small red mascot, green BIG DRE LIVING, red 224, green NEVER CLOCK OUT. Preserve Image 1's exact character identity, face, skin tone, hair, tattoos, accessories, age, body proportions, heights and all four view poses and exact cell positions. Replace only the top and its sleeves with this sleeveless jersey naturally tailored to this character, bare shoulders/arms, coherent curved neckline and armholes, real folds and original outfit shorts/pants/shoes. All four views must match one another with consistent front/back branding. DO NOT turn the character into Benji from Image 2; Image 2 supplies only the jersey design. Keep the exact square 2x2 layout front/back/left/right, transparent background, full bodies safely inside each cell. High-resolution shaded cartoon art matching Image 1, no body patch, no overlapping jacket, no labels, no balls, no scenery.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/outfits/strike/white-224/front.png",
+          "sha256": "5990b09424034b3aec41038a6973567952720518ec51ae0dc5e6d5a499aaf928"
+        },
+        {
+          "path": "public/game-v2/basketball/outfits/strike/white-224/back.png",
+          "sha256": "e28d6873e88b33b8b55ce217fea0193061a46ce8cf380e107d950d395136acae"
+        },
+        {
+          "path": "public/game-v2/basketball/outfits/strike/white-224/left.png",
+          "sha256": "f17e8305760d715e3d66a1385abe76a6a11d692f5bb388a3e3213ccffa4a8f0f"
+        },
+        {
+          "path": "public/game-v2/basketball/outfits/strike/white-224/right.png",
+          "sha256": "e68d6a34eafb97f1bf8dee092113191e9b7507da6ea4be7c69740583fdc05c5c"
+        }
+      ]
+    },
+    {
+      "id": "benji/black-fresh/directions",
+      "raw_sha256": "39ec5156a23ef5b284195c344fe0e2a805683c300dc8be7eb424e2d77614f430",
+      "prompt": "Use case: identity-preserve. Edit Image 1 (the canonical Benji four-direction 2x2 sheet) into a NEW complete basketball uniform sprite sheet. Keep the exact young African-American character's face, hair, white cap, tattoos, gold chain, age, skin, body proportions, jeans, shoes and four EXACT directions/front-back-left-profile-right-profile and same grid. Outfit reference Image 2 provides only the jersey: black with yellow curved trim, red chest SackReligious arched wordmark and red sack mascot, back red flagship wordmark/FRESH/38127. Replace only his green tee with this fully illustrated sleeveless jersey, bare shoulders/tattooed arms, tailored natural folds, curved neckline/armholes/hem; no overlay or rectangular shirt patch. Preserve four full-body silhouettes, strict side profiles, identical body height/sole baseline and ample transparent margin inside each cell. Sharp high resolution clean cel-shaded cartoon illustration consistent with Image 1. Square 2x2 transparent canvas, no labels, scenery, balls, shadows or extra people. One coherent same character and same jersey in all four views.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/outfits/benji/black-fresh/front.png",
+          "sha256": "bc2aa5e55c2a3b74d56fb5bf5d2eca9d2e64ae6d122ff9368293783263d553db"
+        },
+        {
+          "path": "public/game-v2/basketball/outfits/benji/black-fresh/back.png",
+          "sha256": "98449b72d5d6a82966e69a060fba9a2071aa4b61f94bd5ce3e7965b602f334a8"
+        },
+        {
+          "path": "public/game-v2/basketball/outfits/benji/black-fresh/left.png",
+          "sha256": "ad87560153c563678f7d2c5e006311427860f6604d368d1ab1a3d2ccbd3a72b9"
+        },
+        {
+          "path": "public/game-v2/basketball/outfits/benji/black-fresh/right.png",
+          "sha256": "bea3914a8339f8178d1642c3e1ac6bc4d4d188eddfaac249988111f613e5d1c4"
+        }
+      ]
+    },
+    {
+      "id": "benji/blue-fresh/directions",
+      "raw_sha256": "eb9c09f12faeda6b886d1fd825f7d134854a2fa53fd0612f0c0b6a8c597defbf",
+      "prompt": "Use case: identity-preserve. Edit Image 1 (the canonical Benji four-direction 2x2 sheet) into a NEW complete basketball uniform sprite sheet. Keep the exact young African-American character's face, hair, white cap, tattoos, gold chain, age, skin, body proportions, jeans, shoes and four EXACT directions/front-back-left-profile-right-profile and same grid. Outfit reference Image 2 provides only the jersey: blue with yellow curved trim, gold chest SackReligious arched wordmark and gold sack mascot, back navy flagship wordmark/FRESH/38127. Replace only his green tee with this fully illustrated sleeveless jersey, bare shoulders/tattooed arms, tailored natural folds, curved neckline/armholes/hem; no overlay or rectangular shirt patch. Preserve four full-body silhouettes, strict side profiles, identical body height/sole baseline and ample transparent margin inside each cell. Sharp high resolution clean cel-shaded cartoon illustration consistent with Image 1. Square 2x2 transparent canvas, no labels, scenery, balls, shadows or extra people. One coherent same character and same jersey in all four views.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/outfits/benji/blue-fresh/front.png",
+          "sha256": "464fa3caf17cdab8c9910e4b0162270c57636d5cac14efb2f54c5a9d1ffbfa5d"
+        },
+        {
+          "path": "public/game-v2/basketball/outfits/benji/blue-fresh/back.png",
+          "sha256": "3c2fc600aad82a1c433cfa18a30e3bbd25c99eef88c3b012c40d5269d9988520"
+        },
+        {
+          "path": "public/game-v2/basketball/outfits/benji/blue-fresh/left.png",
+          "sha256": "6aea63e2acebc9e0d4a7af7b001e7e824ef4e905dc4fe806f78c792333c9ed0b"
+        },
+        {
+          "path": "public/game-v2/basketball/outfits/benji/blue-fresh/right.png",
+          "sha256": "e11fa5899489fe8811e537a5c0dd1829f3a9b1c02879787f8421f880d99cf79f"
+        }
+      ]
+    },
+    {
+      "id": "benji/white-224/directions",
+      "raw_sha256": "ba75811ba6af3124b4987c3218a652569f0e1d12bd098cc8ca4d36c6a2f322bf",
+      "prompt": "Use case: identity-preserve. Edit Image 1 (the canonical Benji four-direction 2x2 sheet) into a NEW complete basketball uniform sprite sheet. Keep the exact young African-American character's face, hair, white cap, tattoos, gold chain, age, skin, body proportions, jeans, shoes and four EXACT directions/front-back-left-profile-right-profile and same grid. Outfit reference Image 2 provides only the jersey: white with red curved trim, exact red front NCO/watch design, back red mascot/green BIG DRE LIVING/red 224/green NEVER CLOCK OUT. Replace only his green tee with this fully illustrated sleeveless jersey, bare shoulders/tattooed arms, tailored natural folds, curved neckline/armholes/hem; no overlay or rectangular shirt patch. Preserve four full-body silhouettes, strict side profiles, identical body height/sole baseline and ample transparent margin inside each cell. Sharp high resolution clean cel-shaded cartoon illustration consistent with Image 1. Square 2x2 transparent canvas, no labels, scenery, balls, shadows or extra people. One coherent same character and same jersey in all four views.",
+      "files": [
+        {
+          "path": "public/game-v2/basketball/outfits/benji/white-224/front.png",
+          "sha256": "b1a9f804d3e7a4c86cfd34ea060d115f303bfd7c16b35eff33d120dcd7cffbc0"
+        },
+        {
+          "path": "public/game-v2/basketball/outfits/benji/white-224/back.png",
+          "sha256": "147501a4f9a6f0be1d2af045a75eea9d2d116a712afc501a6a2a53103c7f557e"
+        },
+        {
+          "path": "public/game-v2/basketball/outfits/benji/white-224/left.png",
+          "sha256": "e0a36f6c533666e9aa2849bfa41add1b13ac8804f7936705e53663197096b095"
+        },
+        {
+          "path": "public/game-v2/basketball/outfits/benji/white-224/right.png",
+          "sha256": "510c602f4380e4b3308ec6843a355ad7beba8ef811177bb80a9cdb4fb8fd6498"
+        }
+      ]
+    }
+  ]
+}
