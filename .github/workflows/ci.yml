@@ -97,6 +97,17 @@ jobs:
       - name: Food trucks and music TV
         run: node scripts/food-truck-smoke.mjs
 
+      - name: Detailed food truck day and night views
+        run: node scripts/truck-detail-smoke.mjs
+
+      - name: Upload detailed food truck views
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: truck-detail-qa
+          path: screenshots/truck-detail/
+          if-no-files-found: warn
+
       - name: Upload food truck gameplay views
         if: always()
         uses: actions/upload-artifact@v4

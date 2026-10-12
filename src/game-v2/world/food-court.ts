@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { detailFoodTruck } from "./truck-detail";
 import { FOOD_VENDORS, type FoodVendor } from "../play/food-court";
 
 export function buildFoodCourt(parent: THREE.Object3D) {
@@ -57,6 +58,7 @@ export function buildFoodCourt(parent: THREE.Object3D) {
       const stripe=new THREE.Mesh(new THREE.BoxGeometry(.24,.006,.15),new THREE.MeshBasicMaterial({color:0xe62f2f,toneMapped:false}));stripe.position.y=.083;tray.add(stripe);
     }
     group.userData.vendors=vendors;group.userData.textures=textures;group.userData.frames=[0,0];
+    detailFoodTruck(group,3.4,id === "brothers" ? 0xe3b14a : 0xd8c795);
   }
   return trucks;
 }

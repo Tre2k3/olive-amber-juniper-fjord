@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { detailFoodTruck } from "./truck-detail";
 export const VELI_ANCHOR = { x: 62, z: 22.4 };
 const root = "/game-v2/vendors/veli/";
 export function buildVeliTruck(parent: THREE.Object3D) {
@@ -6,7 +7,7 @@ export function buildVeliTruck(parent: THREE.Object3D) {
   const cream = new THREE.MeshStandardMaterial({ color: 0xf4ecd9, roughness:.62 });
   const gold = new THREE.MeshStandardMaterial({ color:0xc89a40, roughness:.35,metalness:.65 });
   const dark = new THREE.MeshStandardMaterial({ color:0x23282a,roughness:.8 });
-  const steel = new THREE.MeshStandardMaterial({color:0xbec2c1,roughness:.3,metalness:.65});
+  const steel = new THREE.MeshStandardMaterial({color:0xbec2c1,roughness:.42,metalness:.32});
   const box = (w:number,h:number,d:number,x:number,y:number,z:number,mat:THREE.Material) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat); m.position.set(x,y,z); m.castShadow=true;m.receiveShadow=true;group.add(m);return m;
   };
@@ -51,6 +52,7 @@ export function buildVeliTruck(parent: THREE.Object3D) {
   const food=new THREE.Mesh(new THREE.BoxGeometry(.33,.12,.23),new THREE.MeshBasicMaterial({color:0xeae5dd,toneMapped:false}));handoff.add(food);
   const lid=new THREE.Mesh(new THREE.BoxGeometry(.35,.025,.25),new THREE.MeshBasicMaterial({color:0xd9ba69,toneMapped:false}));lid.position.y=.072;handoff.add(lid);
   group.userData.vendor=vendor;group.userData.textures=textures;group.userData.frame=0;
+  detailFoodTruck(group,3.1,0xc89a40);
   return group;
 }
 export function animateVeliTruck(group:THREE.Group, serving:number, customer:THREE.Vector3) {
