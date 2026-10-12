@@ -14,6 +14,7 @@ import { createCourtCameraCutaway } from "./core/court-camera-cutaway";
 import { BALL_GRAVITY, rimCrossing, shotVelocity } from "./core/basketball";
 import { createCourtMatch, courtAction, matchRim, tickCourtMatch, type CourtMatch, type CourtMode } from "./core/basketball-match";
 import { createCourtAnimation } from "./world/kits/court-animation";
+import { createCourtJersey } from "./world/kits/court-jersey";
 import { animateNets, exciteNet } from "./world/kits/hoop";
 import { buildSlice, carBody, spawnCourtActor, type SliceWorld } from "./world/slice";
 import { presentVehicles } from "./world/kits/vehicles";
@@ -256,8 +257,16 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   const previousBall = new THREE.Vector3();
   let courtMatch: CourtMatch | null = null;
   const courtActors: THREE.Group[] = [];
+  const courtFans:THREE.Object3D[]=[];let cheerLeft=0,lastCheerScore=0;
+  for(const [asset,x,z] of [
+    [characters.pedestrian.female02,59,-31.3],[characters.pedestrian.male04,61.5,-31.4],
+    [characters.pedestrian.female03,72,-31.3],[characters.pedestrian.male02,74.4,-31.5],
+    [characters.pedestrian.male01,58.5,-12.3],[characters.pedestrian.female01,73.5,-12.4],
+  ] as const){const fan=spawnCourtActor(asset,x,z,world.exterior);fan.name="901-court-fan";fan.userData.heading=Math.atan2(66-x,-22-z);fan.userData.idle=true;courtFans.push(fan);world.billboards.push(fan);}
   let practiceYaw = camYaw;
   const courtAnimation = createCourtAnimation(player);
+  const courtJerseys=[createCourtJersey(0,0),createCourtJersey(23,0),createCourtJersey(9,1),createCourtJersey(1,1)];
+  let teamJerseys=true;
   const actionHand = new THREE.Vector3();
   const hiddenCourtCast = new Map<THREE.Object3D, boolean>();
   function teamRing(host: THREE.Object3D, color: number) {
@@ -273,6 +282,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   function courtCommand(code: string) {
     if (place !== "court") return false;
+    if(code === "KeyJ"){teamJerseys=!teamJerseys;push(hud());return true;}
     if (code === "KeyB") {
       basketballCameraMode = BASKETBALL_CAMERAS[(BASKETBALL_CAMERAS.indexOf(basketballCameraMode)+1)%BASKETBALL_CAMERAS.length]!;
       push(hud()); return true;
@@ -523,6 +533,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       basketball: courtMatch ? { mode: courtMatch.mode, score: [...courtMatch.score], clock: Math.ceil(courtMatch.clock),
         feedback: courtMatch.feedback, phase: courtMatch.phase } : undefined,
       basketballCamera: basketballCameraMode,
+      teamJerseys,
       dialogue,
       carrying,
       x: player.position.x,
@@ -725,7 +736,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     updateTraffic(dt);
     updatePeds(dt);
     placeCamera(dt);
-    faceAvatar();
+    faceAvatar(dt);
     foodReceiver.update(camera);
     if(foodReceiver.active) avatar.visible=false;
     presentFishing();
@@ -1392,7 +1403,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     rock(mesh, host);
   }
 
-  function faceAvatar() {
+  function faceAvatar(dt: number) {
+    const score=courtMatch?courtMatch.score[0]+courtMatch.score[1]:0;
+    if(score>lastCheerScore)cheerLeft=2;lastCheerScore=score;cheerLeft=Math.max(0,cheerLeft-dt);
     const debug = Boolean((window as Window & { __SACK_CHARACTER_DEBUG__?: boolean }).__SACK_CHARACTER_DEBUG__);
     plantFeet(player);
     if (place === "haunt") player.position.y = hauntFloorAt(player.position.x, player.position.z - 500) + 0.03;
@@ -1409,7 +1422,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const attackX = rim.x - player.position.x, attackZ = rim.z - player.position.z;
     const viewX = camera.position.x - player.position.x, viewZ = camera.position.z - player.position.z;
     const rear = attackX * viewX + attackZ * viewZ < -0.55 * Math.hypot(attackX, attackZ) * Math.hypot(viewX, viewZ);
-    const animated = courtAnimation.update(courtMatch, rim.x >= player.position.x ? 1 : -1, yawTo(avatar, camera.position), rear);
+    const animated = courtAnimation.update(courtMatch, rim.x >= player.position.x ? 1 : -1, yawTo(avatar, camera.position), rear,dt);
     avatar.visible = !animated;
     // Keep the reach pose at the rim through release; only the ball detaches.
     if (animated && courtMatch?.dunk === 0 && courtAnimation.state().frame === 2) {
@@ -1429,6 +1442,23 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       // back to a different generic release origin.
       courtMatch.ball = { x: actionHand.x, y: actionHand.y, z: actionHand.z };
     }
+    else if(animated&&courtMatch?.owner===0&&(courtAnimation.state().action==='dribble'||courtAnimation.state().action==='cross-back'&&courtMatch.players[0]!.action!=='crossover')) {
+      courtAnimation.handWorld(actionHand);
+      const bounce=Math.abs(Math.cos(courtMatch.time*7));
+      ball.position.x=actionHand.x;ball.position.z=actionHand.z;
+      ball.position.y=.17+Math.max(0,actionHand.y-.13-.17)*bounce;
+      courtMatch.ball={x:ball.position.x,y:ball.position.y,z:ball.position.z};
+    }
+    else if(animated&&courtMatch?.owner===0&&courtMatch.players[0]!.action==='crossover') {
+      courtAnimation.handWorld(actionHand);
+      const progress=THREE.MathUtils.clamp(1-courtMatch.actionLeft/.4,0,1),catchBlend=THREE.MathUtils.smoothstep(progress,.72,1);
+      ball.position.x=THREE.MathUtils.lerp(ball.position.x,actionHand.x,catchBlend);
+      ball.position.z=THREE.MathUtils.lerp(ball.position.z,actionHand.z,catchBlend);
+      const height=progress<.5?courtMatch.crossStartY:actionHand.y-.13;
+      ball.position.y=.17+Math.max(0,height-.17)*Math.cos(progress*Math.PI)**2;
+      courtMatch.ball={x:ball.position.x,y:ball.position.y,z:ball.position.z};
+    }
+    courtJerseys[0]!.update(animated?courtAnimation.mesh:avatar,Boolean(courtMatch)&&teamJerseys,rear,1,animated?courtAnimation.torso():1.02);
     avatar.scale.set(presentScale(player), presentScale(player), 1);
     for (const board of world.billboards) {
       plantFeet(board);
@@ -1438,6 +1468,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       if (!sprite) continue;
       sprite.rotation.x = 0;
       applyCard(sprite, board);
+      if(board.name==="901-court-fan") sprite.position.y+=cheerLeft>0?Math.max(0,Math.sin(cheerLeft*10+courtFans.indexOf(board)))*.075:Math.sin(performance.now()*.0013+courtFans.indexOf(board))*.006;
     }
     const kHost = kSprite.parent ?? kSprite;
     plantFeet(kHost);
@@ -1453,7 +1484,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       host.position.set(athlete.x, 0.08, athlete.z);
       host.userData.heading = athlete.heading;
       const sprite = host.getObjectByName("sprite");
-      if (sprite) { applyCard(sprite, host); sprite.position.y = athlete.jump; }
+      if (sprite) {
+        applyCard(sprite,host);sprite.position.y=athlete.jump+(athlete.action==='run'?Math.sin(courtMatch!.time*13+i)*.018:0);
+        const mesh=sprite as THREE.Mesh,heading=host.userData.heading as number,view=yawTo(host,camera.position);
+        const relative=heading-view,back=Math.cos(relative)<-.55;
+        courtJerseys[i+1]!.update(mesh,teamJerseys,back,.35+.65*Math.abs(Math.cos(relative)),i===0?1.25:1.16,0,i===0?1.32:1.08);
+      }
     }
   }
 
@@ -1463,16 +1499,18 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       const rim = courtMatch ? matchRim(courtMatch, world.hoops) : world.hoop;
       const points = courtCameraPoints; points.length = 4;
       points[0] = courtCameraPool[0]!.copy(player.position);
-      points[1] = courtCameraPool[1]!.set(player.position.x,player.position.y+3,player.position.z);
+      const headHeight=courtMatch&&(courtMatch.dunk===0||courtMatch.layup===0)?3:2.25;
+      points[1] = courtCameraPool[1]!.set(player.position.x,player.position.y+headHeight,player.position.z);
       points[2] = courtCameraPool[2]!.copy(ball.position);
       points[3] = courtCameraPool[3]!.set(rim.x,rim.y+.4,rim.z);
       const action = courtMatch && (courtMatch.charge > 0 || courtMatch.dunk === 0 || courtMatch.layup === 0 || courtMatch.shooter === 0 && courtMatch.actionLeft > 0);
       if (courtMatch && !action) for (const athlete of courtMatch.players) {
+        if(camera.aspect<.8&&basketballCameraMode!=='sideline'&&Math.hypot(athlete.x-player.position.x,athlete.z-player.position.z)>3.5)continue;
         const i = points.length;
         points.push(courtCameraPool[i]!.set(athlete.x,.08,athlete.z),courtCameraPool[i+1]!.set(athlete.x,athlete.jump+1.85,athlete.z));
       }
       basketballCamera.update(dt, basketballCameraMode, player.position, rim, points);
-      courtCameraCutaway.update(camera.position,points);
+      courtCameraCutaway.update(camera.position,points,dt);
       const dx = rim.x - player.position.x, dz = rim.z - player.position.z;
       if (courtMatch) camYaw = basketballCamera.yaw;
       const viewX = player.position.x-camera.position.x, viewZ = player.position.z-camera.position.z;
@@ -1731,9 +1769,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     basketballState() {
       return courtMatch ? { ...courtMatch, players: courtMatch.players.map(p => ({ ...p })),
         animation: courtAnimation.state(),
+        jerseys:teamJerseys?courtJerseys.filter(j=>j.group.visible).length:0,
+        spectators:courtFans.length,cheerLeft,
         hand: courtAnimation.handWorld(new THREE.Vector3()).toArray(),
         rim: { ...matchRim(courtMatch, world.hoops) },
-        actionScreen: [player.position.clone(), player.position.clone().add(new THREE.Vector3(0, 3, 0)),
+        actionScreen: [player.position.clone(), player.position.clone().add(new THREE.Vector3(0, courtMatch.dunk===0||courtMatch.layup===0?3:2.25, 0)),
           ball.position.clone(), new THREE.Vector3(matchRim(courtMatch, world.hoops).x, matchRim(courtMatch, world.hoops).y, matchRim(courtMatch, world.hoops).z)]
           .map(point => { point.project(camera); return { x: point.x, y: point.y, z: point.z }; }),
         duplicateCastVisible: [...hiddenCourtCast.keys()].filter(actor => actor.visible).length,
@@ -2073,9 +2113,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     canvas.removeEventListener("pointercancel", orbitEnd);
     canvas.removeEventListener("lostpointercapture", orbitEnd);
     foodReceiver.dispose();
-    courtCameraCutaway.restore();
+    courtCameraCutaway.dispose();
     veliTv.dispose();
     courtAnimation.dispose();
+    courtJerseys.forEach(j=>j.dispose());
     bloom.dispose();
     composer.dispose();
     renderer.dispose();

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { canvasTex } from "./materials";
+import { canvasTex, brick, concreteSlab } from "./materials";
 import { flagshipLogo } from "./brand";
 
 /**
@@ -137,7 +137,7 @@ function mural(parent: THREE.Object3D, x: number, z: number) {
   group.position.set(x, 0, z);
   // The wall is dimensional brick/block with separate murals/signage, not a
   // full-screen concept image wrapped around a wall.
-  const block = new THREE.MeshStandardMaterial({ color: 0x574a42, roughness: 0.95 });
+  const block = brick();
   box(group, 23.6, 4.25, 0.45, 0, 2.13, 0, block);
   box(group, 24.05, 0.15, 0.65, 0, 4.28, 0, bronze);
   box(group, 24.05, 0.23, 0.74, 0, 0.15, 0, charcoal);
@@ -196,7 +196,7 @@ export function dress901Court(parent: THREE.Object3D, cx: number, cz: number) {
   // The walkway apron runs OUTSIDE the playable floor, preserving z fighting
   // and the court paint / sole-contact under Benji's feet.
   for (const side of [-1, 1]) {
-    box(court, 2.3, 0.07, 16.6, cx + side * 12.45, 0.045, cz, paving);
+    box(court, 2.3, 0.07, 16.6, cx + side * 12.45, 0.045, cz, concreteSlab(side+3));
     box(court, 2.3, 0.08, 0.11, cx + side * 12.45, 0.11, cz + 7.8, bronze);
   }
   for (const side of [-1, 1]) {
@@ -222,7 +222,27 @@ export function dress901Court(parent: THREE.Object3D, cx: number, cz: number) {
     [cx - 13.2, cz - 13.0, 1.1],
     [cx + 13.2, cz - 13.0, 1.1],
   ] as const) shadePlanter(court, x, z, scale);
-  court.userData.productionVersion = 1;
+  // Bench/kits and scorer's table stay outside every playable boundary.
+  const fabric=new THREE.MeshStandardMaterial({color:0xf0ddba,roughness:.97});
+  for(const x of [cx-6,cx+6]) {
+    box(court,3.5,.12,.6,x,.48,cz-9.1,bronze);
+    box(court,3.5,.6,.1,x,.82,cz-9.4,charcoal);
+    for(const xx of [-1.4,1.4])box(court,.12,.45,.5,x+xx,.24,cz-9.1,steel);
+    box(court,.48,.04,.4,x-.6,.57,cz-9.1,fabric);
+    box(court,.5,.28,.3,x+.5,.2,cz-8.8,charcoal);
+    for(let n=0;n<3;n++)part(court,new THREE.CylinderGeometry(.05,.06,.19,8),bronze,x-.6+n*.2,.67,cz-9.05);
+  }
+  box(court,2.2,.12,.8,cx,1.0,cz-9.1,charcoal);
+  for(const x of [-.9,.9])box(court,.1,1,.6,cx+x,.5,cz-9.1,steel);
+  const tableBrand=flagshipLogo(1.2);tableBrand.position.set(cx,.78,cz-8.68);court.add(tableBrand);
+  sign(court,cx,1.32,cz-9.1,1.15,.4,"901","PICKUP · RESPECT");
+  const dummy=new THREE.Object3D(),bulbs=new THREE.InstancedMesh(new THREE.SphereGeometry(.045,6,5),warmLight,16);
+  for(let i=0;i<16;i++){dummy.position.set(cx-11+i*1.47,4.3-Math.sin(i/15*Math.PI)*.45,cz-9.8);dummy.updateMatrix();bulbs.setMatrixAt(i,dummy.matrix);}
+  bulbs.instanceMatrix.needsUpdate=true;court.add(bulbs);
+  const wirePoints=Array.from({length:16},(_,i)=>new THREE.Vector3(cx-11+i*1.47,4.345-Math.sin(i/15*Math.PI)*.45,cz-9.8));
+  part(court,new THREE.TubeGeometry(new THREE.CatmullRomCurve3(wirePoints),24,.009,5,false),charcoal,0,0,0,false);
+  for(const x of [cx-12,cx+12])box(court,.07,4.3,.07,x,2.15,cz-9.8,steel);
+  court.userData.productionVersion = 2;
   court.userData.gateClearWidth = 2.72;
   court.userData.rimLocationsUnmodified = true;
   parent.add(court);

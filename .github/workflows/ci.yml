@@ -100,6 +100,17 @@ jobs:
       - name: Basketball camera gameplay
         run: node scripts/basketball-camera-smoke.mjs
 
+      - name: Basketball animation, uniforms and court polish
+        run: node scripts/basketball-polish-smoke.mjs
+
+      - name: Upload basketball polish views
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: basketball-polish-qa
+          path: screenshots/basketball-polish/
+          if-no-files-found: warn
+
       - name: Upload basketball camera views
         if: always()
         uses: actions/upload-artifact@v4

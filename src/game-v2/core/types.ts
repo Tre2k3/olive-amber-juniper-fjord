@@ -30,6 +30,7 @@ export type HudState = {
   veliTv?: { near: boolean; playing: boolean; muted: boolean; ready: boolean; error: string };
   basketball?: { mode: "half" | "full"; score: number[]; clock: number; feedback: string; phase: string };
   basketballCamera?: "behind" | "sideline" | "baseline";
+  teamJerseys?: boolean;
   dialogue: string;
   carrying: boolean;
   x: number;

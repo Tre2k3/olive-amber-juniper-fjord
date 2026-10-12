@@ -41,7 +41,8 @@ function shoot(match: CourtMatch, hoops: CourtPoint[], timing: number) {
   for (const defender of match.players) if (defender.team !== athlete.team) {
     contest = Math.max(contest, clamp(1 - Math.hypot(defender.x - athlete.x, defender.z - athlete.z) / 2, 0, 1));
   }
-  match.ball = { x: athlete.x, y: 1.75, z: athlete.z };
+  // Human releases from the last rendered palm; AI uses its shooting pocket.
+  if (shooter !== 0) match.ball = { x: athlete.x, y: 1.75, z: athlete.z };
   const release = shotVelocity(match.ball, rim, timing, contest);
   match.velocity = { x: release.x, y: release.y, z: release.z };
   match.shooter = shooter; match.points = shotPoints(athlete, rim); match.scored = false;
@@ -135,13 +136,30 @@ export function tickCourtMatch(match: CourtMatch, dt: number, hoops: CourtPoint[
     const athlete = match.players[i]!;
     if (i === match.layup) continue;
     const attacking = athlete.team === match.possession;
-    const target = attacking ? matchRim(match, hoops, athlete.team) : match.players[match.owner >= 0 ? match.owner : match.shooter >= 0 ? match.shooter : 0]!;
+    const ownRim = matchRim(match, hoops, athlete.team);
+    // Man-to-man assignments stop both defenders swarming the same person.
+    const mark = match.players[athlete.team === 1 ? i - 2 : 3]!;
+    const target = attacking ? ownRim : mark;
     let tx = target.x, tz = target.z;
-    if (attacking && match.owner !== i) { tx += (target.x < 66 ? 4.5 : -4.5); tz += i % 2 ? 3.5 : -3.5; }
-    else if (!attacking) { tx += athlete.team === 1 ? 1 : -1; tz += i % 2 ? 0.8 : -0.8; }
+    if (match.owner < 0 && match.shooter >= 0 && !match.scored) {
+      const flight = (match.velocity.y + Math.sqrt(match.velocity.y ** 2 + 2 * BALL_GRAVITY * Math.max(0,match.ball.y-.6))) / BALL_GRAVITY;
+      tx = match.ball.x + match.velocity.x * Math.min(1,flight) + (i%2 ? .45 : -.45);
+      tz = match.ball.z + match.velocity.z * Math.min(1,flight) + (athlete.team ? .45 : -.45);
+    } else if(match.owner < 0 && match.shooter < 0) {
+      tx=match.ball.x+match.velocity.x*.18;tz=match.ball.z+match.velocity.z*.18;
+    } else if (attacking && match.owner !== i) {
+      const cut = match.clock < 13 && Math.sin(match.time*.7+i) > .7;
+      tx += (target.x < 66 ? 1 : -1) * (cut ? 2.8 : 5.0);
+      tz = -22 + (i%2 ? 4.3 : -4.3);
+    }
+    else if (!attacking) {
+      const defensiveRim=matchRim(match,hoops,mark.team),mx=defensiveRim.x-mark.x,mz=defensiveRim.z-mark.z,d=Math.hypot(mx,mz)||1;
+      const gap=match.owner===match.players.indexOf(mark)?1.35:.75;
+      tx+=mx/d*gap;tz+=mz/d*gap;
+    }
     else if (!match.cleared) tx = 65;
     const dx = tx - athlete.x, dz = tz - athlete.z, length = Math.hypot(dx, dz);
-    if (length > (attacking && match.owner === i && match.cleared ? 2.5 : 0.7)) {
+    if (length > (attacking && match.owner === i && match.cleared ? 2.5 : 0.35)) {
       const step = Math.min(length, dt * (match.owner === i ? 3.1 : 3.8));
       athlete.x = clamp(athlete.x + dx / length * step, 56, match.mode === "half" ? 66 : 76);
       athlete.z = clamp(athlete.z + dz / length * step, -28, -16);
@@ -156,10 +174,11 @@ export function tickCourtMatch(match: CourtMatch, dt: number, hoops: CourtPoint[
   for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) {
     const a = match.players[i]!, b = match.players[j]!;
     const dx = b.x - a.x, dz = b.z - a.z, length = Math.hypot(dx, dz);
-    if (length > 0.001 && length < 0.72) {
-      const push = (0.72 - length) * 0.5;
-      a.x -= dx / length * push; a.z -= dz / length * push;
-      b.x += dx / length * push; b.z += dz / length * push;
+    if (length < 1.05) {
+      const safeLength = Math.max(length,.001),nx=length>.001?dx/safeLength:1,nz=length>.001?dz/safeLength:0;
+      const push = (1.05 - length) * 0.5;
+      a.x -= nx * push; a.z -= nz * push;
+      b.x += nx * push; b.z += nz * push;
     }
   }
   for (const athlete of match.players) {

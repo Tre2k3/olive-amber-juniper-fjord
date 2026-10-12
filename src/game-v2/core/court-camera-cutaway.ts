@@ -22,26 +22,38 @@ export function createCourtCameraCutaway(root: THREE.Object3D) {
     geometry.computeBoundingBox();
     candidates.push({mesh:node,bounds:geometry.boundingBox!.clone().applyMatrix4(node.matrixWorld)});
   });
-  const hidden=new Set<THREE.Mesh>(),ray=new THREE.Ray(),direction=new THREE.Vector3(),hit=new THREE.Vector3(),subject=new THREE.Vector3();
-  const restore=()=>{hidden.forEach(mesh=>{mesh.visible=true;});hidden.clear();};
+  const states=new Map<THREE.Mesh,{original:THREE.Material|THREE.Material[];copies:THREE.Material[];alpha:number}>();
+  const ray=new THREE.Ray(),direction=new THREE.Vector3(),hit=new THREE.Vector3(),subject=new THREE.Vector3();
+  const restore=()=>{states.forEach((state,mesh)=>{mesh.material=state.original;mesh.visible=true;state.alpha=1;});};
   return {
-    get count(){return hidden.size;},
+    get count(){let n=0;states.forEach(state=>{if(state.alpha<.98)n++;});return n;},
     restore,
-    update(camera: THREE.Vector3,points: readonly THREE.Vector3[]) {
-      restore();
+    dispose(){restore();states.forEach(state=>state.copies.forEach(mat=>mat.dispose()));states.clear();},
+    update(camera: THREE.Vector3,points: readonly THREE.Vector3[],dt=1/60) {
       for(const {mesh,bounds} of candidates) {
-        if(!mesh.visible)continue;
-        // Feet/head and ball/rim rays also catch arena seating in a low view.
+        if(!mesh.visible&&!states.has(mesh))continue;
+        let blocked=false;
         for(let i=0;i<Math.min(4,points.length);i++) {
           const point=subject.copy(points[i]!);
           if(i===0)point.y+=.4;
-          if(i===1)point.y-=1.15;
+          if(i===1)point.y=points[0]!.y+1.85;
           direction.copy(camera).sub(point);const distance=direction.length();
           ray.set(point,direction.normalize());
-          if(ray.intersectBox(bounds,hit)&&hit.distanceTo(point)<distance-.1) {
-            mesh.visible=false;hidden.add(mesh);break;
-          }
+          if(ray.intersectBox(bounds,hit)&&hit.distanceTo(point)<distance-.1){blocked=true;break;}
         }
+        let state=states.get(mesh);
+        if(!state&&blocked){
+          const original=mesh.material,materials=Array.isArray(original)?original:[original];
+          const copies=materials.map(mat=>{const clone=mat.clone();clone.transparent=true;clone.depthWrite=false;return clone;});
+          state={original,copies,alpha:1};states.set(mesh,state);
+        }
+        if(!state)continue;
+        const target=blocked?.015:1,follow=1-Math.exp(-(blocked?18:7)*dt);
+        state.alpha+=(target-state.alpha)*follow;
+        if(!blocked&&state.alpha>.995){mesh.material=state.original;state.alpha=1;continue;}
+        const originals=Array.isArray(state.original)?state.original:[state.original];
+        state.copies.forEach((mat,i)=>{mat.opacity=originals[i]!.opacity*state!.alpha;});
+        mesh.material=Array.isArray(state.original)?state.copies:state.copies[0]!;
       }
     },
   };

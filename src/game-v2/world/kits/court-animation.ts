@@ -45,7 +45,8 @@ export function createCourtAnimation(parent: THREE.Object3D) {
   const maps: Partial<Record<Action, THREE.Texture[]>> = {};
   const sources: THREE.Texture[] = [];
   const geometry = {} as Record<Action, THREE.PlaneGeometry[]>;
-  let disposed = false, action: Action | null = null, frame = 0;
+  let disposed = false, action: Action | null = null, frame = 0, previousAction:Action|null=null,previousFrame=-1;
+  let shapeX=1,shapeY=1;
   for (const key of actions) {
     geometry[key] = regions[key].map((r) => {
       const geo = new THREE.PlaneGeometry(r[2]! * scale[key], r[3]! * scale[key]);
@@ -75,7 +76,7 @@ export function createCourtAnimation(parent: THREE.Object3D) {
   const hand = new THREE.Vector3();
   return {
     mesh,
-    update(match: CourtMatch | null, direction: number, yaw: number, rear: boolean) {
+    update(match: CourtMatch | null, direction: number, yaw: number, rear: boolean,dt=1/60) {
       action = null; grip.visible = false;
       if (match && match.phase !== "finished") {
         const athlete = match.players[0]!;
@@ -101,9 +102,15 @@ export function createCourtAnimation(parent: THREE.Object3D) {
       const texture = action ? maps[action]?.[frame] : undefined;
       mesh.visible = Boolean(texture);
       if (!action || !texture) return false;
-      mesh.geometry = geometry[action][frame]!;
+      const nextGeometry=geometry[action][frame]!;
+      if(previousAction===action&&previousFrame!==frame&&previousFrame>=0){
+        const old=regions[action][previousFrame]!,next=regions[action][frame]!;
+        shapeX*=old[2]!/next[2]!;shapeY*=old[3]!/next[3]!;
+      } else if(previousAction!==action){shapeX=shapeY=1;}
+      const settle=1-Math.exp(-22*dt);shapeX+=(1-shapeX)*settle;shapeY+=(1-shapeY)*settle;
+      previousAction=action;previousFrame=frame;mesh.geometry=nextGeometry;
       if (material.map !== texture) { material.map = texture; material.needsUpdate = true; }
-      mesh.rotation.y = yaw; mesh.scale.set(action.endsWith("-back") || action === "cross" ? 1 : direction,1,1);
+      mesh.rotation.y = yaw; mesh.scale.set((action.endsWith("-back") || action === "cross" ? 1 : direction)*shapeX,shapeY,1);
       mesh.position.set(0, match?.players[0]?.jump ?? 0, 0);
       mesh.updateWorldMatrix(true, false);
       const r = regions[action][frame]!, h = hands[action][frame]!;
@@ -129,6 +136,10 @@ export function createCourtAnimation(parent: THREE.Object3D) {
       mesh.position.add(scratch.sub(target).multiplyScalar(-1)); mesh.updateWorldMatrix(true, false);
     },
     handWorld(target: THREE.Vector3) { return mesh.localToWorld(target.copy(hand)); },
+    torso() {
+      const ys:Partial<Record<Action,number[]>>={dribble:[.78,.76,.86,.86],shoot:[.81,.87,1.02,.89],"shoot-back":[.73,.8,1.08,.99],dunk:[.78,1.06,1.16,.9],"dunk-back":[.65,1.02,1.13,.62],"layup-back":[.88,.95,1.15,.8],cross:[.66,.74,.73,.7],"cross-back":[.75,.78,.71,.75]};
+      return action?ys[action]?.[frame]??.88:1.02;
+    },
     state() { return { action, frame, visible: mesh.visible, loaded: Object.keys(maps).length, gripVisible: grip.visible }; },
     dispose() {
       disposed = true; material.dispose(); gripMaterial.dispose(); grip.geometry.dispose();
