@@ -7,6 +7,10 @@ export function createCourtCameraCutaway(root: THREE.Object3D) {
   root.updateMatrixWorld(true);
   root.traverse(node=>{
     if(!(node instanceof THREE.Mesh) || /plate-(day|night)/.test(node.name)) return;
+    if(node.name === "sprite" || node.name === "yungveli" || node.name.startsWith("brother-wingz-")) return;
+    for(let host=node.parent;host&&host!==root;host=host.parent) {
+      if(host.userData.asset || host.userData.kind) return; // Illustrated cast/traffic are never static scenery.
+    }
     const geometry=node.geometry;
     if(geometry instanceof THREE.BoxGeometry) {
       if(geometry.parameters.height<.12 || Math.max(geometry.parameters.width,geometry.parameters.depth)<2) return;

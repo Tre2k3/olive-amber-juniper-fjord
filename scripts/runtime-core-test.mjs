@@ -308,7 +308,7 @@ console.log('PASS: three low basketball camera angles retain both rims/high arcs
 const {createCourtCameraCutaway}=await load('../src/game-v2/core/court-camera-cutaway.ts');
 const cameraTestScenery=new THREE.Group(), cameraTestWall=new THREE.Mesh(new THREE.BoxGeometry(6,5,.2),new THREE.MeshBasicMaterial());cameraTestWall.position.y=2;
 const cameraTestFloor=new THREE.Mesh(new THREE.PlaneGeometry(22,14),new THREE.MeshBasicMaterial());cameraTestFloor.rotation.x=-Math.PI/2;
-const cameraTestActor=new THREE.Mesh(new THREE.PlaneGeometry(1,2),new THREE.MeshBasicMaterial());cameraTestScenery.add(cameraTestWall,cameraTestFloor,cameraTestActor);
+const cameraTestActor=new THREE.Mesh(new THREE.PlaneGeometry(3,3),new THREE.MeshBasicMaterial());cameraTestActor.name='sprite';cameraTestScenery.add(cameraTestWall,cameraTestFloor,cameraTestActor);
 const cameraTestCutaway=createCourtCameraCutaway(cameraTestScenery);
 cameraTestCutaway.update(new THREE.Vector3(0,3,-4),[new THREE.Vector3(0,0,4),new THREE.Vector3(0,1.85,4),new THREE.Vector3(0,2,4),new THREE.Vector3(0,3,4)]);
 assert.equal(cameraTestWall.visible,false);assert.equal(cameraTestFloor.visible,true);assert.equal(cameraTestActor.visible,true);
