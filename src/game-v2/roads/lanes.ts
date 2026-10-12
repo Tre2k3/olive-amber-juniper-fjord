@@ -74,3 +74,8 @@ export function sampleLane(lane: Lane, s: number): { x: number; z: number; yaw: 
   const yaw = Math.atan2(b.x - a.x, b.z - a.z);
   return { x, z, yaw };
 }
+
+/** Forward gap stays nonnegative even when cars have completed different laps. */
+export function gapAhead(lane: Lane, from: number, other: number) {
+  return ((other - from) % lane.total + lane.total) % lane.total;
+}

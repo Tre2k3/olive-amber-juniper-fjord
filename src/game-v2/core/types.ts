@@ -7,6 +7,10 @@ export type Solid = {
   maxX: number;
   minZ: number;
   maxZ: number;
+  /** Optional vertical limits for gallery guards and upstairs furnishings. */
+  minY?: number;
+  maxY?: number;
+  cameraBlock?: boolean;
 };
 
 export type HudState = {
@@ -20,6 +24,14 @@ export type HudState = {
   golden: boolean;
   made: number;
   taken: number;
+  activity?: "race" | "bowl" | "fish";
+  veli?: { near: boolean; open: boolean; serving: number; order: string; price: number };
+  foodCourt?: { open: "brothers" | "catch901" | null; serving: "brothers" | "catch901" | null; left: number; order: string; near: boolean; activeBrother: number; nextBrother: number };
+  veliTv?: { near: boolean; playing: boolean; muted: boolean; ready: boolean; error: string };
+  basketball?: { mode: "half" | "full"; score: number[]; clock: number; feedback: string; phase: string };
+  basketballCamera?: "behind" | "sideline" | "baseline";
+  teamJerseys?: boolean;
+  basketballKit?: string;
   dialogue: string;
   carrying: boolean;
   x: number;
@@ -48,3 +60,4 @@ export type V2Public = {
   /** Standing view, or `${facing}-walk` while a stride sheet is showing. */
   pose: string;
 };
+

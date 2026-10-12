@@ -4,6 +4,7 @@ import { brick, canvasTex, concreteSlab, mulch, shingle, siding, soil, trim } fr
 import { mailbox, picketFence } from "./props";
 import { crepeMyrtle, matureTree, ornamental, shrub } from "./trees";
 import { addGround } from "../ground";
+import { finishHeroBungalow } from "./home-detail";
 
 function box(w: number, h: number, d: number, x: number, y: number, z: number, mat: THREE.Material, parent: THREE.Object3D) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
@@ -225,14 +226,32 @@ export function residence(
     maxZ: porchZ + 1.2,
     y: 0.48,
   });
-  box(porchW + 0.3, 0.1, 2.55, x, 2.55, porchZ, roofMat, parent);
-  box(porchW, 0.04, 2.2, x, 2.42, porchZ, fascia, parent);
-  if (style !== 2) {
-    const porchGable = new THREE.Mesh(gable(porchW + 0.5, 0.22, 0.72), roofMat);
-    porchGable.position.set(x, 2.58, porchZ - 1.2);
-    porchGable.castShadow = true;
-    parent.add(porchGable);
+  // Real two-pitch porch roof. The old solid roof-colored triangular
+  // extrusion read as a black wedge from the gameplay camera.
+  const canopyWidth = porchW + 0.5;
+  const canopyHalf = canopyWidth / 2;
+  const canopyRise = style === 2 ? 0.46 : 0.75;
+  const canopyEdgeY = 2.5;
+  const canopySlope = Math.atan2(canopyRise, canopyHalf);
+  const roofPanelWidth = Math.hypot(canopyHalf, canopyRise) + 0.18;
+  for (const side of [-1, 1]) {
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(roofPanelWidth, 0.12, 2.85), roofMat);
+    panel.position.set(x + side * canopyHalf / 2, canopyEdgeY + canopyRise / 2, porchZ);
+    panel.rotation.z = -side * canopySlope;
+    panel.castShadow = true;
+    panel.receiveShadow = true;
+    parent.add(panel);
+    const rake = new THREE.Mesh(new THREE.BoxGeometry(roofPanelWidth + 0.1, 0.10, 0.10), fascia);
+    rake.position.set(x + side * canopyHalf / 2, canopyEdgeY + canopyRise / 2, porchZ - 1.46);
+    rake.rotation.z = -side * canopySlope;
+    parent.add(rake);
   }
+  // The gable face is painted siding, not shingle material across a wedge.
+  const porchGable = new THREE.Mesh(gable(canopyWidth - 0.16, 0.08, canopyRise - 0.07), siding(wall));
+  porchGable.position.set(x, canopyEdgeY + 0.025, porchZ - 1.41);
+  porchGable.castShadow = true;
+  parent.add(porchGable);
+  box(porchW + 0.05, 0.05, 2.25, x, 2.4, porchZ, fascia, parent);
   for (const sx of [-porchW * 0.42, porchW * 0.42]) {
     box(0.38, 0.7, 0.38, x + sx, 0.55, porchZ - 1.05, brickMat, parent);
     const col = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 1.22, 10), trim);
@@ -299,6 +318,7 @@ export function residence(
     const bedWide = new THREE.Mesh(new THREE.BoxGeometry(w * 0.95, 0.08, 1.15), mulch());
     bedWide.position.set(x, 0.05, front - 0.7);
     parent.add(bedWide);
+    finishHeroBungalow(parent, x, z, w, d, wallH, base, rise, porchW);
   }
   if (style === 2) ornamental(x + w * 0.15, front - 2.4, parent);
 
