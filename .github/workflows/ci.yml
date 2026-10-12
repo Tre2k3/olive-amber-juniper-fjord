@@ -97,6 +97,17 @@ jobs:
       - name: Food trucks and music TV
         run: node scripts/food-truck-smoke.mjs
 
+      - name: Basketball camera gameplay
+        run: node scripts/basketball-camera-smoke.mjs
+
+      - name: Upload basketball camera views
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: basketball-camera-qa
+          path: screenshots/basketball-camera/
+          if-no-files-found: warn
+
       - name: Detailed food truck day and night views
         run: node scripts/truck-detail-smoke.mjs
 

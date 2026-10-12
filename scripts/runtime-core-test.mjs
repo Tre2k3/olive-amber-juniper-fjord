@@ -6,6 +6,7 @@ async function load(path) {
   const source = await readFile(new URL(path, import.meta.url), 'utf8');
   const { outputText } = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } });
   let code = outputText;
+  if (path.endsWith('basketball-camera.ts')) code=code.replace('"three"',JSON.stringify(import.meta.resolve('three')));
   if (path.endsWith('basketball-match.ts')) {
     const dependency = await readFile(new URL('../src/game-v2/core/basketball.ts', import.meta.url), 'utf8');
     const compiled = ts.transpileModule(dependency, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
@@ -288,3 +289,19 @@ assert.equal(trucks.activeBrother,1);assert.equal(trucks.nextBrother,0);
 trucks.left=0;trucks.serving=null;trucks.open='catch901';orderFood(trucks,30,'catch901',0);
 assert.equal(trucks.nextBrother,0,'901 orders do not alter Brotherz turns');
 console.log('PASS: brothers alternate only on successful orders; rejected and other-vendor orders preserve turns');
+
+const THREE = await import('three');
+const {createBasketballCamera,BASKETBALL_CAMERAS} = await load('../src/game-v2/core/basketball-camera.ts');
+for(const aspect of [1280/800,390/844]) for(const mode of BASKETBALL_CAMERAS) for(const rimX of [57,75]) {
+ const camera=new THREE.PerspectiveCamera(58,aspect,.1,220);camera.position.set(66,3.3,-15);
+ const rig=createBasketballCamera(camera),player=new THREE.Vector3(66,.08,-22),rim={x:rimX,y:3.2,z:-22};
+ const points=[player,new THREE.Vector3(66,3.08,-22),new THREE.Vector3(rimX,3.6,-22),new THREE.Vector3(63,7,-22)];
+ for(let i=0;i<100;i++)rig.update(1/60,mode,player,rim,points);
+ assert.ok(camera.position.y<5.3,'Shot tracking must not climb into a birdseye view');
+ if(mode==='behind')assert.ok((camera.position.x-player.x)*(rimX-player.x)<0,'Default camera stays behind the shooter');
+ camera.updateMatrixWorld();
+ for(const p of points){const q=p.clone().project(camera);assert.ok(Math.abs(q.x)<.9&&Math.abs(q.y)<.9&&q.z>-1&&q.z<1,'Low camera keeps shooter, high arc and rim visible');}
+ const before=camera.position.clone();points[3].y+=.2;rig.update(1/60,mode,player,rim,points);
+ assert.ok(camera.position.distanceTo(before)<1,'Small arc changes must not create camera cuts');
+}
+console.log('PASS: three low basketball camera angles retain both rims/high arcs in desktop/portrait without camera cuts');

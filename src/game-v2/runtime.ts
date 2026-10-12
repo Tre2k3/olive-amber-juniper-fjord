@@ -9,6 +9,7 @@ import { createSaveWriter } from "./core/persistence";
 import { pullCamera } from "./core/camera-collision";
 import { canWalkHaunt, hauntFloorAt } from "./core/haunt-navigation";
 import { cameraFraming } from "./core/camera-framing";
+import { createBasketballCamera, BASKETBALL_CAMERAS, type BasketballCameraMode } from "./core/basketball-camera";
 import { BALL_GRAVITY, rimCrossing, shotVelocity } from "./core/basketball";
 import { createCourtMatch, courtAction, matchRim, tickCourtMatch, type CourtMatch, type CourtMode } from "./core/basketball-match";
 import { createCourtAnimation } from "./world/kits/court-animation";
@@ -244,6 +245,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   let charge = 0;
   let shotCameraLeft = 0;
   let shotCameraActive = false;
+  let basketballCameraMode: BasketballCameraMode = "behind";
+  const basketballCamera = createBasketballCamera(camera);
+  const courtCameraPool = Array.from({length: 12}, () => new THREE.Vector3());
+  const courtCameraPoints: THREE.Vector3[] = [];
   let scoredFlight = false;
   let shotFeedback = "";
   const previousBall = new THREE.Vector3();
@@ -266,6 +271,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   function courtCommand(code: string) {
     if (place !== "court") return false;
+    if (code === "KeyB") {
+      basketballCameraMode = BASKETBALL_CAMERAS[(BASKETBALL_CAMERAS.indexOf(basketballCameraMode)+1)%BASKETBALL_CAMERAS.length]!;
+      push(hud()); return true;
+    }
     if (code === "KeyG" || code === "KeyH") {
       if (!courtMatch) practiceYaw = camYaw;
       startCourtMatch(code === "KeyG" ? "half" : "full"); return true;
@@ -511,6 +520,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       veliTv: { ...veliTv.state(), near: place === "street" && near(VELI_ANCHOR,4) },
       basketball: courtMatch ? { mode: courtMatch.mode, score: [...courtMatch.score], clock: Math.ceil(courtMatch.clock),
         feedback: courtMatch.feedback, phase: courtMatch.phase } : undefined,
+      basketballCamera: basketballCameraMode,
       dialogue,
       carrying,
       x: player.position.x,
@@ -783,8 +793,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   }
 
   function screenBasis() {
-    const fwdX = Math.sin(camYaw);
-    const fwdZ = Math.cos(camYaw);
+    const yaw = place === "court" && basketballCamera.active ? basketballCamera.yaw : camYaw;
+    const fwdX = Math.sin(yaw);
+    const fwdZ = Math.cos(yaw);
     return { fwdX, fwdZ, rightX: -fwdZ, rightZ: fwdX };
   }
 
@@ -1445,86 +1456,31 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   }
 
   function placeCamera(dt: number) {
-    if (courtMatch) {
-      const rim = matchRim(courtMatch, world.hoops);
-      const athlete = courtMatch.players[0]!;
-      const actionView = courtMatch.charge > 0 || courtMatch.dunk === 0 || courtMatch.layup === 0
-        || (courtMatch.shooter === 0 && athlete.action === "shoot" && courtMatch.actionLeft > 0)
-        || (courtMatch.owner === 0 && (athlete.action === "crossover" || athlete.dribbleHand === -1));
-      if (actionView) {
-        const dx = rim.x - player.position.x, dz = rim.z - player.position.z;
-        const length = Math.hypot(dx, dz) || 1;
-        const points = [player.position.clone(), player.position.clone().add(new THREE.Vector3(0, 3, 0)),
-          ball.position.clone(), new THREE.Vector3(rim.x, rim.y + 0.4, rim.z)];
-        const bounds = new THREE.Box3().setFromPoints(points), target = bounds.getCenter(new THREE.Vector3());
-        const radius = Math.max(2.4, bounds.getSize(new THREE.Vector3()).length() / 2);
-        const fov = cameraFraming(camera.aspect, 54, false).fov;
-        const halfAngle = Math.min(THREE.MathUtils.degToRad(fov / 2), Math.atan(Math.tan(THREE.MathUtils.degToRad(fov / 2)) * camera.aspect));
-        const distance = radius / Math.sin(halfAngle) * 1.15;
-        const offset = new THREE.Vector3(-dx / length - dz / length * 0.18, 0.65,
-          -dz / length + dx / length * 0.18).normalize().multiplyScalar(distance);
-        camera.position.copy(target.clone().add(offset)); camera.fov = fov;
-        camera.updateProjectionMatrix(); camera.lookAt(target);
-        camYaw = Math.atan2(target.x - camera.position.x, target.z - camera.position.z);
-        facing = faceAlong(dx, dz);
-        avatar.visible = !courtAnimation.mesh.visible; shotCameraActive = false; return;
+    shotCameraActive = place === "court" && !courtMatch && (charge > 0 || shotCameraLeft > 0);
+    if (place === "court") {
+      const rim = courtMatch ? matchRim(courtMatch, world.hoops) : world.hoop;
+      const points = courtCameraPoints; points.length = 4;
+      points[0] = courtCameraPool[0]!.copy(player.position);
+      points[1] = courtCameraPool[1]!.set(player.position.x,player.position.y+3,player.position.z);
+      points[2] = courtCameraPool[2]!.copy(ball.position);
+      points[3] = courtCameraPool[3]!.set(rim.x,rim.y+.4,rim.z);
+      const action = courtMatch && (courtMatch.charge > 0 || courtMatch.dunk === 0 || courtMatch.layup === 0 || courtMatch.shooter === 0 && courtMatch.actionLeft > 0);
+      if (courtMatch && !action) for (const athlete of courtMatch.players) {
+        const i = points.length;
+        points.push(courtCameraPool[i]!.set(athlete.x,.08,athlete.z),courtCameraPool[i+1]!.set(athlete.x,athlete.jump+1.85,athlete.z));
       }
-      camYaw = Math.PI;
-      const portrait = camera.aspect < 0.8;
-      const focusX = portrait ? THREE.MathUtils.clamp((player.position.x + ball.position.x) / 2, 59.5, courtMatch.mode === "half" ? 62.5 : 72.5) : courtMatch.mode === "half" ? 61 : 66;
-      const focusZ = portrait ? THREE.MathUtils.clamp((player.position.z + ball.position.z) / 2, -25, -19) : -22;
-      const fov = cameraFraming(camera.aspect, 54, false).fov;
-      const vertical = THREE.MathUtils.degToRad(fov / 2);
-      const halfAngle = Math.min(vertical, Math.atan(Math.tan(vertical) * camera.aspect));
-      const radius = portrait ? 6.2 : courtMatch.mode === "half" ? 7.2 : 10.8;
-      const distance = radius / Math.sin(halfAngle);
-      const destination = new THREE.Vector3(focusX, distance * 0.65 + 2, focusZ + distance * 0.76);
-      const follow = 1 - Math.exp(-5 * dt);
-      camera.position.lerp(destination, follow); camera.fov += (fov - camera.fov) * follow;
-      camera.updateProjectionMatrix(); camera.lookAt(focusX, 1, focusZ);
-      if (courtMatch.charge > 0 || courtMatch.dunk >= 0 || courtMatch.layup >= 0) facing = faceAlong(rim.x - player.position.x, rim.z - player.position.z);
-      avatar.visible = !courtAnimation.mesh.visible; shotCameraActive = false; return;
-    }
-    shotCameraActive = place === "court" && (charge > 0 || shotCameraLeft > 0);
-    if (shotCameraActive) {
-      // Fit the shooter, live ball and rim in both screen orientations. The
-      // elevated view clears the court fence and keeps the shot arc readable.
-      const hoop = world.hoop;
-      const minX = Math.min(player.position.x, hoop.x, ball.position.x);
-      const maxX = Math.max(player.position.x, hoop.x, ball.position.x);
-      const minZ = Math.min(player.position.z, hoop.z, ball.position.z);
-      const maxZ = Math.max(player.position.z, hoop.z, ball.position.z);
-      const maxY = Math.max(player.position.y + 1.85, hoop.y + 0.4, ball.position.y + 0.2);
-      const target = new THREE.Vector3((minX + maxX) / 2, maxY / 2, (minZ + maxZ) / 2);
-      const radius = Math.max(2, Math.hypot(maxX - minX, maxY, maxZ - minZ) / 2);
-      const framing = cameraFraming(camera.aspect, 54, false);
-      const vertical = THREE.MathUtils.degToRad(framing.fov / 2);
-      const halfAngle = Math.min(vertical, Math.atan(Math.tan(vertical) * camera.aspect));
-      const distance = radius / Math.sin(halfAngle) * 1.15;
-      const dx = hoop.x - player.position.x, dz = hoop.z - player.position.z;
-      const length = Math.hypot(dx, dz) || 1;
-      const offset = new THREE.Vector3(-dx / length * 0.75 - dz / length * 0.35, 0.8,
-        -dz / length * 0.75 + dx / length * 0.35).normalize().multiplyScalar(distance);
-      const follow = 1 - Math.exp(-6 * dt);
-      camera.position.lerp(offset.add(target), follow);
-      camera.fov += (framing.fov - camera.fov) * follow;
-      camera.updateProjectionMatrix();
-      camera.lookAt(target);
-      // A short transition must still keep every gameplay subject in frame.
-      // Pull back along the current view only when the interpolated camera crops one.
-      for (let i = 0; i < 12; i++) {
-        camera.updateMatrixWorld();
-        const points = [player.position.clone(), player.position.clone().add(new THREE.Vector3(0, 1.85, 0)),
-          ball.position.clone(), new THREE.Vector3(hoop.x, hoop.y, hoop.z)];
-        if (points.every(p => { p.project(camera); return Math.abs(p.x) < 0.9 && Math.abs(p.y) < 0.9 && p.z > -1 && p.z < 1; })) break;
-        camera.position.sub(target).multiplyScalar(1.18).add(target); camera.lookAt(target);
+      basketballCamera.update(dt, basketballCameraMode, player.position, rim, points);
+      const dx = rim.x - player.position.x, dz = rim.z - player.position.z;
+      if (courtMatch) camYaw = basketballCamera.yaw;
+      const viewX = player.position.x-camera.position.x, viewZ = player.position.z-camera.position.z;
+      const side = dx * -viewZ + dz * viewX, depth = dx * viewX + dz * viewZ;
+      if (shotCameraActive || courtMatch && (courtMatch.charge > 0 || courtMatch.dunk >= 0 || courtMatch.layup >= 0)) {
+        facing = Math.abs(side)>Math.abs(depth) ? side>0?"right":"left" : depth>0?"back":"front";
       }
-      avatar.visible = true;
-      const toX = player.position.x - camera.position.x, toZ = player.position.z - camera.position.z;
-      const side = dx * -toZ + dz * toX, depth = dx * toX + dz * toZ;
-      facing = Math.abs(side) > Math.abs(depth) ? side > 0 ? "right" : "left" : depth > 0 ? "back" : "front";
+      avatar.visible = !courtMatch || !courtAnimation.mesh.visible;
       return;
     }
+    basketballCamera.reset();
     if (city.fish) {
       // Frame the fisherman and float from the side instead of hiding the
       // rod behind the back cutout. Resume the user's orbit after fishing.
@@ -1778,6 +1734,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
           .map(point => { point.project(camera); return { x: point.x, y: point.y, z: point.z }; }),
         duplicateCastVisible: [...hiddenCourtCast.keys()].filter(actor => actor.visible).length,
         nets: world.exterior.children.filter(node => node.name === "basketball-reactive-net").map(node => node.userData.reaction ?? 0) } : null;
+    },
+    courtCameraState() {
+      const direction = camera.getWorldDirection(new THREE.Vector3());
+      return { mode: basketballCameraMode, x: camera.position.x, y: camera.position.y, z: camera.position.z,
+        direction: direction.toArray(), fov: camera.fov };
     },
     startBasketball(mode: CourtMode) {
       if (place === "court") startCourtMatch(mode);

@@ -29,6 +29,7 @@ export type HudState = {
   foodCourt?: { open: "brothers" | "catch901" | null; serving: "brothers" | "catch901" | null; left: number; order: string; near: boolean; activeBrother: number; nextBrother: number };
   veliTv?: { near: boolean; playing: boolean; muted: boolean; ready: boolean; error: string };
   basketball?: { mode: "half" | "full"; score: number[]; clock: number; feedback: string; phase: string };
+  basketballCamera?: "behind" | "sideline" | "baseline";
   dialogue: string;
   carrying: boolean;
   x: number;
