@@ -10,6 +10,7 @@ import { pullCamera } from "./core/camera-collision";
 import { canWalkHaunt, hauntFloorAt } from "./core/haunt-navigation";
 import { cameraFraming } from "./core/camera-framing";
 import { createBasketballCamera, BASKETBALL_CAMERAS, type BasketballCameraMode } from "./core/basketball-camera";
+import { createCourtCameraCutaway } from "./core/court-camera-cutaway";
 import { BALL_GRAVITY, rimCrossing, shotVelocity } from "./core/basketball";
 import { createCourtMatch, courtAction, matchRim, tickCourtMatch, type CourtMatch, type CourtMode } from "./core/basketball-match";
 import { createCourtAnimation } from "./world/kits/court-animation";
@@ -247,6 +248,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   let shotCameraActive = false;
   let basketballCameraMode: BasketballCameraMode = "behind";
   const basketballCamera = createBasketballCamera(camera);
+  const courtCameraCutaway = createCourtCameraCutaway(world.exterior);
   const courtCameraPool = Array.from({length: 12}, () => new THREE.Vector3());
   const courtCameraPoints: THREE.Vector3[] = [];
   let scoredFlight = false;
@@ -1470,6 +1472,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         points.push(courtCameraPool[i]!.set(athlete.x,.08,athlete.z),courtCameraPool[i+1]!.set(athlete.x,athlete.jump+1.85,athlete.z));
       }
       basketballCamera.update(dt, basketballCameraMode, player.position, rim, points);
+      courtCameraCutaway.update(camera.position,points);
       const dx = rim.x - player.position.x, dz = rim.z - player.position.z;
       if (courtMatch) camYaw = basketballCamera.yaw;
       const viewX = player.position.x-camera.position.x, viewZ = player.position.z-camera.position.z;
@@ -1481,6 +1484,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return;
     }
     basketballCamera.reset();
+    courtCameraCutaway.restore();
     if (city.fish) {
       // Frame the fisherman and float from the side instead of hiding the
       // rod behind the back cutout. Resume the user's orbit after fishing.
@@ -1738,7 +1742,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     courtCameraState() {
       const direction = camera.getWorldDirection(new THREE.Vector3());
       return { mode: basketballCameraMode, x: camera.position.x, y: camera.position.y, z: camera.position.z,
-        direction: direction.toArray(), fov: camera.fov };
+        direction: direction.toArray(), fov: camera.fov, cutaways: courtCameraCutaway.count };
     },
     startBasketball(mode: CourtMode) {
       if (place === "court") startCourtMatch(mode);
@@ -2069,6 +2073,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     canvas.removeEventListener("pointercancel", orbitEnd);
     canvas.removeEventListener("lostpointercapture", orbitEnd);
     foodReceiver.dispose();
+    courtCameraCutaway.restore();
     veliTv.dispose();
     courtAnimation.dispose();
     bloom.dispose();

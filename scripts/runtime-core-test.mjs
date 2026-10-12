@@ -6,7 +6,7 @@ async function load(path) {
   const source = await readFile(new URL(path, import.meta.url), 'utf8');
   const { outputText } = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } });
   let code = outputText;
-  if (path.endsWith('basketball-camera.ts')) code=code.replace('"three"',JSON.stringify(import.meta.resolve('three')));
+  if (path.endsWith('basketball-camera.ts') || path.endsWith('court-camera-cutaway.ts')) code=code.replace('"three"',JSON.stringify(import.meta.resolve('three')));
   if (path.endsWith('basketball-match.ts')) {
     const dependency = await readFile(new URL('../src/game-v2/core/basketball.ts', import.meta.url), 'utf8');
     const compiled = ts.transpileModule(dependency, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
@@ -305,3 +305,12 @@ for(const aspect of [1280/800,390/844]) for(const mode of BASKETBALL_CAMERAS) fo
  assert.ok(camera.position.distanceTo(before)<1,'Small arc changes must not create camera cuts');
 }
 console.log('PASS: three low basketball camera angles retain both rims/high arcs in desktop/portrait without camera cuts');
+const {createCourtCameraCutaway}=await load('../src/game-v2/core/court-camera-cutaway.ts');
+const cameraTestScenery=new THREE.Group(), cameraTestWall=new THREE.Mesh(new THREE.BoxGeometry(6,5,.2),new THREE.MeshBasicMaterial());cameraTestWall.position.y=2;
+const cameraTestFloor=new THREE.Mesh(new THREE.PlaneGeometry(22,14),new THREE.MeshBasicMaterial());cameraTestFloor.rotation.x=-Math.PI/2;
+const cameraTestActor=new THREE.Mesh(new THREE.PlaneGeometry(1,2),new THREE.MeshBasicMaterial());cameraTestScenery.add(cameraTestWall,cameraTestFloor,cameraTestActor);
+const cameraTestCutaway=createCourtCameraCutaway(cameraTestScenery);
+cameraTestCutaway.update(new THREE.Vector3(0,3,-4),[new THREE.Vector3(0,0,4),new THREE.Vector3(0,1.85,4),new THREE.Vector3(0,2,4),new THREE.Vector3(0,3,4)]);
+assert.equal(cameraTestWall.visible,false);assert.equal(cameraTestFloor.visible,true);assert.equal(cameraTestActor.visible,true);
+cameraTestCutaway.restore();assert.equal(cameraTestWall.visible,true);assert.equal(cameraTestCutaway.count,0);
+console.log('PASS: court camera removes a blocking wall, preserves floor/athlete art and restores scenery');

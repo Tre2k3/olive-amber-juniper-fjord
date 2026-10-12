@@ -6,4 +6,6 @@ Movement follows the current basketball camera's horizontal basis, while leaving
 
 Core regression covers both hoops, high arcs, all modes, portrait/desktop projection and small-movement continuity. Production browser smoke captures charging/flight, all three views, rear dunk/layup, mobile camera buttons and tests A/D against the actual view direction. CI retains the screenshots in `basketball-camera-qa`.
 
-Limits: baseline backboard/support visibility, background/crowd detail, custom-outfit animations and hardware-phone performance still need work. Portrait framing backs away further; players appear smaller. These views are checked in Chromium/software WebGL.
+Actual captures caught the opaque backboard blocking Baseline and a building blocking portrait Behind. Baseline now looks from the corner. A court-only cutaway hides static architectural meshes intersecting camera-to-head/ball/rim rays, then restores them when clear or when leaving the court. Athletes and horizontal court/floor images are excluded. Cached world bounds keep this check inexpensive.
+
+Limits: background/crowd detail, custom-outfit animations and hardware-phone performance still need work. Portrait framing backs away further; players appear smaller. Cutaway scenery is removed rather than smoothly faded. These views are checked in Chromium/software WebGL.

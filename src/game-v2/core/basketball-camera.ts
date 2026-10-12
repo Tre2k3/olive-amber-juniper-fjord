@@ -13,7 +13,9 @@ export function createBasketballCamera(camera: THREE.PerspectiveCamera) {
     view.updateMatrixWorld();
     return points.every(p => {
       projected.copy(p).project(view);
-      return Math.abs(projected.x) < margin && Math.abs(projected.y) < margin && projected.z > -1 && projected.z < 1;
+      // Portrait reserves the lower screen for the stick and court action row.
+      const bottom=view.aspect<.8 ? margin>.9?.4:.35 : margin;
+      return Math.abs(projected.x) < margin && projected.y < margin && projected.y > -bottom && projected.z > -1 && projected.z < 1;
     });
   };
   return {

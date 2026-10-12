@@ -18,6 +18,7 @@ try {
   assert.ok(points.every(p=>Math.abs(p.x)<.96&&Math.abs(p.y)<.96&&p.z>-1&&p.z<1),'Shooter, ball and rim must remain in view');
   return state;
  };
+ if(process.env.CAMERA_SCOPE!=='mobile') {
  await set({place:'court',x:64,z:-22,yaw:Math.PI,ballHeld:true,dialogue:''});
  assert.equal((await low()).camera.mode,'behind');
  await page.evaluate(()=>window.__SACK_V2_INPUT__.setCharge(true));await frames(16);assert.ok((await low()).ball.charge>0);await screenshot('practice-behind-gather');
@@ -49,10 +50,12 @@ try {
  await page.evaluate(()=>window.__SACK_V2_INPUT__.startBasketball('half'));
  await set({place:'court',x:59,z:-22,yaw:Math.PI,ballHeld:true,dialogue:''});
  await page.keyboard.press('KeyL');await frames(8);state=await low();assert.equal(state.match.animation.action,'layup-back');await screenshot('layup-behind');
+ }
  await page.setViewportSize({width:390,height:844});
+ await set({place:'court',x:60,z:-22,yaw:Math.PI,ballHeld:true,dialogue:''});
  await page.evaluate(()=>window.__SACK_V2_INPUT__.startBasketball('full'));await frames(25);
  await page.evaluate(()=>window.__SACK_V2_INPUT__.setCharge(true));await frames(12);await low();assert.ok((await low()).match.charge>0);await screenshot('full-behind-mobile');await page.evaluate(()=>window.__SACK_V2_INPUT__.setCharge(false));
  await page.getByRole('button',{name:'CAM: BEHIND',exact:true}).click();await frames(25);assert.equal((await low()).camera.mode,'sideline');
  await page.getByRole('button',{name:'CAM: SIDELINE',exact:true}).click();await frames(25);assert.equal((await low()).camera.mode,'baseline');await screenshot('full-baseline-mobile');
- assert.deepEqual(errors,[]);console.log('PASS: low practice/2v2 shots, three selectable views, screen-correct A/D, rear dunk/layup and portrait CAM control');
+ assert.deepEqual(errors,[]);console.log(process.env.CAMERA_SCOPE==='mobile'?'PASS: low full-court portrait shot and CAM controls':'PASS: low practice/2v2 shots, three selectable views, screen-correct A/D, rear dunk/layup and portrait CAM control');
 } finally {await browser.close();}
