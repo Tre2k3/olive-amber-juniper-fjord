@@ -13,6 +13,8 @@ export type Solid = {
   cameraBlock?: boolean;
 };
 
+import type { FishHud } from "../play/fishing";
+
 export type HudState = {
   place: Place;
   dollars: number;
@@ -25,6 +27,7 @@ export type HudState = {
   made: number;
   taken: number;
   activity?: "race" | "bowl" | "fish";
+  fishing?: FishHud | null;
   veli?: { near: boolean; open: boolean; serving: number; order: string; price: number };
   foodCourt?: { open: "brothers" | "catch901" | null; serving: "brothers" | "catch901" | null; left: number; order: string; near: boolean; activeBrother: number; nextBrother: number };
   veliTv?: { near: boolean; playing: boolean; muted: boolean; ready: boolean; error: string };
@@ -46,6 +49,7 @@ export type HudState = {
 };
 
 export type V2Public = {
+  fishing?: { phase: string; cooler: number; worms: number; shad: number; tension: number };
   x: number;
   y: number;
   z: number;

@@ -1,4 +1,17 @@
 import * as THREE from "three";
+import { GameAudio } from "./audio";
+import {
+  beginCast,
+  buyBait,
+  fishingHud,
+  fishingLocks,
+  freshFishing,
+  sellCooler,
+  tickFishing,
+  type Catch,
+  type Fishing,
+  type SpeciesId,
+} from "./play/fishing";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
@@ -38,7 +51,6 @@ import {
   cityMission,
   crossFinish,
   freshCity,
-  hookFish,
   locked,
   tickCity,
   triggerSpot,
@@ -137,6 +149,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     new THREE.MeshStandardMaterial({ color: 0xe0b33a, emissive: 0xe0b33a, emissiveIntensity: 0.4 }),
   );
   bobber.visible = false;
+  // Real fishing lives in play/fishing.ts; `city.fish` stays null from here on.
+  const fishing: Fishing = freshFishing();
+  let castArmed = false;
+  const audio = new GameAudio();
   // Cast beside the deck so the line and float remain visible in open water.
   bobber.position.set(-21.5, 0.055, -73);
   world.scene.add(bobber);
@@ -356,6 +372,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (saved?.fit) city.fit = saved.fit;
     if (saved?.fed) city.fed = true;
     if (saved?.fished) city.fished = true;
+    const sv = saved as (typeof saved & { worms?: number; shad?: number; cooler?: Catch[]; records?: Partial<Record<SpeciesId, number>>; totalCaught?: number }) | null;
+    fishing.worms = Number.isFinite(sv?.worms) ? sv!.worms! : Number.isFinite(saved?.bait) ? saved!.bait! : 0;
+    if (Number.isFinite(sv?.shad)) fishing.shad = sv!.shad!;
+    if (Array.isArray(sv?.cooler)) fishing.cooler = sv!.cooler!.slice(0, 6);
+    if (sv?.records) fishing.records = sv.records;
+    if (Number.isFinite(sv?.totalCaught)) fishing.totalCaught = sv!.totalCaught!;
     if (saved?.bowled) city.bowled = true;
     if (saved?.raced) city.raced = true;
     if (saved && Number.isFinite(saved.bestBowl)) city.bestBowl = saved.bestBowl!;
@@ -403,6 +425,18 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (document.hidden) { clearKeys(); veliTv.pause(); }
   };
   window.addEventListener("keydown", kd);
+  const wake = () => {
+    audio.unlock();
+    audio.setMusicEnabled(true);
+  };
+  const onWakeKey = (e: KeyboardEvent) => {
+    wake();
+    if (e.code === "KeyX") audio.toggleMuted();
+  };
+  const onAudioVisibility = () => (document.hidden ? audio.suspend() : audio.resume());
+  window.addEventListener("keydown", onWakeKey);
+  window.addEventListener("pointerdown", wake, { passive: true });
+  document.addEventListener("visibilitychange", onAudioVisibility);
   window.addEventListener("keyup", ku);
   window.addEventListener("blur", clearKeys);
   document.addEventListener("visibilitychange", onVisibility);
@@ -469,13 +503,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   const save = createSaveWriter((value) => localStorage.setItem(SAVE_KEY, value));
   let captureFrozen = false;
-  const loop = (now: number) => {
-    frame = requestAnimationFrame(loop);
-    const dt = Math.min(0.033, (now - last) / 1000);
-    last = now;
-    resize();
-    if (captureFrozen) { composer.render(); return; }
-
+  /** One frame's worth of input edges. Shared by the render loop and the headless simulate hook. */
+  function pollInput() {
     const hold = keys.has("Space") || charging;
     for (const [code, left] of pulses) {
       if (left <= 1) {
@@ -487,6 +516,18 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const interactEdge = interactQueued || (interact && !interactHeld);
     interactQueued = false;
     interactHeld = interact;
+    return { hold, interactEdge };
+  }
+  let renderOff = false;
+
+  const loop = (now: number) => {
+    frame = requestAnimationFrame(loop);
+    const dt = Math.min(0.033, (now - last) / 1000);
+    last = now;
+    resize();
+    if (captureFrozen) { composer.render(); return; }
+
+    const { hold, interactEdge } = pollInput();
     if (veli.serving > 0) veli.serving = Math.max(0,veli.serving-dt);
     animateVeliTruck(veliTruck,veli.serving,player.position);
     if (place !== "street" || !near(VELI_ANCHOR,8)) veliTv.pause();
@@ -507,7 +548,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       push(hud());
       save({
         dollars, respect, carrying, delivered, mission,
-        bait: city.bait, fit: city.fit, fed: city.fed, fished: city.fished, bowled: city.bowled, raced: city.raced,
+        bait: fishing.worms, fit: city.fit, fed: city.fed, fished: city.fished, bowled: city.bowled, raced: city.raced,
+        worms: fishing.worms, shad: fishing.shad, cooler: fishing.cooler, records: fishing.records, totalCaught: fishing.totalCaught,
         bestBowl: city.bestBowl, bestRace: city.bestRace, hauntTicket, hauntCleared,
       });
     }
@@ -527,7 +569,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       golden,
       made,
       taken,
-      activity: city.race ? "race" : city.bowl ? "bowl" : city.fish ? "fish" : undefined,
+      activity: city.race ? "race" : city.bowl ? "bowl" : fishingLocks(fishing) ? "fish" : undefined,
       veli: { ...veli, near: place === "street" && near(VELI_ANCHOR,2.5) },
       foodCourt: { ...foodCourt, near: place === "street" && Boolean(nearFoodVendor()) },
       veliTv: { ...veliTv.state(), near: place === "street" && near(VELI_ANCHOR,4) },
@@ -545,6 +587,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       boost: city.boost > 0,
       log: logOpen,
       marks: { fish: city.fished, bowl: city.bowled, food: city.fed, race: city.raced },
+      fishing: fishing.phase !== "idle" || near(world.districts.pier, 2.4) ? fishingHud(fishing) : null,
       bestBowl: city.bestBowl,
       bestRace: city.bestRace,
     };
@@ -568,8 +611,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (place === "home" && nearLocal(world.wardrobe, 1.35, 0, 200)) return "E  Change fit";
     if (near(world.courtOg, 1.8)) return carrying ? "E  Deliver to Court OG" : "E  Talk to Court OG";
     if (place === "street" && near(world.districts.bowlDoor, 2.4)) return "E  Roll at 901 Bowl";
-    if (place === "street" && near(world.districts.pier, 2.2)) return city.bait > 0 ? "E  Cast (bait on)" : "E  Cast a line";
-    if (place === "street" && near(world.districts.bait, 2.2)) return "E  Buy bait  $15";
+    if (fishingLocks(fishing)) return fishingHud(fishing).prompt;
+    if (place === "street" && near(world.districts.pier, 2.2)) return `E  Cast  (${fishingHud(fishing).bait})`;
+    if (place === "street" && near(world.districts.bait, 2.2)) return "E  Worms $15  ·  Shift+E  Cut shad $25";
     if (place === "street" && near(world.districts.meetStart, 2.6)) return "E  Race Nitro · three-lap circuit";
     if (place === "street" && near(world.haunt.ticket, 1.8)) return hauntTicket ? "E  Ticket punched" : "E  Buy a ticket  $10";
     if (place === "street" && near(world.haunt.gate, 1.8)) return hauntTicket ? "E  Enter the house" : "E  Need a ticket";
@@ -623,12 +667,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const sy = (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0) + touchY;
     const len = Math.hypot(sx, sy);
     if (city.race) { stepRace(dt, sx, sy, hold, interact); return; }
-    if (city.fish && len > 0.15) {
-      city.fish = null;
+    if (fishing.phase === "wait" && len > 0.15) {
+      fishing.phase = "idle";
       say("River — Line is in. Come back whenever you want to fish.");
       glideX = glideZ = 0;
     }
-    const busy = foodReceiver.active || locked(city) || veli.open || veli.serving > 0 || Boolean(foodCourt.open) || foodCourt.left>0;
+    const busy = foodReceiver.active || locked(city) || fishingLocks(fishing) || veli.open || veli.serving > 0 || Boolean(foodCourt.open) || foodCourt.left>0;
     const wantsMove = !busy && len > 0.15;
     if (wantsMove) {
       camDist = null;
@@ -690,7 +734,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       player.position.z = -17.6;
       facing = "back";
     }
-    if (city.fish) facing = faceAlong(bobber.position.x - player.position.x, bobber.position.z - player.position.z);
+    if (fishingLocks(fishing) && fishing.phase !== "casting") facing = faceAlong(bobber.position.x - player.position.x, bobber.position.z - player.position.z);
     separateBodies();
     // Door openings remain real colliders, not teleport triggers through walls.
     if (place === "home" && player.position.z >= 203.7 && Math.abs(player.position.x) < 1.35) {
@@ -719,9 +763,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       talkLeft -= dt;
       if (talkLeft <= 0) dialogue = "";
     }
-    rod.visible = Boolean(city.fish);
-    bobber.visible = Boolean(city.fish);
-    if (city.fish) bobber.position.y = 0.055 + Math.sin(performance.now() / (city.fish.phase === "bite" ? 85 : 220)) * 0.012;
+    updateFishing(dt, hold, interact);
+    rod.visible = fishingLocks(fishing);
+    bobber.visible = fishingLocks(fishing) && fishing.phase !== "casting";
+    if (bobber.visible) {
+      const dip = fishing.phase === "wait" && fishing.nibbling > 0 ? -0.05 : fishing.phase === "bite" ? -0.09 : 0;
+      bobber.position.set(fishing.lure.x, 0.055 + dip + Math.sin(performance.now() / (fishing.phase === "bite" ? 85 : 220)) * 0.012, fishing.lure.z);
+    }
     if (city.bowl && lastBowlRack !== city.bowl.rack) { resetPins(); lastBowlRack = city.bowl.rack; }
     presentBowl(dt);
     if (place === "haunt" && !hauntCleared) {
@@ -752,7 +800,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     for (const node of world.exterior.children) if (node.name === "haunt-ground-mist") {
       node.position.x = Number(node.userData.homeX) + Math.sin(performance.now()/2800+Number(node.userData.phase))*.65;
     }
-    composer.render();
+    if (!renderOff) composer.render();
 
     api.x = player.position.x;
     api.y = player.position.y;
@@ -771,6 +819,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     api.mission = mission;
     api.carrying = carrying;
     api.dialogue = dialogue;
+    api.fishing = { phase: fishing.phase, cooler: fishing.cooler.length, worms: fishing.worms, shad: fishing.shad, tension: fishing.tension };
   }
 
   function stopRace() {
@@ -802,7 +851,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const desired = new THREE.Vector3(race.x+Math.sin(race.yaw)*8.4*scale,4.1*scale,race.z+Math.cos(race.yaw)*8.4*scale);
     if(raceOverview) { camera.position.set(0,100,-150);camera.lookAt(0,0,-150); }
     else { camera.position.lerp(desired,1-Math.exp(-5*dt));camera.lookAt(race.x-Math.sin(race.yaw)*3,.65,race.z-Math.cos(race.yaw)*3); }
-    presentVehicles(camera.position); composer.render();
+    presentVehicles(camera.position); if (!renderOff) composer.render();
     api.x=race.x;api.y=.065;api.z=race.z;api.place="street";api.dollars=dollars;api.respect=respect;api.dialogue=dialogue;
     if(talkLeft>0) {talkLeft-=dt;if(talkLeft<=0)dialogue="";}
   }
@@ -849,15 +898,23 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (foodReceiver.active) return;
     if (veli.serving > 0 || foodCourt.left>0) return;
     const foodVendor=nearFoodVendor();
+    if (place === "street" && foodVendor === "catch901" && fishing.cooler.length) {
+      // 901 Catch Kitchen buys the cooler before it sells you a plate.
+      const sale = sellCooler(fishing);
+      grant({ dollars: sale.dollars, respect: sale.respect, dialogue: sale.line.replace("Mama Dee", "901 Catch") });
+      audio.play("cash");
+      return;
+    }
     if(place === "street" && foodVendor) { foodCourt.open=foodVendor; touchX=touchY=0; keys.clear(); glideX=glideZ=0; return; }
     if (place === "street" && near(VELI_ANCHOR,2)) {
       veli.open=!veli.open; touchX=touchY=0; keys.clear(); glideX=glideZ=0; return;
     }
     if (city.race) { stopRace(); return; }
-    if (city.fish) {
-      if (city.fish.phase === "bite") grant(hookFish(city));
+    if (fishing.phase === "casting") {
+      castArmed = false; // second E releases the cast
       return;
     }
+    if (fishingLocks(fishing)) return; // bite/fight are read by the module each frame
     if (city.bowl?.phase === "aim" || city.bowl?.phase === "finished") {
       grant(cancelApproach(city));
       resetPins();
@@ -940,11 +997,20 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return;
     }
     if (place === "street" && near(world.districts.pier, 2.2)) {
-      grant(triggerSpot(city, "pier", dollars));
+      const b = screenBasis();
+      const fx = facing === "right" ? b.rightX : facing === "left" ? -b.rightX : facing === "back" ? b.fwdX : -b.fwdX;
+      const fz = facing === "right" ? b.rightZ : facing === "left" ? -b.rightZ : facing === "back" ? b.fwdZ : -b.fwdZ;
+      if (beginCast(fishing, { x: player.position.x, y: player.position.y, z: player.position.z }, fx, fz, { x: 0, z: -1 })) {
+        castArmed = true;
+        audio.play("ui");
+      }
       return;
     }
     if (place === "street" && near(world.districts.bait, 2.2)) {
-      grant(triggerSpot(city, "bait", dollars));
+      const kind = keys.has("ShiftLeft") || keys.has("ShiftRight") ? "shad" : "worm";
+      const buy = buyBait(fishing, kind, dollars);
+      grant({ dollars: buy.dollars, dialogue: buy.line });
+      audio.play(buy.dollars ? "cash" : "denied");
       return;
     }
     if (place === "street" && near(world.districts.meetStart, 2.6)) {
@@ -1056,9 +1122,37 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     bowlBall.rotation.x -= dt * 16;
   }
 
+  function updateFishing(dt: number, hold: boolean, interact: boolean) {
+    const b = screenBasis();
+    const fx = facing === "right" ? b.rightX : facing === "left" ? -b.rightX : facing === "back" ? b.fwdX : -b.fwdX;
+    const fz = facing === "right" ? b.rightZ : facing === "left" ? -b.rightZ : facing === "back" ? b.fwdZ : -b.fwdZ;
+    const events = tickFishing(fishing, {
+      dt,
+      hold: fishing.phase === "casting" ? castArmed : hold,
+      interact,
+      player: { x: player.position.x, y: player.position.y, z: player.position.z },
+      faceX: fx,
+      faceZ: fz,
+      night,
+      riverFit: city.fit === "river",
+    });
+    for (const e of events) {
+      if (e === "reel") audio.play("reel", fishing.tension);
+      else if (e === "strain") audio.play("strain", fishing.tension);
+      else if (e === "lost") audio.play("denied");
+      else if (e === "landed") {
+        audio.play("landed");
+        city.fished = true;
+        if (fishing.lastCatch?.trophy) respect += 4;
+        const m = cityMission(city, delivered);
+        if (m) mission = m;
+      } else audio.play(e);
+    }
+  }
+
   function presentFishing() {
-    fishingLine.visible = Boolean(city.fish);
-    if (!city.fish) return;
+    fishingLine.visible = bobber.visible;
+    if (!bobber.visible) return;
     // Anchor the handle to the billboard's hand side, independently of orbit.
     const yaw = avatar.rotation.y;
     // Use the forward hand in side views so the shaft clears the torso and
@@ -1526,7 +1620,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     }
     basketballCamera.reset();
     courtCameraCutaway.restore();
-    if (city.fish) {
+    if (fishingLocks(fishing)) {
       // Frame the fisherman and float from the side instead of hiding the
       // rod behind the back cutout. Resume the user's orbit after fishing.
       const dx = bobber.position.x - player.position.x;
@@ -1825,6 +1919,19 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         playerScreen: { headX: (head.x + 1) * renderWidth / 2, feetX: (feet.x + 1) * renderWidth / 2,
           headY: (1 - head.y) * renderHeight / 2, feetY: (1 - feet.y) * renderHeight / 2 } };
     },
+    /** Step the game at a fixed 60 Hz without drawing — deterministic QA on any host. */
+    simulate(seconds: number) {
+      renderOff = true;
+      const n = Math.max(1, Math.round(seconds * 60));
+      for (let i = 0; i < n; i++) {
+        const { hold, interactEdge } = pollInput();
+        step(1 / 60, hold, interactEdge);
+        if (!hold) charging = false;
+      }
+      renderOff = false;
+      last = performance.now();
+      push(hud());
+    },
     setStick(x: number, y: number) {
       touchX = x;
       touchY = y;
@@ -2109,6 +2216,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (activeStop === stop) activeStop = null;
     cancelAnimationFrame(frame);
     window.removeEventListener("keydown", kd);
+    window.removeEventListener("keydown", onWakeKey);
+    window.removeEventListener("pointerdown", wake);
+    document.removeEventListener("visibilitychange", onAudioVisibility);
+    audio.dispose();
     window.removeEventListener("keyup", ku);
     window.removeEventListener("blur", clearKeys);
     document.removeEventListener("visibilitychange", onVisibility);

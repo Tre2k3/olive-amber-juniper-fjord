@@ -41,7 +41,14 @@ export function Hud({ state, night, action }: { state: HudState; night: () => vo
       </div>}
       {state.log && <Log state={state} />}
       {state.dialogue && <Dialogue line={state.dialogue} brother={state.foodCourt?.activeBrother} />}
-      {state.charge > 0 && (
+      {state.fishing && state.fishing.phase !== "idle" && <FishPanel fish={state.fishing} />}
+      {state.fishing && state.fishing.phase === "idle" && state.fishing.cooler > 0 && (
+        <div data-testid="cooler" className="absolute right-3 top-[8.4rem] rounded-md border border-[#e0b33a55] bg-[#0d0d0dcc] px-3 py-2 text-xs sm:top-[9.4rem]">
+          <div className="text-[10px] tracking-[0.16em] text-[#e0b33a]">COOLER</div>
+          <div>{state.fishing.cooler}/{state.fishing.coolerMax} fish · sell at 901 Catch Kitchen</div>
+        </div>
+      )}
+      {state.charge > 0 && !state.fishing?.phase.match(/casting|fight/) && (
         <div data-testid="shot-charge" className={`absolute left-1/2 h-2 w-40 -translate-x-1/2 overflow-hidden rounded bg-[#0d0d0d] ${state.basketball ? "top-72 sm:top-44 sm:left-3 sm:translate-x-0" : "bottom-44 sm:bottom-24"}`}>
           <div className="h-full bg-[#e0b33a]" style={{ width: `${state.charge * 100}%` }} />
           <div className="absolute inset-y-0 border-x border-[#071018] bg-[#49e97599]" style={{ left: "63.5%", width: "13%" }} />
@@ -249,4 +256,44 @@ function FoodMenu({ vendor, action }: { vendor: FoodVendor; action: (code:string
     <p className="mb-3 text-sm">Game menu · pay with your Sack</p>
     <div className="grid gap-3">{spec.menu.map((item,i)=><button key={item.name} type="button" data-testid={`food-order-${i}`} className="min-h-12 rounded border border-[#c89a40] p-3 text-left hover:bg-[#4b3b1d]" onClick={()=>action(`FoodOrder:${vendor}:${i}`)}>{item.name} · ${item.cost}</button>)}</div>
   </div>;
+}
+
+
+function FishPanel({ fish }: { fish: NonNullable<HudState["fishing"]> }) {
+  const fighting = fish.phase === "fight";
+  const t = fish.tension;
+  const tone = t > 0.82 ? "#ff4d4d" : t > 0.3 ? "#39ff14" : "#e0b33a";
+  return (
+    <div data-testid="fishing-panel" className="absolute bottom-[9.5rem] left-1/2 flex w-60 -translate-x-1/2 flex-col items-center gap-1 sm:bottom-[6.5rem]">
+      {fish.flash && <div className={`text-center text-sm ${fish.flash.good ? "text-[#39ff14]" : "text-[#ff8a8a]"}`}>{fish.flash.text}</div>}
+      {fish.phase === "casting" && (
+        <>
+          <div className="text-[10px] tracking-[0.16em] text-[#e0b33a]">CAST</div>
+          <div className="h-3 w-56 overflow-hidden rounded bg-[#1a1a1a]">
+            <div className="h-full bg-[#e0b33a]" style={{ width: `${fish.power * 100}%` }} />
+          </div>
+        </>
+      )}
+      {fighting && (
+        <>
+          <div className="flex w-56 items-baseline justify-between text-[10px] tracking-[0.16em] text-[#e0b33a]">
+            <span>{fish.fishName.toUpperCase()}</span>
+            <span>{fish.lineOut.toFixed(1)} M OUT</span>
+          </div>
+          <div className="relative h-3 w-56 overflow-hidden rounded bg-[#1a1a1a]">
+            <div className="absolute inset-y-0 bg-[#39ff1422]" style={{ left: "30%", width: "52%" }} />
+            <div className="absolute inset-y-0 left-[82%] w-px bg-[#ff4d4d]" />
+            <div className="h-full" style={{ width: `${t * 100}%`, background: tone }} />
+          </div>
+          <div className="h-1 w-56 overflow-hidden rounded bg-[#1a1a1a]">
+            <div className="h-full bg-[#f4efe4aa]" style={{ width: `${fish.stamina * 100}%` }} />
+          </div>
+          <div className="text-[10px] text-[#f4efe488]">TENSION · fish tires in the green · red snaps</div>
+        </>
+      )}
+      {(fish.phase === "wait" || fish.phase === "bite") && (
+        <div className={`text-sm ${fish.phase === "bite" ? "animate-pulse text-[#39ff14]" : "text-[#f4efe4aa]"}`}>{fish.prompt}</div>
+      )}
+    </div>
+  );
 }
