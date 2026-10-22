@@ -325,3 +325,22 @@ const palmRelease=createCourtMatch('half');palmRelease.charge=.65;palmRelease.ba
 tickCourtMatch(palmRelease,0,rims,palmRelease.players[0],false);
 assert.deepEqual(palmRelease.ball,{x:63.72,y:2.15,z:-24.18},'Release must retain the rendered palm origin');
 console.log('PASS: separate defensive assignments, rebound pursuit and non-teleporting palm release');
+
+// ---- rim and backboard contact (added with the iron pass) ----
+{
+  const { rimContact, backboardContact, RIM_RADIUS, BALL_RADIUS, SCORE_APERTURE } = await load('../src/game-v2/core/basketball.ts');
+  const rim = { x: 60, y: 3.05, z: -22 };
+  const clean = { x: 60, y: 3.2, z: -22 }, v1 = { x: 0, y: -4, z: 0 };
+  assert.strictEqual(rimContact(clean, v1, rim), null, 'a dead-centre descending ball never touches iron');
+  const short = { x: 60 + RIM_RADIUS + BALL_RADIUS * 0.3, y: rim.y + 0.1, z: -22 }, v2 = { x: -1, y: -4, z: 0 };
+  assert.strictEqual(rimContact(short, v2, rim), 'rim', 'a short shot clangs the front iron');
+  assert.ok(v2.y > -4, 'the clang redirects the ball upward');
+  const rising = { x: 60 + RIM_RADIUS, y: rim.y - 0.05, z: -22 }, v3 = { x: 0, y: 5, z: 0 };
+  assert.strictEqual(rimContact(rising, v3, rim), null, 'a ball climbing past the ring from below is not deflected');
+  const board = { x: 59.58, minY: 2.54, maxY: 4.02, minZ: -23.1, maxZ: -20.9, nx: 1 };
+  const prev = { x: 59.9, y: 3.3, z: -22 }, now = { x: 59.5, y: 3.3, z: -22 }, v4 = { x: -6, y: -1, z: 0 };
+  assert.strictEqual(backboardContact(prev, now, v4, board), 'backboard', 'a fast ball crossing the board plane is caught');
+  assert.ok(v4.x > 0 && now.x >= board.x, 'the board reflects it back toward the court');
+  void SCORE_APERTURE;
+  console.log('PASS: rim torus and backboard contact');
+}

@@ -24,7 +24,7 @@ import { canWalkHaunt, hauntFloorAt } from "./core/haunt-navigation";
 import { cameraFraming } from "./core/camera-framing";
 import { createBasketballCamera, BASKETBALL_CAMERAS, type BasketballCameraMode } from "./core/basketball-camera";
 import { createCourtCameraCutaway } from "./core/court-camera-cutaway";
-import { BALL_GRAVITY, rimCrossing, shotVelocity } from "./core/basketball";
+import { BALL_GRAVITY, backboardContact, rimContact, rimCrossing, shotVelocity } from "./core/basketball";
 import { createCourtMatch, courtAction, matchRim, tickCourtMatch, type CourtMatch, type CourtMode } from "./core/basketball-match";
 import { createCourtAnimation } from "./world/kits/court-animation";
 import { createCourtUniforms, COURT_KITS, COURT_KIT_NAMES } from "./world/kits/court-uniforms";
@@ -341,6 +341,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   let logOpen = false;
   const city: City = freshCity();
   const ballVel = new THREE.Vector3();
+  let flightTouchedRim = false;
   player.position.set(-30.2, 0, 5.55);
   player.userData.heading = Math.PI / 2;
 
@@ -1190,13 +1191,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       endCourtMatch();
     }
     if (courtMatch) {
-      tickCourtMatch(courtMatch, dt, world.hoops, player.position, hold);
+      tickCourtMatch(courtMatch, dt, world.hoops, player.position, hold, world.backboards);
+      if (courtMatch.contact) audio.play(courtMatch.contact);
       player.position.x = courtMatch.players[0]!.x; player.position.z = courtMatch.players[0]!.z;
       ball.position.set(courtMatch.ball.x, courtMatch.ball.y, courtMatch.ball.z);
       ball.rotation.z += dt * 4;
       ballHeld = courtMatch.owner === 0; charge = courtMatch.charge;
       if (courtMatch.net >= 0) {
         const rim = world.hoops[courtMatch.net]!; exciteNet(world.exterior, rim.x, rim.z);
+        audio.play(courtMatch.touchedRim ? "net" : "swish");
       }
       return;
     }
@@ -1224,6 +1227,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         ballVel.set(release.x, release.y, release.z);
         shotFeedback = release.quality;
         scoredFlight = false;
+        flightTouchedRim = false;
+        audio.play("release");
         ballHeld = false;
         shotCameraLeft = 3;
         taken += 1;
@@ -1238,14 +1243,14 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     ball.rotation.x += ballVel.z * dt;
     ball.rotation.z -= ballVel.x * dt;
     for (const board of world.backboards) {
-      const hitting = ball.position.y > board.minY && ball.position.y < board.maxY && ball.position.z > board.minZ && ball.position.z < board.maxZ;
-      if (hitting && Math.abs(ball.position.x - board.x) < 0.28 && Math.sign(ballVel.x) === -board.nx) {
-        ballVel.x *= -0.62;
-        ball.position.x = board.x + board.nx * 0.22;
-      }
+      if (backboardContact(previousBall, ball.position, ballVel, board)) audio.play("backboard");
+    }
+    for (const hoop of world.hoops) {
+      if (rimContact(ball.position, ballVel, hoop)) { flightTouchedRim = true; audio.play("rim"); }
     }
     for (const hoop of world.hoops) {
       if (!scoredFlight && rimCrossing(previousBall, ball.position, hoop)) {
+        audio.play(flightTouchedRim ? "net" : "swish");
         made += 1;
         respect += 5;
         dollars += 25;
@@ -1262,7 +1267,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       shotCameraLeft = 0;
       ball.position.y = 0.16;
       if (Math.abs(ballVel.y) < 1.4) ballVel.set(0, 0, 0);
-      else ballVel.y *= -0.45;
+      else { ballVel.y *= -0.45; audio.play("bounce", Math.min(1, Math.abs(ballVel.y) / 6)); }
       ballVel.x *= 0.7;
       ballVel.z *= 0.7;
     }

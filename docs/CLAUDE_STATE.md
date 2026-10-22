@@ -13,7 +13,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - `runtime.ts`: `pollInput()` + `simulate()`; renders gated by `renderOff`. `api.fishing` summary. `Hud.tsx`: FishPanel + cooler chip.
 - Verified: typecheck clean, eslint 0 errors (no new warnings), `npm run build` passes, `STAGE=fish node scripts/activities-qa.mjs` passes in Chromium with zero page errors; screenshot `artifacts/activities/10-fishing-fight-tension.png`.
 
+## Done 2026-10-22 (pass 2 — iron)
+- `core/basketball.ts`: `rimContact` (torus 0.33/0.052 vs ball 0.16, descending only, trajectory-aware: a ball whose projected crossing lands inside the 0.19 m `SCORE_APERTURE` is never touched, so their scoring is unchanged; everything else clangs/rattles) and `backboardContact` (bounded plane, crossing test, replaces the 0.28 m x-band hack). Shared by the free-shoot path and `tickCourtMatch` (new optional `boards` arg; `match.touchedRim`/`match.contact`). Court audio wired: release, rim, backboard, swish vs net, bounce.
+- Their `runtime-core-test.mjs` passes (23 PASS incl. AI games reaching 21) plus new contact assertions. Browser (`scripts/iron-qa.mjs`): 7/7 shots fire, 4/4 perfect-timing makes, 0 errors. Pre-existing, not touched: a very late (0.95) release can bank in off the board — identical on the original code.
+
 ## Next (in order)
-1. Basketball: read how runtime drives `shotVelocity`/`rimCrossing`; add rim-torus + backboard contact and net response inside the existing match (handoff Pass B/C), not a separate mode. Wire court audio.
+1. Basketball presentation (handoff Pass C): net response on actual passage is there; next is camera stability and team readability. Then Pass A animation continuity.
 2. Haunt: layer staged events/audio onto `haunt-navigation.ts` rooms (no pasted plates); wire haunt audio bed.
 3. Bowling/racing feel items from the handoff §8.

@@ -1,4 +1,4 @@
-import { BALL_GRAVITY, rimCrossing, shotPoints, shotVelocity, type CourtPoint } from "./basketball";
+import { BALL_GRAVITY, backboardContact, rimContact, rimCrossing, shotPoints, shotVelocity, type Backboard, type CourtPoint } from "./basketball";
 
 export type CourtMode = "half" | "full";
 export type Athlete = { team: 0 | 1; x: number; z: number; jump: number; action: string; heading: number; dribbleHand: 1 | -1 };
@@ -7,7 +7,9 @@ export type CourtMatch = {
   score: [number, number]; clock: number; charge: number; time: number;
   ball: CourtPoint; velocity: CourtPoint; phase: "live" | "check" | "finished";
   pause: number; cleared: boolean; feedback: string; shooter: number;
-  points: number; scored: boolean; net: number; actionLeft: number; dunk: number; layup: number; layupContest: number; crossStartY: number;
+  points: number; scored: boolean; net: number;
+  /** Iron touched on this flight (a make after it is a rattle, not a swish) and the last contact this tick, for sound. */
+  touchedRim: boolean; contact: "rim" | "backboard" | null; actionLeft: number; dunk: number; layup: number; layupContest: number; crossStartY: number;
 };
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value));
 export function createCourtMatch(mode: CourtMode): CourtMatch {
@@ -17,7 +19,7 @@ export function createCourtMatch(mode: CourtMode): CourtMatch {
     owner: 0, possession: 0, score: [0, 0], clock: 24, charge: 0, time: 0,
     ball: { x: 64, y: 0.8, z: -24 }, velocity: { x: 0, y: 0, z: 0 },
     phase: "live", pause: 0, cleared: true, feedback: "FIRST TO 21 · WIN BY 2",
-    shooter: -1, points: 2, scored: false, net: -1, actionLeft: 0, dunk: -1, layup: -1, layupContest: 0, crossStartY: 0.8 };
+    shooter: -1, points: 2, scored: false, touchedRim: false, contact: null, net: -1, actionLeft: 0, dunk: -1, layup: -1, layupContest: 0, crossStartY: 0.8 };
 }
 export function matchRim(match: CourtMatch, hoops: CourtPoint[], team = match.possession) {
   return hoops[match.mode === "half" ? 0 : team === 0 ? 1 : 0]!;
@@ -45,7 +47,7 @@ function shoot(match: CourtMatch, hoops: CourtPoint[], timing: number) {
   if (shooter !== 0) match.ball = { x: athlete.x, y: 1.75, z: athlete.z };
   const release = shotVelocity(match.ball, rim, timing, contest);
   match.velocity = { x: release.x, y: release.y, z: release.z };
-  match.shooter = shooter; match.points = shotPoints(athlete, rim); match.scored = false;
+  match.shooter = shooter; match.points = shotPoints(athlete, rim); match.scored = false; match.touchedRim = false;
   match.owner = -1; match.charge = 0; match.actionLeft = 0.5;
   athlete.jump = 0.18; athlete.action = "shoot"; match.feedback = contest > 0.35 ? "CONTESTED" : release.quality;
 }
@@ -90,7 +92,7 @@ export function courtAction(match: CourtMatch, action: "pass" | "cross" | "dunk"
   }
   match.dunk = 0; match.actionLeft = 0.85; match.charge = 0; athlete.action = "dunk"; match.feedback = "DUNK";
   athlete.x = rim.x + (rim.x < 66 ? 0.6 : -0.6); athlete.z = rim.z;
-  match.shooter = 0; match.points = 2; match.scored = false; return true;
+  match.shooter = 0; match.points = 2; match.scored = false; match.touchedRim = false; return true;
 }
 
 function startLayup(match: CourtMatch, hoops: CourtPoint[], index: number) {
@@ -101,12 +103,12 @@ function startLayup(match: CourtMatch, hoops: CourtPoint[], index: number) {
   match.layupContest = Math.max(0, ...match.players.filter(p => p.team !== athlete.team)
     .map(p => clamp(1 - Math.hypot(p.x - athlete.x, p.z - athlete.z) / 1.6, 0, 1)));
   match.layup = index; match.actionLeft = 1.15; match.charge = 0;
-  match.shooter = index; match.points = 2; match.scored = false;
+  match.shooter = index; match.points = 2; match.scored = false; match.touchedRim = false;
   athlete.action = "layup"; match.feedback = match.layupContest > .5 ? "CONTESTED LAYUP" : "LAYUP";
   return true;
 }
 
-export function tickCourtMatch(match: CourtMatch, dt: number, hoops: CourtPoint[], human: { x: number; z: number }, hold: boolean) {
+export function tickCourtMatch(match: CourtMatch, dt: number, hoops: CourtPoint[], human: { x: number; z: number }, hold: boolean, boards: Backboard[] = []) {
   match.net = -1;
   if (match.phase === "finished") return;
   match.time += dt;
@@ -238,6 +240,9 @@ export function tickCourtMatch(match: CourtMatch, dt: number, hoops: CourtPoint[
     match.ball.x += match.velocity.x * dt; match.ball.z += match.velocity.z * dt;
     match.ball.y += match.velocity.y * dt - BALL_GRAVITY * dt * dt / 2;
     match.velocity.y -= BALL_GRAVITY * dt;
+    match.contact = null;
+    for (const board of boards) if (backboardContact(previous, match.ball, match.velocity, board)) match.contact = "backboard";
+    for (const hoop of hoops) if (rimContact(match.ball, match.velocity, hoop)) { match.contact = "rim"; match.touchedRim = true; }
     if (match.shooter >= 0 && !match.scored && rimCrossing(previous, match.ball, rim)) {
       match.scored = true; recordPoints(match, match.points);
       match.net = match.mode === "half" ? 0 : match.possession === 0 ? 1 : 0;
