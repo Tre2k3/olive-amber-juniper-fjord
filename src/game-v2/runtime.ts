@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { GameAudio } from "./audio";
+import { GameAudio, type Sfx } from "./audio";
+import { enterHaunt, freshStage, hauntLightScale, tickHauntStage } from "./play/haunt-events";
 import {
   beginCast,
   buyBait,
@@ -258,6 +259,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   let delivered = false;
   let hauntTicket = false;
   let hauntCleared = false;
+  const hauntStage = freshStage();
+  let wasInHaunt = false;
   let dialogue = "";
   let facing: Facing = "back";
   /** Latest dominant axis so a tie on a diagonal does not flicker. */
@@ -780,6 +783,27 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     }
     if (city.bowl && lastBowlRack !== city.bowl.rack) { resetPins(); lastBowlRack = city.bowl.rack; }
     presentBowl(dt);
+    if (place === "haunt" !== wasInHaunt) {
+      wasInHaunt = place === "haunt";
+      if (wasInHaunt) enterHaunt(hauntStage);
+      audio.mood = wasInHaunt ? "haunt" : "street";
+    }
+    if (place === "haunt") {
+      const moving = Math.hypot(glideX, glideZ) > 0.25;
+      const staged = tickHauntStage(hauntStage, { dt, x: player.position.x, z: player.position.z - 500, moving });
+      for (const e of staged) {
+        if (e.kind === "heartbeat") continue;
+        const sfx: Sfx = e.kind === "sting" ? "sting" : e.kind === "creak" ? "creak" : e.kind === "whisper" ? "whisper" : e.kind === "blackout" ? "doorlock" : "flicker";
+        audio.play(sfx, e.volume);
+        if (e.line) say(e.line, e.kind === "blackout" ? 2.4 : 3.2);
+      }
+      audio.tickHeartbeat(dt, hauntStage.heartbeat);
+      const scale = hauntLightScale(hauntStage);
+      for (const light of world.haunt.lights) {
+        const base = typeof light.userData.baseIntensity === "number" ? light.userData.baseIntensity : 18;
+        light.intensity = base * scale;
+      }
+    }
     if (place === "haunt" && !hauntCleared) {
       const room = world.haunt.finalRoom;
       if (player.position.x > room.minX && player.position.x < room.maxX && player.position.z > room.minZ && player.position.z < room.maxZ) {
@@ -828,6 +852,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     api.mission = mission;
     api.carrying = carrying;
     api.dialogue = dialogue;
+    api.hauntStage = { room: hauntStage.inRoom, fired: hauntStage.fired.size, lightScale: hauntLightScale(hauntStage), blackout: hauntStage.blackout, heartbeat: hauntStage.heartbeat };
     api.fishing = { phase: fishing.phase, cooler: fishing.cooler.length, worms: fishing.worms, shad: fishing.shad, tension: fishing.tension };
   }
 

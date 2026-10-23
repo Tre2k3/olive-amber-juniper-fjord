@@ -49,6 +49,7 @@ export type HudState = {
 };
 
 export type V2Public = {
+  hauntStage?: { room: string | null; fired: number; lightScale: number; blackout: number; heartbeat: number };
   fishing?: { phase: string; cooler: number; worms: number; shad: number; tension: number };
   x: number;
   y: number;
