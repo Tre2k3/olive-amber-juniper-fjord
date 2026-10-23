@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GameAudio, type Sfx } from "./audio";
 import { enterHaunt, freshStage, hauntLightScale, tickHauntStage } from "./play/haunt-events";
+import { animateHauntDetail, updateApparition } from "./world/kits/haunt-detail";
 import {
   beginCast,
   buyBait,
@@ -829,6 +830,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (place === "haunt") {
       animateHauntLibrary(world.haunt.group, performance.now() / 1000);
       animateHauntAtmosphere(world.haunt.group, performance.now() / 1000);
+      animateHauntDetail(world.haunt.detail.motes, world.haunt.group, performance.now() / 1000);
+      updateApparition(world.haunt.detail.apparition, dt, player.position.x, player.position.z - 500);
     }
     for (const node of world.exterior.children) if (node.name === "haunt-ground-mist") {
       node.position.x = Number(node.userData.homeX) + Math.sin(performance.now()/2800+Number(node.userData.phase))*.65;

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { dressHauntDetail, type Apparition } from "./kits/haunt-detail";
 import type { Solid } from "../core/types";
 import { addGround } from "./ground";
 import { buildGoal } from "./kits/hoop";
@@ -10,6 +11,7 @@ import { flagshipLogo } from "./kits/brand";
 export type HauntWorld = {
   group: THREE.Group;
   lights: THREE.PointLight[];
+  detail: { apparition: Apparition; motes: THREE.Points };
   gate: { x: number; z: number };
   ticket: { x: number; z: number };
   out: { x: number; z: number };
@@ -466,6 +468,9 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   addGround({ minX: 0, maxX: 48, minZ: OZ, maxZ: OZ + 16, y: 0.06 });
 
   dressRooms(group, glow, solids, lights);
+  const wax = new THREE.MeshStandardMaterial({ color: 0xf2e2b8, emissive: 0xffc56a, emissiveIntensity: 0.7, roughness: 0.5 });
+  glow.push(wax);
+  const detail = dressHauntDetail(group, wax);
   buildHauntAtmosphere(group);
   buildHauntFoyer(group, solids, glow, lights);
 
@@ -529,6 +534,7 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
     world: {
       group,
       lights,
+      detail,
       gate: { x: hx, z: frontZ - 1.55 },
       ticket: { x: hx - 10.6, z: frontZ - 5.5 },
       out: { x: hx, z: frontZ - 2.6 },
