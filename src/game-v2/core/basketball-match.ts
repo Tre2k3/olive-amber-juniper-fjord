@@ -242,7 +242,8 @@ export function tickCourtMatch(match: CourtMatch, dt: number, hoops: CourtPoint[
     match.velocity.y -= BALL_GRAVITY * dt;
     match.contact = null;
     for (const board of boards) if (backboardContact(previous, match.ball, match.velocity, board)) match.contact = "backboard";
-    for (const hoop of hoops) if (rimContact(match.ball, match.velocity, hoop)) { match.contact = "rim"; match.touchedRim = true; }
+    // Dunks and layups are carried to the rim by the athlete: no iron on those flights.
+    if (match.dunk < 0 && match.layup < 0) for (const hoop of hoops) if (rimContact(match.ball, match.velocity, hoop)) { match.contact = "rim"; match.touchedRim = true; }
     if (match.shooter >= 0 && !match.scored && rimCrossing(previous, match.ball, rim)) {
       match.scored = true; recordPoints(match, match.points);
       match.net = match.mode === "half" ? 0 : match.possession === 0 ? 1 : 0;
