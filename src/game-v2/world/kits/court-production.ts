@@ -64,6 +64,22 @@ function labelTexture(title: string, subtitle: string, background: string, ink: 
     g.fillText(subtitle, w / 2, h * 0.76, w * 0.85);
   }, 1024, 512);
 }
+/**
+ * Painted mural art from public/game-v2/places/court/. Starts on the drawn
+ * label and swaps to the painting once it loads; a missing file keeps the
+ * label, so the wall never goes blank. Files are generated art, not pasted
+ * concept boards, and the flagship logo stays a separate protected overlay.
+ */
+function paintedArt(material: THREE.MeshStandardMaterial, file: string, fallback: THREE.Texture) {
+  material.map = fallback;
+  new THREE.TextureLoader().load(`/game-v2/places/court/${file}`, (tex) => {
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 8;
+    material.map = tex;
+    material.needsUpdate = true;
+  }, undefined, () => { /* keep the drawn label */ });
+}
+
 function sign(parent: THREE.Object3D, x: number, y: number, z: number,
   w: number, h: number, title: string, subtitle: string) {
   const mat = new THREE.MeshStandardMaterial({
@@ -145,16 +161,30 @@ function mural(parent: THREE.Object3D, x: number, z: number) {
     const col = -11.4 + i * 0.9;
     box(group, 0.018, 4.1, 0.018, col, 2.15, 0.236, charcoal);
   }
-  const art = labelTexture("901", "", "#1b2b29", "#efb94b");
-  const artMat = new THREE.MeshStandardMaterial({ map: art, roughness: 0.84 });
+  const artMat = new THREE.MeshStandardMaterial({ roughness: 0.84 });
+  paintedArt(artMat, "901-memphis-mural.png", labelTexture("901", "", "#1b2b29", "#efb94b"));
   const panel = part(group, new THREE.PlaneGeometry(12.4, 3.28), artMat, 0, 2.12, 0.24, false);
   panel.name = "901-mural-panel";
   const logo = flagshipLogo(2.2);
   logo.position.set(0, 1.05, 0.265);
   group.add(logo);
   sign(group, -8.7, 2.3, 0.24, 4.1, 2.25, "COURT", "THE HOME OF 901");
-  sign(group, 8.7, 2.3, 0.24, 4.1, 2.25, "MEMPHIS", "RESPECT THE GAME");
+  const memphisMat = new THREE.MeshStandardMaterial({ roughness: 0.84 });
+  paintedArt(memphisMat, "memphis-mural.png", labelTexture("MEMPHIS", "RESPECT THE GAME", "#1b2b29", "#efb94b"));
+  const memphis = part(group, new THREE.PlaneGeometry(4.1, 2.25), memphisMat, 8.7, 2.3, 0.24, false);
+  memphis.name = "901-mural-memphis";
   parent.add(group);
+}
+function sidelineBanner(parent: THREE.Object3D, x: number, z: number) {
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
+  const mat = new THREE.MeshStandardMaterial({ roughness: 0.7, side: THREE.DoubleSide });
+  paintedArt(mat, "sideline-banner.png", labelTexture("901", "RESPECT THE GAME", "#101010", "#efb94b"));
+  const banner = part(g, new THREE.PlaneGeometry(9.6, 1.35), mat, 0, 1.45, 0.06, false);
+  banner.name = "901-sideline-banner";
+  // Zip-ties along the top rail.
+  for (let i = 0; i < 9; i++) part(g, new THREE.CylinderGeometry(0.012, 0.012, 0.12, 6), charcoal, -4.4 + i * 1.1, 2.15, 0.06);
+  parent.add(g);
 }
 function shadePlanter(parent: THREE.Object3D, x: number, z: number, scale = 1) {
   const g = new THREE.Group();
@@ -207,6 +237,7 @@ export function dress901Court(parent: THREE.Object3D, cx: number, cz: number) {
   // Existing scoreboard, stands, hoops and chain link stay intact.
   courtGate(court, cx, cz + 7.25);
   mural(court, cx, cz - 17.55);
+  sidelineBanner(court, cx, cz + 7.0);
   for (const x of [cx - 12.65, cx + 12.65]) {
     for (const z of [cz - 9.35, cz + 9.4]) {
       floodTower(court, x, z, z > cz ? Math.PI : 0);

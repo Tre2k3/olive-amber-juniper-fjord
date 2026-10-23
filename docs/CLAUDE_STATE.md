@@ -26,6 +26,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Measured on the same 2v2 view: hard-edge fraction 0.0289 → 0.0243 (smoother edges), backboard/building pick up sky specular. Honest size of the change: polish, not transformation — the remaining gap to the concept boards is art (materials, models, per-location dressing).
 - Perf note: heavier under SwiftShader (two of six tour captures timed out at 200 s); on a GPU this is normal cost. If mobile stutters, lower `samples` or the 2K map in render-quality.ts.
 
+## Done 2026-10-23 (pass 5 — Higgsfield court art, partial)
+- Generated three painted court textures with Higgsfield (gpt_image_2_5, 21:9): `901-memphis-mural.png`, `memphis-mural.png`, `sideline-banner.png`. Job ids 3954fd4a…, 49471c01…, f55161ab… (CDN d8j0ntlcm91z4.cloudfront.net). **The sandbox cannot reach that CDN and web_fetch refuses MCP-sourced URLs, so the files are NOT in the repo and were NOT inspected by Claude.** They must be saved to `public/game-v2/places/court/` with those exact names.
+- `kits/court-production.ts`: `paintedArt()` loads a court texture and swaps it onto the material when it arrives; a missing file keeps the drawn label (the wall never goes blank). Main mural panel → 901 Memphis painting; the right-hand "MEMPHIS" sign → Memphis painting; new `sidelineBanner()` on the south fence line (board K). Flagship logo stays the protected overlay. Typecheck/lint clean. Not visually verified (capture caught the camera mid-settle).
+- Rule learned: Higgsfield output has to come into the repo by the user (or a GitHub token + the Higgsfield sandbox). Plan generations in batches and hand over a named file list.
+
 ## Next (in order)
 1. Visual pass per location against its board, court first (handoff §8), using the 901 production kit assets in `assets/sackreligious_game_asset_pack/` — art-led, needs Trey's eye.
 2. Basketball presentation (handoff Pass C): net response on actual passage is there; next is camera stability and team readability. Then Pass A animation continuity.
