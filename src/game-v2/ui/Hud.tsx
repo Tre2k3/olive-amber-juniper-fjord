@@ -74,10 +74,12 @@ export function Hud({
       )}
       {!state.veli?.near && !state.foodCourt?.near && state.activity !== "race" && (
         <div className="hud-marks absolute left-3 top-[10.6rem] flex gap-1 text-[10px] tracking-[0.14em] sm:left-1/2 sm:top-14 sm:-translate-x-1/2">
+          <Mark on={state.marks.court} label="COURT" />
           <Mark on={state.marks.fish} label="FISH" />
           <Mark on={state.marks.bowl} label="BOWL" />
           <Mark on={state.marks.food} label="EAT" />
           <Mark on={state.marks.race} label="RACE" />
+          <Mark on={state.marks.haunt} label="HOUSE" />
         </div>
       )}
       {state.log && <Log state={state} />}

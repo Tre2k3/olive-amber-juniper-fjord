@@ -12,6 +12,10 @@ export type City = {
   fished: boolean;
   bowled: boolean;
   raced: boolean;
+  /** Won a 2v2 as the human team. */
+  wonMatch: boolean;
+  /** Reported back to K Blanco after everything on the block. */
+  finale: boolean;
   bestBowl: number;
   bestRace: number;
   boost: number;
@@ -66,6 +70,8 @@ export function freshCity(): City {
     fished: false,
     bowled: false,
     raced: false,
+    wonMatch: false,
+    finale: false,
     bestBowl: 0,
     bestRace: 0,
     boost: 0,
@@ -114,15 +120,26 @@ export function activityCharge(city: City): number {
   return 0;
 }
 
-export function cityMission(city: City, delivered: boolean): string | null {
+/** The block, in order: every step is a real activity with a real result. */
+export function blockSteps(city: City, hauntCleared: boolean): { label: string; done: boolean }[] {
+  return [
+    { label: "win a 2v2 at the 901 court (G)", done: city.wonMatch },
+    { label: "land a fish off the pier", done: city.fished },
+    { label: "bowl a game at 901 Bowl", done: city.bowled },
+    { label: "eat at the trucks", done: city.fed },
+    { label: "beat Nitro on the strip", done: city.raced },
+    { label: "clear the haunted house", done: hauntCleared },
+  ];
+}
+
+export function cityMission(city: City, delivered: boolean, hauntCleared = false): string | null {
   if (!delivered) return null;
-  const left: string[] = [];
-  if (!city.fished) left.push("fish the river");
-  if (!city.bowled) left.push("roll at 901 Bowl");
-  if (!city.fed) left.push("eat at the trucks");
-  if (!city.raced) left.push("beat Nitro on the strip");
-  if (!left.length) return "Memphis is yours. The block stays open.";
-  return `Block's open. Next: ${left[0]}.`;
+  if (city.finale) return "Memphis is yours. The block stays open.";
+  const steps = blockSteps(city, hauntCleared);
+  const next = steps.find((s) => !s.done);
+  const done = steps.filter((s) => s.done).length;
+  if (!next) return "Block done — report back to K Blanco at HQ.";
+  return `Block ${done}/${steps.length}. Next: ${next.label}.`;
 }
 
 export function tickCity(city: City, dt: number, hold: boolean, steer: number): PlayEvent | null {

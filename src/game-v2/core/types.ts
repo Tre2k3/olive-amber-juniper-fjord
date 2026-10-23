@@ -45,7 +45,7 @@ export type HudState = {
   bait: number;
   boost: boolean;
   log: boolean;
-  marks: { fish: boolean; bowl: boolean; food: boolean; race: boolean };
+  marks: { fish: boolean; bowl: boolean; food: boolean; race: boolean; court: boolean; haunt: boolean };
   bestBowl: number;
   bestRace: number;
 };

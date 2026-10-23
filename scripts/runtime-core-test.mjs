@@ -452,3 +452,20 @@ console.log('PASS: separate defensive assignments, rebound pursuit and non-telep
   assert.equal(b[9].total, 270, 'tenth frame totals the whole game');
   console.log('PASS: bowling scoreboard marks strikes, spares, pending and running totals');
 }
+
+// ---- the block: ordered steps, rewards gate, finale (added with the progression pass) ----
+{
+  const { freshCity, cityMission, blockSteps } = await load('../src/game-v2/play/city.ts');
+  const city = freshCity();
+  assert.equal(cityMission(city, false), null, 'no block until the package is delivered');
+  assert.match(cityMission(city, true), /Block 0\/6\. Next: win a 2v2/, 'the court comes first');
+  city.wonMatch = true;
+  assert.match(cityMission(city, true), /1\/6\. Next: land a fish/, 'then the river');
+  city.fished = true; city.bowled = true; city.fed = true; city.raced = true;
+  assert.match(cityMission(city, true, false), /5\/6\. Next: clear the haunted house/, 'the house is last');
+  assert.match(cityMission(city, true, true), /report back to K Blanco/, 'all six done sends you to HQ');
+  assert.equal(blockSteps(city, true).filter((s) => s.done).length, 6);
+  city.finale = true;
+  assert.match(cityMission(city, true, true), /Memphis is yours/, 'the finale closes the block');
+  console.log('PASS: the block is an ordered six-step chain ending at K Blanco');
+}

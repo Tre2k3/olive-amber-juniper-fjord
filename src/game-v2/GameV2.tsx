@@ -21,7 +21,7 @@ const EMPTY: HudState = {
   bait: 0,
   boost: false,
   log: false,
-  marks: { fish: false, bowl: false, food: false, race: false },
+  marks: { fish: false, bowl: false, food: false, race: false, court: false, haunt: false },
   bestBowl: 0,
   bestRace: 0,
 };

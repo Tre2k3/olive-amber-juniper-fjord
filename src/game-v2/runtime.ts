@@ -62,6 +62,7 @@ import {
   type PlayEvent,
   type Spot,
   frameBoard,
+  blockSteps,
 } from "./play/city";
 
 type Car = { lane: number; s: number; speed: number; mesh: THREE.Group };
@@ -398,6 +399,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (saved && Number.isFinite(saved.bestRace)) city.bestRace = saved.bestRace!;
     if (saved?.hauntTicket) hauntTicket = true;
     if (saved?.hauntCleared) hauntCleared = true;
+    const sv2 = saved as (typeof saved & { wonMatch?: boolean; finale?: boolean }) | null;
+    if (sv2?.wonMatch) city.wonMatch = true;
+    if (sv2?.finale) city.finale = true;
   } catch {
     /* fresh slice */
   }
@@ -565,6 +569,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         bait: fishing.worms, fit: city.fit, fed: city.fed, fished: city.fished, bowled: city.bowled, raced: city.raced,
         worms: fishing.worms, shad: fishing.shad, cooler: fishing.cooler, records: fishing.records, totalCaught: fishing.totalCaught,
         bestBowl: city.bestBowl, bestRace: city.bestRace, hauntTicket, hauntCleared,
+        wonMatch: city.wonMatch, finale: city.finale,
       });
     }
   };
@@ -600,7 +605,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       bait: city.bait,
       boost: city.boost > 0,
       log: logOpen,
-      marks: { fish: city.fished, bowl: city.bowled, food: city.fed, race: city.raced },
+      marks: { fish: city.fished, bowl: city.bowled, food: city.fed, race: city.raced, court: city.wonMatch, haunt: hauntCleared },
       fishing: fishing.phase !== "idle" || near(world.districts.pier, 2.4) ? fishingHud(fishing) : null,
       bowl: city.bowl ? { frames: frameBoard(city.bowl), score: city.bowl.score, best: city.bestBowl, standing: city.bowl.standing } : null,
       bestBowl: city.bestBowl,
@@ -830,7 +835,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         hauntCleared = true;
         respect += 8;
         say("Final court — You walked the house. The last rim is lit.", 4.2);
-        mission = delivered ? mission : "The haunted house let you through.";
+        mission = delivered ? (cityMission(city, delivered, true) ?? mission) : "The haunted house let you through.";
       }
     }
     updatePlace();
@@ -1041,8 +1046,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     }
     if (place === "hq" && nearLocal(world.kAnchor, 2.2, 80, 200)) {
       metK = true;
-      if (delivered) {
-        say("K Blanco — Court OG got the drop. The block is yours until the next one.");
+      if (delivered && !city.finale && blockSteps(city, hauntCleared).every((st) => st.done)) {
+        city.finale = true;
+        dollars += 500;
+        respect += 25;
+        audio.play("complete");
+        say("K Blanco — Court, river, lanes, trucks, strip, and the house. Memphis is yours. $500, and the block stays open for you.", 7);
+        mission = cityMission(city, delivered, hauntCleared) ?? mission;
+      } else if (delivered) {
+        say(city.finale ? "K Blanco — Block's yours. Come back when the next drop lands." : "K Blanco — Court OG got the drop. Now run the block — the mission line says what's next.");
       } else {
         carrying = true;
         say("K Blanco — Take this drop to Court OG. He is outside the 901 court. SackDollars and Respect when it lands.", 5.5);
@@ -1229,7 +1241,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         audio.play("landed");
         city.fished = true;
         if (fishing.lastCatch?.trophy) respect += 4;
-        const m = cityMission(city, delivered);
+        const m = cityMission(city, delivered, hauntCleared);
         if (m) mission = m;
       } else audio.play(e);
     }
@@ -1275,8 +1287,24 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       endCourtMatch();
     }
     if (courtMatch) {
+      const wasLive = courtMatch.phase !== "finished";
       tickCourtMatch(courtMatch, dt, world.hoops, player.position, hold, world.backboards);
       if (courtMatch.contact) audio.play(courtMatch.contact);
+      if (wasLive && courtMatch.phase === "finished") {
+        const won = courtMatch.score[0] > courtMatch.score[1];
+        audio.play(won ? "complete" : "buzzer");
+        if (won && !city.wonMatch) {
+          city.wonMatch = true;
+          dollars += 120;
+          respect += 8;
+          say("Court OG — That's a W on my court. $120 and the block knows your name.", 5);
+          const m = cityMission(city, delivered, hauntCleared);
+          if (m) mission = m;
+        } else if (won) {
+          dollars += 40;
+          respect += 2;
+        }
+      }
       player.position.x = courtMatch.players[0]!.x; player.position.z = courtMatch.players[0]!.z;
       ball.position.set(courtMatch.ball.x, courtMatch.ball.y, courtMatch.ball.z);
       ball.rotation.z += dt * 4;

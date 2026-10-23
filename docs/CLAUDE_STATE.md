@@ -72,6 +72,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Racing: engine note by speed, drift sizzle while drifting at speed, countdown beeps with a higher tone on go. Touch audit: stick x aims the bowl, ROLL holds the approach, E button releases the cast — no new controls needed.
 - Verified: typecheck/lint clean, core suite 26 PASS, build passes, zero page errors.
 
+## Done 2026-10-23 (pass 13 — the block as a progression)
+- `blockSteps()` / `cityMission()` in `play/city.ts`: after the package lands, the block is an ordered six-step chain — win a 2v2 (G) → land a fish → bowl a game → eat at the trucks → beat Nitro → clear the haunted house → report back to K Blanco. Mission line shows `Block n/6. Next: …`. `City` gains `wonMatch` and `finale` (persisted).
+- Runtime: a human 2v2 win (GREEN, team 0) is detected on the finished edge → first win $120 + 8 respect + Court OG line; later wins $40 + 2. The haunt clear refreshes the mission line. K Blanco pays the finale once all six are done: $500 + 25 respect + closing line; afterwards "Memphis is yours. The block stays open."
+- HUD marks strip now COURT · FISH · BOWL · EAT · RACE · HOUSE. Core suite 27 PASS (new chain test); browser: marks render, a full 2v2 runs to a result, zero errors.
+
 ## Next (in order)
 1. Visual pass per location against its board, court first (handoff §8), using the 901 production kit assets in `assets/sackreligious_game_asset_pack/` — art-led, needs Trey's eye.
 2. Basketball presentation (handoff Pass C): net response on actual passage is there; next is camera stability and team readability. Then Pass A animation continuity.
