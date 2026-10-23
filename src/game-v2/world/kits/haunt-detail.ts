@@ -342,18 +342,6 @@ export function dressHauntDetail(
     );
   }
   group.add(mobile);
-  // Striped wallpaper band.
-  for (let i = 0; i < 14; i++)
-    box(
-      group,
-      0.08,
-      2.2,
-      0.03,
-      0.9 + i * 0.5,
-      1.6,
-      8.36,
-      i % 2 ? std(0x7b4a9c, 0.9) : std(0x5a2f7a, 0.9),
-    );
 
   // ---- Dining Hall (8..16): chairs, chandelier, settings, sideboard, painting ----
   for (const cx of [10.2, 11.4, 12.6, 13.6]) {
