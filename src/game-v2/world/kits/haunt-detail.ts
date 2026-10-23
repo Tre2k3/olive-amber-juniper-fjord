@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 /**
  * Haunted-house detail. Everything here is set dressing on top of the real
@@ -319,6 +320,7 @@ export function dressHauntDetail(
       Math.PI,
     );
   group.add(horse);
+  hauntProp(group, "rocking-horse.glb", 1.4, 14.6, 1.1, 0.5, horse);
   for (let i = 0; i < 6; i++) {
     cyl(group, 0.05, 0.22, 1.2 + i * 0.26, 1.05, 9.0, i % 2 ? mats.toyBlue : mats.toy, 0, 0, 6);
     mesh(group, new THREE.SphereGeometry(0.05, 6, 5), mats.bone, 1.2 + i * 0.26, 1.2, 9.0);
@@ -572,4 +574,41 @@ export function animateHauntDetail(motes: THREE.Points, group: THREE.Object3D, t
   if (crystal)
     (crystal.material as THREE.MeshStandardMaterial).emissiveIntensity =
       0.6 + Math.sin(t * 1.7) * 0.35;
+}
+
+
+/**
+ * Drop a generated GLB prop into the house (public/game-v2/places/haunt/props/).
+ * The model is scaled to `height` metres, floored at y=0, and replaces
+ * `placeholder` (hidden) once it loads; a missing file leaves the placeholder.
+ */
+export function hauntProp(parent: THREE.Object3D, file: string, x: number, z: number, height: number, ry: number, placeholder?: THREE.Object3D) {
+  new GLTFLoader().load(
+    `/game-v2/places/haunt/props/${file}`,
+    (gltf) => {
+      const model = gltf.scene;
+      const box = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const s = height / Math.max(size.y, 0.001);
+      model.scale.setScalar(s);
+      const after = new THREE.Box3().setFromObject(model);
+      model.position.set(x - (after.min.x + after.max.x) / 2, -after.min.y, z - (after.min.z + after.max.z) / 2);
+      model.rotation.y = ry;
+      model.traverse((o) => {
+        if ((o as THREE.Mesh).isMesh) {
+          const m = o as THREE.Mesh;
+          m.castShadow = true;
+          m.receiveShadow = true;
+        }
+      });
+      model.name = `haunt-prop-${file.replace(/\.glb$/, "")}`;
+      parent.add(model);
+      if (placeholder) placeholder.visible = false;
+    },
+    undefined,
+    () => {
+      /* keep the placeholder */
+    },
+  );
 }
