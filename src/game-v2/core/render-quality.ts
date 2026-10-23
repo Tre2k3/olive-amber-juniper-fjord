@@ -12,7 +12,7 @@ import * as THREE from "three";
  * - a film grade pass: vignette, gentle contrast, mode-specific tint
  */
 
-export type LightMode = "day" | "golden" | "night" | "interior";
+export type LightMode = "day" | "golden" | "night" | "interior" | "haunt";
 
 export const GradeShader = {
   uniforms: {
@@ -86,12 +86,14 @@ export function createRenderQuality(
     golden: envFor(0x5b4f8e, 0xffb77a, 0x5a3a26),
     night: envFor(0x070b16, 0x1b2436, 0x08090b),
     interior: envFor(0x3a3a3a, 0x8a8178, 0x2a2622),
+    haunt: envFor(0x1a0c12, 0x4a2a24, 0x120a0a),
   };
   const intensity: Record<LightMode, number> = {
     day: 0.85,
     golden: 0.75,
     night: 0.4,
     interior: 0.55,
+    haunt: 0.35,
   };
 
   // ---- shadows ----
@@ -120,13 +122,22 @@ export function createRenderQuality(
       scene.environment = env[mode];
       scene.environmentIntensity = intensity[mode];
       const u = grade.uniforms;
-      (u.vignette!.value as number) = mode === "night" ? 0.55 : mode === "interior" ? 0.3 : 0.4;
-      (u.saturation!.value as number) = mode === "golden" ? 1.12 : mode === "night" ? 0.96 : 1.08;
-      (u.contrast!.value as number) = mode === "night" ? 1.08 : 1.05;
+      (u.vignette!.value as number) =
+        mode === "haunt" ? 0.66 : mode === "night" ? 0.55 : mode === "interior" ? 0.3 : 0.4;
+      (u.saturation!.value as number) =
+        mode === "haunt" ? 1.2 : mode === "golden" ? 1.12 : mode === "night" ? 0.96 : 1.08;
+      (u.contrast!.value as number) = mode === "haunt" ? 1.16 : mode === "night" ? 1.08 : 1.05;
       (u.tint!.value as THREE.Color).set(
-        mode === "night" ? 0x9fb4ff : mode === "golden" ? 0xffc89a : 0xffffff,
+        mode === "haunt"
+          ? 0xffb080
+          : mode === "night"
+            ? 0x9fb4ff
+            : mode === "golden"
+              ? 0xffc89a
+              : 0xffffff,
       );
-      (u.tintAmount!.value as number) = mode === "night" ? 0.22 : mode === "golden" ? 0.16 : 0;
+      (u.tintAmount!.value as number) =
+        mode === "haunt" ? 0.24 : mode === "night" ? 0.22 : mode === "golden" ? 0.16 : 0;
     },
     /** Keep the crisp shadow box centred on the player, snapped to texels so it never shimmers. */
     followShadows(player: THREE.Vector3) {

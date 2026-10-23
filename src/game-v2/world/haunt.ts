@@ -545,8 +545,16 @@ export function buildHaunt(
       box(0.25, 0.2, 7.4, x, room.name === "FOYER" ? 6.62 : 4.12, room.z + 4, molding, group);
     }
     roomSign(room.name, room.x + 4, 3.72, room.z + 7.15, group);
-    const light = new THREE.PointLight(room.light, 0, 10, 2);
-    light.position.set(room.x + 4, 2.7, room.z + 4);
+    // Board 9 lighting: a warm chandelier/candle key overhead, the room's colour as a low fill in a corner.
+    const key = new THREE.PointLight(0xffb36a, 0, 9.5, 2);
+    key.position.set(room.x + 4, 3.1, room.z + 4);
+    key.userData.baseIntensity =
+      room.name === "BOILER" ? 16 : room.name === "FINAL COURT" ? 40 : 34;
+    group.add(key);
+    lights.push(key);
+    const light = new THREE.PointLight(room.light, 0, 8, 2);
+    light.position.set(room.x + 1.2, 1.1, room.z + 6.8);
+    light.userData.baseIntensity = room.name === "BOILER" ? 26 : 14;
     group.add(light);
     lights.push(light);
   }
