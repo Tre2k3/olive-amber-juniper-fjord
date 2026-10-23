@@ -115,6 +115,10 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Transfer method that works: GitHub **Contents API** from the Higgsfield sandbox (`PUT /repos/.../contents/<path>` with base64, `branch: art/<place>`, after creating the ref from the current head). The sandbox's git clone was too slow to survive a call; don't use it. Here: `git fetch origin +refs/heads/art/<place>:refs/remotes/origin/art/<place>` then `git checkout origin/art/<place> -- public/game-v2/places/<place>`.
 - `kits/materials.ts`: `paintedScan()` swaps a scan onto a drawn material when it loads (tint keeps per-house colour). `siding(hex)` → siding.jpg, `shingle(hex)` → shingles.jpg, `grass()` → lawn.jpg, new `cedarFence()` → wood-fence.jpg. `slice.ts`: cedar privacy fences between the six lots and along the back line (board 2 G). Capture `artifacts/after/home-board2-golden.png`.
 
+## 2026-10-23 — board 9 shipped (95c1ef3)
+- Five haunt materials via the Contents API on `art/haunt`: wallpaper (damask), floorboards, stone, nursery, final-mural (flaming 901). `haunt.ts`: the shared wall material now carries the damask (`paintedScan`, colour lifted to 0x6b5a5a so the scan reads); floors by room — Boiler and Final Court use the `stone` surface, everything else wood/tile; `hauntSurface("wood")` → floorboards scan, `("stone")` → stone scan (`haunt-architecture.ts`, `paintedScan` now exported from materials). Liners on door-free walls: Toy Room north + west → nursery, Boiler north → stone, Final Court east → stone, Final Court north → the 901 mural (emissive). The drawn purple stripe band from pass 9 was removed (it read as bars in front of the real wallpaper). Capture `artifacts/after/haunt-board9-toy-room.png`.
+- CI: every push cancels the prior run; the run on this push is pending.
+
 ## Next (in order)
 1. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.
 2. Land `art/home` (done), wire board 2 (siding/roof/fence/lawn), capture against the board.
