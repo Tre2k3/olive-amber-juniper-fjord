@@ -16,6 +16,8 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
+import { createRenderQuality } from "./core/render-quality";
 import type { Facing, HudState, Place, Solid, V2Public } from "./core/types";
 import { productionLanes, sampleLane, gapAhead, type Lane } from "./roads/lanes";
 import { createSaveWriter } from "./core/persistence";
@@ -85,10 +87,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   renderer.toneMappingExposure = 1.08;
 
   const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 220);
-  const composer = new EffectComposer(renderer);
+  const quality = createRenderQuality(renderer, world.scene, world.sun);
+  // MSAA on the composer target: `antialias: true` on the renderer is lost the
+  // moment bloom renders through its own targets, so without this every edge jags.
+  const composer = new EffectComposer(renderer, quality.renderTarget(canvas.clientWidth || 1280, canvas.clientHeight || 720));
   composer.addPass(new RenderPass(world.scene, camera));
   const bloom = new UnrealBloomPass(new THREE.Vector2(canvas.clientWidth || 1280, canvas.clientHeight || 720), 0.18, 0.42, 0.92);
   composer.addPass(bloom);
+  const grade = new ShaderPass(quality.gradeShader);
+  composer.addPass(grade);
   composer.addPass(new OutputPass());
   const player = new THREE.Group();
   const shadow = new THREE.Mesh(
@@ -793,6 +800,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     presentFishing();
     animateRiverfront(performance.now() / 1000);
     faceFoliage(camera.position);
+    quality.followShadows(player.position);
     animateNets(world.exterior, dt);
     if (place === "haunt") {
       animateHauntLibrary(world.haunt.group, performance.now() / 1000);
@@ -1759,12 +1767,14 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     world.sun.intensity = night ? 0.22 : golden ? 2.35 : outside ? 2.85 : 0.85;
     world.sun.color.set(night ? 0x243044 : golden ? 0xff7a28 : 0xffe0b0);
     world.sun.position.set(golden ? -52 : -18, golden ? 6.2 : 26, golden ? 24 : 18);
+    world.sun.userData.dir = world.sun.position.clone(); // the shadow box re-centres on the player every frame
     world.hemi.intensity = night ? 0.42 : golden ? 0.55 : outside ? 0.78 : 0.7;
     world.hemi.color.set(night ? 0x31465f : golden ? 0xffc48a : 0xd4ecff);
     world.hemi.groundColor.set(night ? 0x1a140e : golden ? 0x7a4a28 : 0x6a6840);
     renderer.toneMappingExposure = night ? 0.90 : golden ? 1.12 : outside ? 1.10 : 1.03;
     bloom.strength = night ? 0.22 : golden ? 0.17 : 0.11;
     world.scene.background = night ? world.skyNight : golden ? world.skyGolden : world.skyDay;
+    quality.applyMode(night ? "night" : golden ? "golden" : outside ? "day" : "interior", grade);
     const fog = world.scene.fog as THREE.Fog;
     fog.color.setHex(night ? 0x141820 : golden ? 0xf0c090 : 0xc5d4e2);
     fog.near = night ? 16 : golden ? 12 : 34;

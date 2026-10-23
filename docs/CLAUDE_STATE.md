@@ -21,7 +21,13 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - `play/racing.ts`: Nitro now has a lane, a speed model (lifts for turns, gentle rubber-band ±2 m/s beyond 24 m gaps), and intent: pulls out of your lane to pass or tucks in when close; otherwise drives the racing line (inside lane through both turns). Human lane tracked from the track normal. **Drafting** (2–9 m behind in his lane at speed: +3.2 m/s² to a 27.5 cap) and **contact** (side-by-side within 1.55 m: shove apart along the normal, both cars scrub speed, 0.6 s cooldown). `race.position`, `race.feedback`, `race.events` (contact/overtake/overtaken/draft/lap/finish) → audio + the race HUD line shows 1st/2nd/DRAFT/CONTACT. `rivalPose()` places the car in the lane.
 - Verified: core suite 24 PASS (new rival test: laps alone, changes lanes, contact scrubs + shoves, draft registers, full race ends). Browser: race starts from meetStart, HUD cue renders, no errors. Not verified: the human car driving through QA hooks in my script (stick/W didn't throttle in the sim) — use `scripts/vendor-race-visual-smoke.mjs`.
 
+## Done 2026-10-23 (pass 4 — rendering quality, no assets)
+- `core/render-quality.ts`: MSAA composer target (4× desktop / 2× coarse pointer; the renderer's own AA was discarded by bloom's targets), procedural gradient-sky environment maps per mode (day/golden/night/interior) with `scene.environmentIntensity`, sun shadow box that follows the player snapped to texels (±34 m, 4K map desktop / 2K mobile, normalBias 0.02), and a ShaderPass film grade (vignette, saturation, contrast, night/golden tint) placed before OutputPass. `applyNight` stores `sun.userData.dir`; `followShadows` runs each frame before render.
+- Measured on the same 2v2 view: hard-edge fraction 0.0289 → 0.0243 (smoother edges), backboard/building pick up sky specular. Honest size of the change: polish, not transformation — the remaining gap to the concept boards is art (materials, models, per-location dressing).
+- Perf note: heavier under SwiftShader (two of six tour captures timed out at 200 s); on a GPU this is normal cost. If mobile stutters, lower `samples` or the 2K map in render-quality.ts.
+
 ## Next (in order)
-1. Basketball presentation (handoff Pass C): net response on actual passage is there; next is camera stability and team readability. Then Pass A animation continuity.
+1. Visual pass per location against its board, court first (handoff §8), using the 901 production kit assets in `assets/sackreligious_game_asset_pack/` — art-led, needs Trey's eye.
+2. Basketball presentation (handoff Pass C): net response on actual passage is there; next is camera stability and team readability. Then Pass A animation continuity.
 2. Haunt: layer staged events/audio onto `haunt-navigation.ts` rooms (no pasted plates); wire haunt audio bed.
 3. Bowling/racing feel items from the handoff §8.
