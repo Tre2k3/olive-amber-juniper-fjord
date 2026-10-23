@@ -344,3 +344,46 @@ console.log('PASS: separate defensive assignments, rebound pursuit and non-telep
   void SCORE_APERTURE;
   console.log('PASS: rim torus and backboard contact');
 }
+
+// ---- racing rival: lanes, passing, drafting, contact (added with the rival pass) ----
+{
+  const racingModule = await load('../src/game-v2/play/racing.ts');
+  const { createRace, tickRace, rivalPose, RACE_LENGTH } = racingModule;
+  const run = (race, seconds, throttle, steer = 0, drift = false) => { for (let i = 0; i < seconds * 60; i++) tickRace(race, 1 / 60, throttle, steer, drift); };
+  // A parked human: Nitro drives, changes lane around him, and finishes.
+  const parked = createRace(); parked.countdown = 0; parked.phase = 'running';
+  const lanes = new Set();
+  for (let i = 0; i < 60 * 60; i++) { tickRace(parked, 1 / 60, 0, 0, false); if (i % 30 === 0) lanes.add(Math.round(parked.rival.lane * 4)); }
+  assert.ok(parked.opponent > RACE_LENGTH, 'Nitro laps on his own');
+  assert.ok(lanes.size >= 2, 'Nitro moves between lanes instead of a fixed line');
+  const pose = rivalPose(parked);
+  assert.ok(Number.isFinite(pose.x) && Number.isFinite(pose.z), 'rival pose is a world position');
+  // Contact: force the cars together and expect a shove plus a scrub.
+  const bump = createRace(); bump.countdown = 0; bump.phase = 'running';
+  run(bump, 4, 1);
+  bump.opponent = bump.progress - 0.5; bump.rival.lane = bump.lane; bump.rival.speed = bump.speed;
+  const beforeSpeed = bump.speed;
+  tickRace(bump, 1 / 60, 1, 0, false);
+  assert.ok(bump.events.includes('contact'), 'side-by-side cars register contact');
+  assert.ok(bump.speed < beforeSpeed, 'contact scrubs speed');
+  assert.ok(Math.abs(bump.lane - bump.rival.lane) > 0.1, 'contact shoves the cars apart');
+  // Drafting: sit 5 m behind Nitro in his lane at speed.
+  const tow = createRace(); tow.countdown = 0; tow.phase = 'running';
+  run(tow, 4, 1);
+  tow.opponent = tow.progress + 5; tow.rival.lane = tow.lane; tow.rival.speed = tow.speed;
+  tickRace(tow, 1 / 60, 1, 0, false);
+  assert.ok(tow.drafting && tow.events.includes('draft'), 'tucked in behind Nitro you draft');
+  // A full-throttle human still gets a real race that ends.
+  const race = createRace(); race.countdown = 0; race.phase = 'running';
+  for (let i = 0; i < 200 * 60 && race.phase === 'running'; i++) {
+    // naive driver: full gas, steer toward the centreline heading
+    const f = raceFrame(race);
+    tickRace(race, 1 / 60, 1, Math.max(-1, Math.min(1, f)), false);
+  }
+  assert.equal(race.phase, 'finished', 'race ends');
+  console.log('PASS: Nitro drives lanes, passes, drafts and trades paint');
+  function raceFrame(r) { // steering error toward the track heading at the car's progress
+    const { sampleRace } = racingModule; const target = sampleRace(r.progress + 4).yaw; let d = target - r.yaw;
+    while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return d * 2;
+  }
+}

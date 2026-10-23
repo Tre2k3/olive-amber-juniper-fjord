@@ -69,7 +69,8 @@ export function activityPrompt(city: City): string {
   if (city.race) { const r = city.race;
     if (r.phase === "countdown") return `NITRO CIRCUIT · ${Math.ceil(r.countdown)} · W gas, S brake, A/D steer, Space drift. E exits.`;
     if (r.phase === "finished") return `${r.won ? "YOU WIN" : "NITRO WINS"} · ${r.time.toFixed(1)}s · E to return`;
-    return `Lap ${Math.min(3, Math.floor(r.progress / (128 + Math.PI*36)) + 1)}/3 · ${Math.round(r.speed*3.6)} km/h · ${r.progress >= r.opponent ? "1st" : "2nd"} · ${r.time.toFixed(1)}s · Space drift · E exit`;
+    const cue = r.contact > 0 ? "CONTACT" : r.drafting ? "DRAFT" : r.position === 1 ? "1st" : "2nd";
+    return `Lap ${Math.min(3, Math.floor(r.progress / (128 + Math.PI*36)) + 1)}/3 · ${Math.round(r.speed*3.6)} km/h · ${cue} · ${r.time.toFixed(1)}s · Space drift · E exit`;
   }
   return "";
 }

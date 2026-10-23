@@ -38,7 +38,7 @@ import { createFoodReceiver } from "./world/food-receiver";
 import { createVendorTv } from "./world/vendor-tv";
 import { buildFoodCourt, animateFoodCourt } from "./world/food-court";
 import { FOOD_VENDORS, freshFoodCourt, orderFood, type FoodVendor } from "./play/food-court";
-import { tickRace, sampleRace, RACE_LENGTH } from "./play/racing";
+import { tickRace, RACE_LENGTH, rivalPose } from "./play/racing";
 import { buildRaceCircuit, animateHauntAtmosphere } from "./world/activities";
 import { animateRiverfront } from "./world/riverfront-production";
 import { animateHauntLibrary } from "./world/kits/haunt-library";
@@ -837,7 +837,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     tickRace(race,dt,THREE.MathUtils.clamp(sy,-1,1),THREE.MathUtils.clamp(-sx,-1,1),drift);
     const result = crossFinish(city); if (result) grant(result);
     circuit.human.position.set(race.x,.065,race.z); circuit.human.rotation.y = race.yaw+Math.PI;
-    const rival = sampleRace(Math.min(race.opponent,3*RACE_LENGTH-.5));
+    const rival = rivalPose(race);
+    for (const e of race.events) {
+      if (e === "contact") audio.play("backboard");
+      else if (e === "draft") audio.play("pickup");
+      else if (e === "overtake") audio.play("cash");
+      else if (e === "overtaken") audio.play("denied");
+      else if (e === "lap") audio.play("ui");
+      else if (e === "finish") audio.play(race.won ? "complete" : "buzzer");
+    }
     circuit.nitro.position.set(rival.x,.065,rival.z); circuit.nitro.rotation.y = rival.yaw+Math.PI;
     circuit.marker.position.set(race.x,2.15,race.z); circuit.marker.rotation.z=Math.PI;
     circuit.sparks.visible = race.wasDrifting || race.boost > 0;
