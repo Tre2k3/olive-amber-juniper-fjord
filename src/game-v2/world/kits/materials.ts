@@ -20,6 +20,38 @@ export function canvasTex(
   return tex;
 }
 
+/**
+ * Swap a painted scan (public/game-v2/places/...) onto a drawn material once it
+ * loads; a missing file leaves the drawn one. `tint` keeps per-house colour
+ * variation on top of a neutral scan.
+ */
+function paintedScan(
+  mat: THREE.MeshStandardMaterial,
+  url: string,
+  sx: number,
+  sy: number,
+  tint?: string,
+) {
+  new THREE.TextureLoader().load(
+    url,
+    (t) => {
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.wrapS = THREE.RepeatWrapping;
+      t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(sx, sy);
+      t.anisotropy = 8;
+      mat.map = t;
+      if (tint) mat.color.set(tint).lerp(new THREE.Color(0xffffff), 0.35);
+      mat.needsUpdate = true;
+    },
+    undefined,
+    () => {
+      /* keep the drawn material */
+    },
+  );
+  return mat;
+}
+
 const sidingCache = new Map<string, THREE.MeshStandardMaterial>();
 const shingleCache = new Map<string, THREE.MeshStandardMaterial>();
 const concreteCache = new Map<number, THREE.MeshStandardMaterial>();
@@ -73,6 +105,7 @@ export function siding(hex: string) {
     roughness: 0.84,
     metalness: 0,
   });
+  paintedScan(mat, "/game-v2/places/home/siding.jpg", 2.2, 2.4, hex);
   sidingCache.set(hex, mat);
   return mat;
 }
@@ -108,6 +141,7 @@ export function shingle(hex: string) {
     roughness: 0.92,
     metalness: 0.02,
   });
+  paintedScan(mat, "/game-v2/places/home/shingles.jpg", 3.4, 2.6, hex);
   shingleCache.set(hex, mat);
   return mat;
 }
@@ -189,7 +223,12 @@ export function grass() {
     true,
   );
   map.repeat.set(14, 10);
-  grassMat = new THREE.MeshStandardMaterial({ map, roughness: 1 });
+  grassMat = paintedScan(
+    new THREE.MeshStandardMaterial({ map, roughness: 1 }),
+    "/game-v2/places/home/lawn.jpg",
+    14,
+    10,
+  );
   return grassMat;
 }
 
@@ -336,4 +375,13 @@ export function paintedChainLink(fallback: THREE.MeshStandardMaterial) {
     },
   );
   return fallback;
+}
+
+let cedarMat: THREE.MeshStandardMaterial | null = null;
+/** Weathered cedar privacy-fence boards (board 2 G). */
+export function cedarFence() {
+  if (cedarMat) return cedarMat;
+  cedarMat = new THREE.MeshStandardMaterial({ color: 0x8a7458, roughness: 0.9, metalness: 0 });
+  paintedScan(cedarMat, "/game-v2/places/home/wood-fence.jpg", 2.2, 1);
+  return cedarMat;
 }
