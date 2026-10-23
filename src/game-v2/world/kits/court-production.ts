@@ -162,8 +162,9 @@ function mural(parent: THREE.Object3D, x: number, z: number) {
     box(group, 0.018, 4.1, 0.018, col, 2.15, 0.236, charcoal);
   }
   const artMat = new THREE.MeshStandardMaterial({ roughness: 0.84 });
-  paintedArt(artMat, "901-memphis-mural.png", labelTexture("901", "", "#1b2b29", "#efb94b"));
-  const panel = part(group, new THREE.PlaneGeometry(12.4, 3.28), artMat, 0, 2.12, 0.24, false);
+  paintedArt(artMat, "901-memphis-mural.jpg", labelTexture("901", "", "#1b2b29", "#efb94b"));
+  // Sized to the painting (2.34:1) so the block wall shows either side instead of stretching the art.
+  const panel = part(group, new THREE.PlaneGeometry(7.68, 3.28), artMat, 0, 2.12, 0.24, false);
   panel.name = "901-mural-panel";
   const logo = flagshipLogo(2.2);
   logo.position.set(0, 1.05, 0.265);

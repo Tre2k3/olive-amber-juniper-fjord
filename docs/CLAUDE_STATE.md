@@ -57,6 +57,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
   ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIqdThzN4pHsH/rAFPv7Q72WaAu287wOgcaw00bmOj3F claude-art-pipeline@higgsfield-sandbox
 - Claude's code commits still leave as patch/bundle unless Trey provides a fine-grained token (Contents RW) for direct pushes from Claude's sandbox.
 
+## Done 2026-10-23 (pass 10 — first painted asset in the repo)
+- Brought the Higgsfield "901 Memphis" mural into the repo through the Higgsfield sandbox → base64 text channel, in six 9 000-char chunks with per-1 000-char md5 verification (one chunk needed a 2 000-char re-fetch; the full file md5 matched: ee7d297578f4a397d2826c73fb67b566). `public/game-v2/places/court/901-memphis-mural.jpg` (512×219, 39.5 KB). Inspected: wildstyle blue 901, yellow Memphis script, Pyramid and bridge skyline, drips on block — on brief. Loader path switched to .jpg; the main panel is now 7.68×3.28 (the painting's 2.34:1) so block shows either side instead of stretching. HTTP 200 in-game, zero errors.
+- NOT yet visually confirmed on the wall: the free-shoot camera frames the hoops (along x) and the 2v2 Sideline camera sees the wall band but the centre slot is behind the stands from that angle. Next: capture from the Baseline camera or from the street side, and confirm the mural reads at play distance; if the stands hide it, raise the panel (y 2.12 → ~2.9) so it clears the top row.
+- Channel cost: ~53 K chars each way per 40 KB asset. Viable for hero textures, not for batches — the deploy key remains the real pipeline.
+
 ## Next (in order)
 1. Visual pass per location against its board, court first (handoff §8), using the 901 production kit assets in `assets/sackreligious_game_asset_pack/` — art-led, needs Trey's eye.
 2. Basketball presentation (handoff Pass C): net response on actual passage is there; next is camera stability and team readability. Then Pass A animation continuity.
