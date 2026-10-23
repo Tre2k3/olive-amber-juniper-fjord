@@ -16,6 +16,9 @@ async function load(path) {
     const dependency = await readFile(new URL('../src/game-v2/play/racing.ts', import.meta.url), 'utf8');
     const compiled = ts.transpileModule(dependency, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
     code = code.replace('"./racing"', '"data:text/javascript;base64,' + Buffer.from(compiled).toString('base64') + '"');
+    const bowling = await readFile(new URL('../src/game-v2/play/bowling.ts', import.meta.url), 'utf8');
+    const bowlingCompiled = ts.transpileModule(bowling, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
+    code = code.replace('"./bowling"', '"data:text/javascript;base64,' + Buffer.from(bowlingCompiled).toString('base64') + '"');
   }
   return import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
 }
@@ -245,11 +248,25 @@ console.log('PASS: ten-frame bowling scores, ordered three-lap car race and orig
 
 const {freshCity,triggerSpot,tickCity,crossFinish}=await load('../src/game-v2/play/city.ts');
 const fullBowl=freshCity();triggerSpot(fullBowl,'bowl',240);
-for(let i=0;i<12;i++) {
-  assert.equal(fullBowl.bowl.phase,'aim');tickCity(fullBowl,.68*.85,true,0);tickCity(fullBowl,.01,false,0);
-  tickCity(fullBowl,1.7,false,0);tickCity(fullBowl,1.2,false,0);
+fullBowl.bowl.rollSeed=11;fullBowl.bowl.roll.seed=11;
+// A real game: pocket line, release at the bottom of the swing, let the ball and pins settle.
+const {bowlingScore:scoreFrames}=await load('../src/game-v2/play/city.ts');
+for(let roll=0;roll<24&&fullBowl.bowl.phase!=='finished';roll++) {
+  assert.equal(fullBowl.bowl.phase,'aim');
+  fullBowl.bowl.roll.aim=-0.32;
+  tickCity(fullBowl,1/60,true,0);
+  while(fullBowl.bowl.phase==='approach'&&fullBowl.bowl.roll.approach<0.78) tickCity(fullBowl,1/120,true,0);
+  tickCity(fullBowl,1/120,false,0);
+  for(let g=0;g<600&&fullBowl.bowl.phase==='roll';g++) tickCity(fullBowl,1/60,false,0);
+  assert.equal(fullBowl.bowl.phase,'show');
+  tickCity(fullBowl,1.5,false,0);
 }
-assert.equal(fullBowl.bowl.phase,'finished');assert.equal(fullBowl.bowl.score,300);assert.equal(fullBowl.bowl.throws[9].length,3);
+assert.equal(fullBowl.bowl.phase,'finished');
+assert.equal(fullBowl.bowl.throws.length,10,'ten frames were played');
+assert.equal(fullBowl.bowl.score,scoreFrames(fullBowl.bowl.throws),'the running score is the ten-pin score of the recorded rolls');
+const tenth=fullBowl.bowl.throws[9];const tenthBonus=tenth[0]===10||tenth[0]+tenth[1]===10;
+assert.equal(tenth.length,tenthBonus?3:2,'tenth-frame bonus ball only after a strike or spare');
+assert.ok(fullBowl.bowl.score>0&&fullBowl.bowl.score<300,'a simulated game is neither perfect nor empty');
 const finishedCity=freshCity();finishedCity.race=drive;assert.equal(crossFinish(finishedCity).dollars,110);assert.equal(crossFinish(finishedCity),null);
 console.log('PASS: full bowling game including tenth bonuses, race reward only once');
 
@@ -386,4 +403,33 @@ console.log('PASS: separate defensive assignments, rebound pursuit and non-telep
     const { sampleRace } = racingModule; const target = sampleRace(r.progress + 4).yaw; let d = target - r.yaw;
     while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return d * 2;
   }
+}
+
+
+// ---- bowling: the roll is simulated, not decided (added with the bowling pass) ----
+{
+  const B = await load('../src/game-v2/play/bowling.ts');
+  const up = () => Array(10).fill(true);
+  const bowl = (aim, releaseAt, seed = 1, standing = up()) => {
+    const r = B.freshRoll(standing, seed); r.aim = aim;
+    B.tickRoll(r, { dt: 1 / 60, hold: true, steer: 0 });
+    while (r.phase === 'approach' && r.approach < releaseAt) B.tickRoll(r, { dt: 1 / 120, hold: true, steer: 0 });
+    B.tickRoll(r, { dt: 1 / 120, hold: false, steer: 0 });
+    const ev = []; let g = 0; while (r.phase === 'roll' && g++ < 5000) ev.push(...B.tickRoll(r, { dt: 1 / 60, hold: false, steer: 0 }));
+    return { r, ev };
+  };
+  const sweet = bowl(0.18, B.RELEASE_SWEET);
+  assert.ok(sweet.r.ball.s > B.LANE_LENGTH && sweet.r.fellThisRoll > 0, 'a clean release reaches the pins');
+  const foul = bowl(0.18, 1.05);
+  assert.ok(foul.r.foul && foul.r.fellThisRoll === 0, 'over the line is a foul and counts zero');
+  const gutter = bowl(1, B.RELEASE_SWEET);
+  assert.ok(gutter.ev.includes('gutter') && gutter.r.fellThisRoll === 0, 'the edge of the lane is a gutter');
+  let pocketStrikes = 0, headStrikes = 0;
+  for (let s = 1; s <= 40; s++) { if (bowl(-0.32, B.RELEASE_SWEET, s).r.fellThisRoll === 10) pocketStrikes++; if (bowl(0, 0.98, s).r.fellThisRoll === 10) headStrikes++; }
+  assert.ok(pocketStrikes > headStrikes, 'a hooked pocket ball strikes more than a flat head-on ball');
+  assert.ok(pocketStrikes < 32, 'strikes are never automatic');
+  const first = bowl(-0.32, B.RELEASE_SWEET, 7); const left = first.r.fallen.map((f) => !f);
+  const second = bowl(-0.32, B.RELEASE_SWEET, 8, left);
+  assert.ok(second.r.fallen.every((f, i) => f || left[i]), 'the second ball only counts pins still standing');
+  console.log('PASS: bowling approach, foul, gutter, pocket strikes and spare pickups are simulated');
 }

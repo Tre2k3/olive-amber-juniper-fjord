@@ -1072,7 +1072,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (play.respect) respect += play.respect;
     if (play.dialogue != null) say(play.dialogue, play.dialogue.includes(" — ") ? 4.2 : 2.6);
     if (play.mission && delivered) mission = play.mission;
-    if (play.pins != null) knockPins(play.pins);
+    if (play.pins != null) syncPinsFromRoll();
   }
 
   function namedPed(r: number): Spot | null {
@@ -1102,11 +1102,17 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     bowlBall.visible = false;
   }
 
-  function knockPins(count: number) {
-    const standing = pins.filter(pin => !pin.userData.falling);
-    const aim = city.bowl?.aim ?? 0;
-    standing.sort((a,b) => Math.abs(a.position.x-(92+aim*.8))-Math.abs(b.position.x-(92+aim*.8)));
-    standing.slice(0,count).forEach((pin,i) => { pin.userData.falling = true; pin.userData.fallSign = i%2?1:-1; });
+  /** Pins fall exactly as the simulation knocked them, each away from the ball's side. */
+  function syncPinsFromRoll() {
+    const roll = city.bowl?.roll;
+    if (!roll) return;
+    const ballU = roll.ball ? roll.ball.u : 0;
+    roll.fallen.forEach((down, i) => {
+      const pin = pins[i];
+      if (!pin || !down || pin.userData.falling) return;
+      pin.userData.falling = true;
+      pin.userData.fallSign = (pin.position.x - 92) >= ballU ? -1 : 1;
+    });
   }
 
   function presentBowl(dt: number) {
@@ -1121,22 +1127,30 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     }
     const laneX = 92;
     const startZ = -18.15;
-    const pinZ = -29.3;
+    const roll = bowl.roll;
     bowlBall.visible = true;
-    if (bowl.phase === "finished") { bowlBall.visible=false; return; }
-    if (bowl.phase === "aim") {
-      // Held beside the right hand of the approved back-view artwork.
-      bowlBall.position.set(laneX + 0.32, player.position.y + 0.74, player.position.z);
+    if (bowl.phase === "finished") { bowlBall.visible = false; return; }
+    // Pins drop the moment the sim knocks them, mid-roll, not after a timer.
+    if (bowl.phase === "roll") syncPinsFromRoll();
+    if (bowl.phase === "aim" || bowl.phase === "approach") {
+      // Four-step approach: Benji walks from the dots to the foul line while
+      // the ball swings back and comes through at the release point.
+      const p = bowl.phase === "approach" ? Math.min(1, roll.approach) : 0;
+      player.position.z = startZ + 1.7 * (1 - p);
+      player.position.x = laneX + roll.aim * 0.46;
+      const swing = bowl.phase === "approach" ? Math.sin(Math.min(1, roll.approach / 0.78) * Math.PI) : 0;
+      // Swing goes back (+z, toward the bowler's rear) then forward past the knee.
+      bowlBall.position.set(player.position.x + 0.32, player.position.y + 0.74 - swing * 0.46,
+        player.position.z + swing * 0.55 - (p > 0.78 ? (p - 0.78) * 2.2 : 0));
       bowlBall.rotation.set(0, 0, 0);
       return;
     }
-    const duration = bowl.phase === "roll" ? 1.65 : 0;
-    const t = bowl.phase === "roll" ? 1 - Math.max(0, bowl.left) / duration : 1;
-    const release = Math.min(1, t / 0.14);
-    bowlBall.position.set(laneX + bowl.aim * (0.42 + t * 0.85) * release + 0.32 * (1 - release),
-      0.28 + (player.position.y + 0.74 - 0.28) * (1 - release),
-      THREE.MathUtils.lerp(player.position.z, startZ + (pinZ - startZ) * t, release));
-    bowlBall.rotation.x -= dt * 16;
+    const b = roll.ball;
+    if (!b) return;
+    const loftY = roll.loft > 0 ? Math.max(0, roll.loft * 0.3 * (1 - b.s / 1.2)) : 0;
+    bowlBall.position.set(laneX + b.u, 0.11 + loftY, startZ - b.s);
+    bowlBall.rotation.x -= dt * (b.vs * 9);
+    bowlBall.rotation.y = b.vu * 0.3;
   }
 
   function updateFishing(dt: number, hold: boolean, interact: boolean) {

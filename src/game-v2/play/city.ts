@@ -1,3 +1,4 @@
+import { freshRoll, tickRoll, type Roll } from "./bowling";
 import { createRace, type Race } from "./racing";
 export type Fit = "default" | "court" | "river" | "night";
 
@@ -14,8 +15,10 @@ export type City = {
   bestRace: number;
   boost: number;
   fish: { phase: "wait" | "bite"; left: number; baited: boolean } | null;
-  bowl: { phase: "aim" | "roll" | "show" | "finished"; power: number; aim: number; left: number; pins: number;
-    frame: number; standing: number; throws: number[][]; rack: number; score: number } | null;
+  bowl: { phase: "aim" | "approach" | "roll" | "show" | "finished"; power: number; aim: number; left: number; pins: number;
+    frame: number; standing: number; throws: number[][]; rack: number; score: number;
+    /** The live roll: approach, release timing, ball and pin physics live in play/bowling.ts. */
+    roll: Roll; rollSeed: number } | null;
   race: Race | null;
   menu: number;
 };
@@ -62,8 +65,9 @@ export function freshCity(): City {
 export function activityPrompt(city: City): string {
   if (city.fish?.phase === "wait") return "Line is out. Wait for BITE. Move to stop.";
   if (city.fish?.phase === "bite") return "BITE — E to catch! Move to stop.";
-  if (city.bowl?.phase === "aim") return `901 BOWL · Frame ${city.bowl.frame + 1}/10 · ${city.bowl.score} pts · ${city.bowl.standing} standing. Hold Space, A/D aim; release. E exits.`;
-  if (city.bowl?.phase === "roll") return "";
+  if (city.bowl?.phase === "aim") return `901 BOWL · Frame ${city.bowl.frame + 1}/10 · ${city.bowl.score} pts · ${city.bowl.standing} standing. A/D aim · hold Space to walk up · let go at the bottom of the swing. E exits.`;
+  if (city.bowl?.phase === "approach") return city.bowl.roll.approach >= 0.68 && city.bowl.roll.approach <= 0.88 ? "RELEASE" : "";
+  if (city.bowl?.phase === "roll") return city.bowl.roll.foul ? "FOUL — over the line" : city.bowl.roll.ball?.gutter ? "GUTTER" : "";
   if (city.bowl?.phase === "show") return `${city.bowl.pins === 10 ? "STRIKE!" : city.bowl.standing === 0 ? "SPARE!" : city.bowl.pins + " pins"} · ${city.bowl.score} pts`;
   if (city.bowl?.phase === "finished") return `901 BOWL · Final ${city.bowl.score} · E to leave`;
   if (city.race) { const r = city.race;
@@ -76,7 +80,7 @@ export function activityPrompt(city: City): string {
 }
 
 export function activityCharge(city: City): number {
-  if (city.bowl?.phase === "aim") return city.bowl.power;
+  if (city.bowl?.phase === "approach") return city.bowl.roll.swing;
   if (city.fish?.phase === "bite") return Math.min(1, city.fish.left / ((city.fish.baited ? 3.5 : 3) + (city.fit === "river" ? 0.75 : 0)));
   return 0;
 }
@@ -107,24 +111,20 @@ export function tickCity(city: City, dt: number, hold: boolean, steer: number): 
       return { dialogue: "River — That one slipped away. Line stays out; wait for the next bite." };
     }
   }
-  if (city.bowl?.phase === "aim") {
-    city.bowl.aim = Math.max(-1, Math.min(1, city.bowl.aim + steer * dt * 1.6));
-    if (hold) city.bowl.power = Math.min(1, city.bowl.power + dt / 0.85);
-    else if (city.bowl.power > 0.04) {
-      city.bowl.pins = Math.min(city.bowl.standing, scorePins(city.bowl.power, city.bowl.aim));
-      city.bowl.phase = "roll";
-      city.bowl.left = 1.65;
-    }
-  } else if (city.bowl?.phase === "roll") {
-    city.bowl.left -= dt;
-    if (city.bowl.left <= 0) {
-      const pins = city.bowl.pins;
-      const bowl = city.bowl;
+  if (city.bowl && (city.bowl.phase === "aim" || city.bowl.phase === "approach" || city.bowl.phase === "roll")) {
+    const bowl = city.bowl;
+    tickRoll(bowl.roll, { dt, hold, steer });
+    bowl.aim = bowl.roll.aim;
+    bowl.power = bowl.roll.swing;
+    bowl.phase = bowl.roll.phase === "done" ? "roll" : bowl.roll.phase;
+    if (bowl.roll.phase === "done") {
+      const pins = bowl.roll.fellThisRoll;
+      bowl.pins = pins;
       bowl.standing -= pins;
       bowl.throws[bowl.frame]!.push(pins);
       bowl.score = bowlingScore(bowl.throws);
-      city.bowl.phase = "show";
-      city.bowl.left = 1.15;
+      bowl.phase = "show";
+      bowl.left = 1.35;
       city.bowled = true;
       city.bestBowl = Math.max(city.bestBowl, pins);
       const pay = pins * 6;
@@ -133,7 +133,7 @@ export function tickCity(city: City, dt: number, hold: boolean, steer: number): 
         pins,
         dollars: pay,
         respect,
-        dialogue: pins >= 8 ? `${pins} in the pocket. $${pay}.` : `${pins} pins. $${pay}.`,
+        dialogue: bowl.roll.foul ? "Foul. Over the line — that one's a zero." : pins === 10 ? `STRIKE. $${pay}.` : bowl.standing === 0 ? `SPARE. $${pay}.` : pins >= 8 ? `${pins} in the pocket. $${pay}.` : `${pins} pins. $${pay}.`,
         mission: cityMission(city, true) ?? undefined,
       };
     }
@@ -151,6 +151,10 @@ export function tickCity(city: City, dt: number, hold: boolean, steer: number): 
         if (bowl.standing === 0) { bowl.standing = 10; bowl.rack++; }
       }
       bowl.phase = "aim"; bowl.power = 0; bowl.aim = 0;
+      const standing = bowl.standing === 10 ? Array(10).fill(true) : bowl.roll.fallen.map((f) => !f);
+      bowl.rollSeed = (bowl.rollSeed * 1103515245 + 12345) >>> 0 || 1;
+      bowl.roll = freshRoll(standing, bowl.rollSeed);
+      bowl.roll.aim = bowl.aim;
     }
   }
   return null;
@@ -221,7 +225,9 @@ function cast(city: City): PlayEvent & { used: boolean } {
 
 function approach(city: City): PlayEvent & { used: boolean } {
   if (city.bowl) return { used: true, dialogue: "" };
-  city.bowl = { phase: "aim", power: 0, aim: 0, left: 0, pins: 0, frame: 0, standing: 10, throws: [[]], rack: 0, score: 0 };
+  const seed = (Date.now() & 0xffff) || 1;
+  city.bowl = { phase: "aim", power: 0, aim: 0, left: 0, pins: 0, frame: 0, standing: 10, throws: [[]], rack: 0, score: 0,
+    roll: freshRoll(Array(10).fill(true), seed), rollSeed: seed };
   return { used: true, teleport: { x: 92, z: -17.6 }, dialogue: "" };
 }
 
@@ -263,14 +269,6 @@ function talk(spot: Spot) {
   if (spot === "unc") return "Unc J — River still pays if you wait on the bite. Don't snatch the line.";
   if (spot === "nitro") return "Nitro — Strip's live tonight. Beat my time or buy the next round.";
   return "Strike — 901 Bowl don't care about your name. It cares about the pocket.";
-}
-
-function scorePins(power: number, aim: number) {
-  if (Math.abs(aim) > 0.82) return 0;
-  const pocket = Math.abs(power - 0.68);
-  const powerScore = Math.max(0, 1 - pocket / 0.5);
-  const aimScore = Math.max(0, 1 - Math.abs(aim) / 0.85);
-  return Math.round(10 * powerScore * aimScore);
 }
 
 /** Ten-pin scoring resolves strike/spare bonuses only when the later rolls exist. */
