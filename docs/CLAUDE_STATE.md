@@ -111,8 +111,13 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Board 2 generated and staged in the sandbox (`~/art/home/`: siding, shingles, wood-fence, lawn — inspected, on brief) but the `art/home` push did not land (connector timeouts, stale index.lock cleared). Retry: `cd ~/repo && rm -f .git/index.lock && git checkout -b art/home ...` then wire: house siding/roofs in `kits/home-detail.ts` / `districts.ts`, lawn on the home-block ground, cedar fence boards.
 - CI on 3faee30 in progress at the time of writing.
 
+## 2026-10-23 — board 2 shipped (5f43ad5)
+- Transfer method that works: GitHub **Contents API** from the Higgsfield sandbox (`PUT /repos/.../contents/<path>` with base64, `branch: art/<place>`, after creating the ref from the current head). The sandbox's git clone was too slow to survive a call; don't use it. Here: `git fetch origin +refs/heads/art/<place>:refs/remotes/origin/art/<place>` then `git checkout origin/art/<place> -- public/game-v2/places/<place>`.
+- `kits/materials.ts`: `paintedScan()` swaps a scan onto a drawn material when it loads (tint keeps per-house colour). `siding(hex)` → siding.jpg, `shingle(hex)` → shingles.jpg, `grass()` → lawn.jpg, new `cedarFence()` → wood-fence.jpg. `slice.ts`: cedar privacy fences between the six lots and along the back line (board 2 G). Capture `artifacts/after/home-board2-golden.png`.
+
 ## Next (in order)
-1. Land `art/home`, wire board 2 (siding/roof/fence/lawn), capture against the board.
+1. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.
+2. Land `art/home` (done), wire board 2 (siding/roof/fence/lawn), capture against the board.
 2. Board 7 (alley neon, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), board 10 props via image-to-3D.
 3. Verify the deploy key from the Higgsfield sandbox; if live, run the board-6 court batch: murals (2 remaining) + worn asphalt + block materials + image-to-3D bleachers/scoreboard/rack/cooler, pushed to `art/court`, fetched here, wired, captured against the board.
 2. Visual pass per location against its board, court first (handoff §8), using the 901 production kit assets in `assets/sackreligious_game_asset_pack/` — art-led, needs Trey's eye.
