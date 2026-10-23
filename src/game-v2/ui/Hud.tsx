@@ -58,6 +58,7 @@ export function Hud({
         <div className="flex items-center gap-2 self-start rounded-full border border-[#e0b33a66] bg-[#0b0b0fe6] px-3 py-1 text-xs text-[#f4efe4]">
           <span className="inline-block h-2 w-2 rounded-full bg-[#39ff14] shadow-[0_0_6px_#39ff14]" />
           <span className="font-medium">{locationLine(state)}</span>
+          <span className="text-[10px] font-semibold tracking-[0.18em] text-[#e0b33a]">{state.night ? "NIGHT" : state.golden ? "GOLDEN" : "DAY"}</span>
           <span className="text-[#f4efe499]">{clockFor(state)}</span>
         </div>
         <div className="flex gap-2">
