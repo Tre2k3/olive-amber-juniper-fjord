@@ -163,6 +163,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   // Real fishing lives in play/fishing.ts; `city.fish` stays null from here on.
   const fishing: Fishing = freshFishing();
   let castArmed = false;
+  /** Direction from the pier into open river water (toward the old bobber spot). */
+  const PIER_WATER = { x: -0.92, z: -0.4 };
   let paused = false;
   let lastCountdownTick = -1;
   const audio = new GameAudio();
@@ -1104,7 +1106,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       const b = screenBasis();
       const fx = facing === "right" ? b.rightX : facing === "left" ? -b.rightX : facing === "back" ? b.fwdX : -b.fwdX;
       const fz = facing === "right" ? b.rightZ : facing === "left" ? -b.rightZ : facing === "back" ? b.fwdZ : -b.fwdZ;
-      if (beginCast(fishing, { x: player.position.x, y: player.position.y, z: player.position.z }, fx, fz, { x: 0, z: -1 })) {
+      if (beginCast(fishing, { x: player.position.x, y: player.position.y, z: player.position.z }, fx, fz, PIER_WATER)) {
         castArmed = true;
         audio.play("ui");
       }
@@ -1261,6 +1263,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       else if (e === "landed") {
         audio.play("landed");
         city.fished = true;
+        dollars += 5; // catch bonus; the cooler sale at 901 Catch Kitchen is the real money
         if (fishing.lastCatch?.trophy) respect += 4;
         const m = cityMission(city, delivered, hauntCleared);
         if (m) mission = m;
@@ -2042,7 +2045,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     activityState() {
       const rodScreen = rodTip.clone().project(camera);
       const floatScreen = bobber.position.clone().project(camera);
-      return { bowl: city.bowl ? { ...city.bowl } : null, fish: city.fish ? { ...city.fish } : null,
+      return { bowl: city.bowl ? { ...city.bowl } : null,
+        fish: fishing.phase !== "idle" ? { phase: fishing.phase, tension: fishing.tension, cooler: fishing.cooler.length, lineOut: fishing.lineOut } : null,
         avatarVisible: avatar.visible, bowlBall: { x: bowlBall.position.x, y: bowlBall.position.y, z: bowlBall.position.z },
         rodVisible: rod.visible, lineVisible: fishingLine.visible,
         lineEndX: (fishingLineGeometry.getAttribute("position") as THREE.BufferAttribute).getX(2),

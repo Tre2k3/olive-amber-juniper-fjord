@@ -273,8 +273,15 @@ try {
   await set({ place: 'street', x: -16, z: -64, yaw: 0, dist: 18, height: 8, lookY: 3, night: false, dialogue: '' });
   await frames(24);
   await page.screenshot({ path: 'artifacts/haunt/riverfront-overview.png', timeout: 60000 });
+  // Real fishing: E arms the cast meter, E releases, the lure flies and lands in open water.
+  const cast = async () => {
+    await page.keyboard.press('KeyE'); await frames(10);
+    await page.keyboard.press('KeyE');
+    await page.waitForFunction(() => window.__SACK_V2_INPUT__.activityState().fish?.phase === 'wait', null, { timeout: 90000, polling: 'raf' });
+    await frames(4);
+  };
   await set({ place: 'street', x: pier.x, z: pier.z, yaw: Math.PI, dialogue: '' });
-  await page.keyboard.press('KeyE'); await frames(20);
+  await cast();
   const fishing = await page.evaluate(() => window.__SACK_V2_INPUT__.activityState());
   assert.ok(fishing.fish && fishing.rodVisible && fishing.lineVisible, 'Fishing must show the held rod and a line to the bobber');
   const assertFishingFrame = (state) => {
@@ -283,19 +290,28 @@ try {
     }
   };
   assertFishingFrame(fishing);
-  assert.ok(fishing.lineEndX < -18.1 && fishing.lineEndZ < -66, 'Cast must land in open water beside the pier');
+  assert.ok(fishing.lineEndX < -18.1 && fishing.lineEndZ < -66, 'Cast must land in open water beside the pier, never along the dock');
   assert.ok(Math.abs(fishing.lineEndY - fishing.waterY) < 0.001, 'Fishing line must enter the river surface');
   assert.ok(Math.abs(fishing.floatY - fishing.waterY) < 0.06, 'Bobber must float at the water');
-  await page.waitForFunction(() => window.__SACK_V2_INPUT__.activityState().fish?.phase === 'bite',
-    null, { timeout: 90000, polling: 'raf' });
-  const beforeCatch = await page.evaluate(() => window.__SACK_V2__.dollars);
+  // Pulling before the bite reels in an empty hook; E casts again.
+  await page.keyboard.press('KeyE'); await frames(3);
+  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.activityState())).fish, null, 'Pulling early reels in an empty hook');
+  await cast();
+  // A bite, a hookset, a tension fight, a landed fish in the cooler plus the catch bonus.
+  await page.waitForFunction(() => window.__SACK_V2_INPUT__.activityState().fish?.phase === 'bite', null, { timeout: 90000, polling: 'raf' });
+  const beforeCatch = await page.evaluate(() => ({ dollars: window.__SACK_V2__.dollars, cooler: window.__SACK_V2_INPUT__.activityState().fish.cooler }));
   await page.keyboard.press('KeyE'); await frames(2);
-  assert.ok(await page.evaluate(n => window.__SACK_V2__.dollars > n, beforeCatch), 'Live E catches a fish');
-  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.activityState())).fish.phase, 'wait',
-    'Catch must leave fishing active');
-  await page.keyboard.press('KeyE'); await frames(2);
-  assert.ok((await page.evaluate(() => window.__SACK_V2_INPUT__.activityState())).fish,
-    'Early tap must keep the line out');
+  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.activityState())).fish?.phase, 'fight', 'E on a bite sets the hook');
+  for (let i = 0; i < 900; i++) {
+    const f = await page.evaluate(() => window.__SACK_V2_INPUT__.activityState().fish);
+    if (!f || f.phase !== 'fight') break;
+    if (f.tension < 0.55) await page.keyboard.down('Space'); else await page.keyboard.up('Space');
+    await frames(2);
+  }
+  await page.keyboard.up('Space');
+  const after = await page.evaluate(() => ({ dollars: window.__SACK_V2__.dollars, state: window.__SACK_V2_INPUT__.activityState() }));
+  assert.equal(after.state.fish?.phase, 'landed', 'Managed tension lands the fish');
+  assert.ok(after.dollars > beforeCatch.dollars && after.state.fish.cooler === beforeCatch.cooler + 1, 'A landed fish pays the catch bonus and goes in the cooler');
   await page.screenshot({ path: 'artifacts/haunt/fishing-held-rod.png', timeout: 60000 });
   const handView = await page.evaluate(() => window.__SACK_V2_INPUT__.renderState().playerScreen);
   const detailY = Math.max(0, Math.floor(handView.headY - 15));
@@ -304,22 +320,21 @@ try {
       height: Math.min(800 - detailY, Math.ceil(handView.feetY - handView.headY + 30)) } });
   await page.setViewportSize({ width: 390, height: 844 });
   await set({ place: 'street', x: pier.x, z: pier.z, yaw: Math.PI, dialogue: '' });
-  await page.keyboard.press('KeyE'); await frames(20);
+  await cast();
   assertFishingFrame(await page.evaluate(() => window.__SACK_V2_INPUT__.activityState()));
   await page.screenshot({ path: 'artifacts/haunt/fishing-mobile.png', timeout: 60000 });
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.waitForFunction(() => window.__SACK_V2_INPUT__.activityState().fish?.phase === 'bite',
-    null, { timeout: 90000, polling: 'raf' });
-  await page.waitForFunction(() => window.__SACK_V2_INPUT__.activityState().fish?.phase === 'wait',
-    null, { timeout: 90000, polling: 'raf' });
-  assert.ok((await page.evaluate(() => window.__SACK_V2_INPUT__.activityState())).rodVisible, 'Miss keeps rod and line active');
+  // Ignoring a bite loses it: the cast ends and E casts again.
+  await page.waitForFunction(() => window.__SACK_V2_INPUT__.activityState().fish?.phase === 'bite', null, { timeout: 90000, polling: 'raf' });
+  await page.waitForFunction(() => window.__SACK_V2_INPUT__.activityState().fish?.phase === 'lost', null, { timeout: 90000, polling: 'raf' });
   await page.screenshot({ path: 'artifacts/haunt/fishing-continues.png', timeout: 60000 });
+  await cast();
+  // Walking off while waiting reels the line in.
   await page.keyboard.down('KeyD'); await frames(3); await page.keyboard.up('KeyD');
-  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.activityState())).fish, null,
-    'Movement exits continuous fishing');
+  assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.activityState())).fish, null, 'Movement exits fishing');
   await frames(2);
   assert.equal((await page.evaluate(() => window.__SACK_V2_INPUT__.activityState())).lineVisible, false);
-  console.log('PASS: water contact, live catch/miss continuation, early tap, movement exit and fishing camera');
+  console.log('PASS: real cast into open water, early pull, bite/hookset/fight/landed with catch bonus, lost bite, movement exit and fishing camera');
   await set({ place: 'court', x: 61, z: -22, yaw: Math.PI, ballHeld: true, dialogue: '' });
   const beforeMake = (await page.evaluate(() => window.__SACK_V2_INPUT__.ballState())).made;
   await page.evaluate(() => window.__SACK_V2_INPUT__.setCharge(true));
