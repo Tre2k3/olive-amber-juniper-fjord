@@ -8,6 +8,7 @@ import { streetTree } from "./kits/trees";
 import { dressRiverfront, riverWaterMaterial } from "./riverfront-production";
 import { carBody } from "./kits/vehicles";
 import { dressFront } from "./kits/city";
+import { dressBowlingAlley } from "./kits/bowling-production";
 
 export type DistrictAnchors = {
   bowlDoor: { x: number; z: number };
@@ -181,7 +182,7 @@ function bowling(
   const floor = new THREE.MeshStandardMaterial({ color: 0x241820, roughness: 0.8 });
   box(16.4, 0.08, 14.4, x, 0.08, z, floor, parent);
   addGround({ minX: x - 8.2, maxX: x + 8.2, minZ: z - 7.2, maxZ: z + 7.6, y: 0.12 });
-  const lane = new THREE.MeshStandardMaterial({ color: 0xc9844a, roughness: 0.55 });
+  const lane = new THREE.MeshStandardMaterial({ color: 0xc9844a, roughness: 0.24 });
   const gutter = new THREE.MeshStandardMaterial({ color: 0x3a2418, roughness: 0.7 });
   const pinMat = new THREE.MeshStandardMaterial({ color:0xf4efe4,roughness:.35 });
   const bandMat = new THREE.MeshStandardMaterial({ color:0xb82924,roughness:.5 });
@@ -210,6 +211,7 @@ function bowling(
   box(2.2, 1.1, 0.4, x - 6.6, 1.3, z + 4.5, new THREE.MeshStandardMaterial({ color: 0x6a4328, roughness: 0.7 }), parent);
   lamp(x, 4.4, z + 6, 0xff4fd8, parent, lamps);
   lamp(x, 3.2, z - 2, 0xffb45a, parent, lamps);
+  dressBowlingAlley(parent, x, z);
 }
 
 function river(

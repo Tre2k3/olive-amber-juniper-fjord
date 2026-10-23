@@ -37,6 +37,10 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Verified: core suite 25 PASS (old scripted-300 test replaced by a real simulated game checking frame flow + score consistency + tenth-frame bonus rule); browser: approach → roll → "9 in the pocket", zero errors; capture `artifacts/after/bowl-03-ball-rolling.png`.
 - Feel knobs: `RELEASE_SWEET`, `RELEASE_WINDOW`, hook 0.55, deflection 1.2, chain `(0.18 + energy*0.72) * align^3`.
 
+## Done 2026-10-23 (pass 7 — 901 Bowl interior)
+- Cause of the "black void" alley: its two lamps used the street `lamp()` helper (intensity 0 by day, night-only, rationed to the nearest eight), so the brick shell was unlit. `kits/bowling-production.ts` adds an always-on rig (two warm PointLights + a cool pin-deck light, eight emissive ceiling fixtures), a masking unit over the decks with a lit "901 BOWL / LANE 1–4" header and a black curtain behind the pins, ball returns between lane pairs with spare balls, approach dots, neon rails on both walls, two score monitors; lanes go glossy (roughness 0.24) now that the env map exists. Called from `districts.ts` `bowling()`. Capture `artifacts/after/alley-01-aim.png`, zero errors.
+- Minor, unfixed: during the aim phase the held ball sits at hand height but reads as on the floor from the approach camera; the masking-unit "901 BOWL" line is above the frame from the default view.
+
 ## Next (in order)
 1. Visual pass per location against its board, court first (handoff §8), using the 901 production kit assets in `assets/sackreligious_game_asset_pack/` — art-led, needs Trey's eye.
 2. Basketball presentation (handoff Pass C): net response on actual passage is there; next is camera stability and team readability. Then Pass A animation continuity.
