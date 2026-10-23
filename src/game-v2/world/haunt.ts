@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { dressHauntDetail, type Apparition } from "./kits/haunt-detail";
+import { paintedScan } from "./kits/materials";
 import type { Solid } from "../core/types";
 import { addGround } from "./ground";
 import { buildGoal } from "./kits/hoop";
@@ -37,7 +38,16 @@ const ROOM_ART: Record<string, string> = {
   "FINAL COURT": "/game-v2/places/haunt/final.jpg",
 };
 
-function box(w: number, h: number, d: number, x: number, y: number, z: number, mat: THREE.Material, parent: THREE.Object3D) {
+function box(
+  w: number,
+  h: number,
+  d: number,
+  x: number,
+  y: number,
+  z: number,
+  mat: THREE.Material,
+  parent: THREE.Object3D,
+) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
   m.position.set(x, y, z);
   m.castShadow = true;
@@ -65,7 +75,7 @@ function roomSign(title: string, x: number, y: number, z: number, parent: THREE.
   g.strokeRect(22, 22, 468, 84);
   g.fillStyle = "#d5bc79";
   g.font = "700 43px Georgia, serif";
-  const fitSize = Math.min(43, 43 * 438 / Math.max(1, g.measureText(title).width));
+  const fitSize = Math.min(43, (43 * 438) / Math.max(1, g.measureText(title).width));
   g.font = `700 ${fitSize}px Georgia, serif`;
   g.textAlign = "center";
   g.textBaseline = "middle";
@@ -93,7 +103,16 @@ function roomSign(title: string, x: number, y: number, z: number, parent: THREE.
   parent.add(mesh);
 }
 
-function artPlane(url: string, w: number, h: number, x: number, y: number, z: number, rotY: number, parent: THREE.Object3D) {
+function artPlane(
+  url: string,
+  w: number,
+  h: number,
+  x: number,
+  y: number,
+  z: number,
+  rotY: number,
+  parent: THREE.Object3D,
+) {
   const tex = new THREE.TextureLoader().load(url);
   tex.colorSpace = THREE.SRGBColorSpace;
   const mat = new THREE.MeshStandardMaterial({
@@ -111,7 +130,16 @@ function artPlane(url: string, w: number, h: number, x: number, y: number, z: nu
   return mesh;
 }
 
-function hangArt(url: string, w: number, h: number, x: number, y: number, z: number, rotY: number, parent: THREE.Object3D) {
+function hangArt(
+  url: string,
+  w: number,
+  h: number,
+  x: number,
+  y: number,
+  z: number,
+  rotY: number,
+  parent: THREE.Object3D,
+) {
   const holder = new THREE.Group();
   holder.position.set(x, y, z);
   holder.rotation.y = rotY;
@@ -184,17 +212,34 @@ function woodCourt() {
   return tex;
 }
 
-function dressApproach(exterior: THREE.Object3D, solids: Solid[], glow: THREE.MeshStandardMaterial[], hx: number, frontZ: number) {
+function dressApproach(
+  exterior: THREE.Object3D,
+  solids: Solid[],
+  glow: THREE.MeshStandardMaterial[],
+  hx: number,
+  frontZ: number,
+) {
   const dark = new THREE.MeshStandardMaterial({ color: 0x140e10, roughness: 0.55, metalness: 0.3 });
-  const pumpkinMat = new THREE.MeshStandardMaterial({ color: 0xe85a12, emissive: 0xff5a18, emissiveIntensity: 0.35, roughness: 0.48 });
-  const warm = new THREE.MeshStandardMaterial({ color: 0xffd2a0, emissive: 0xffb45a, emissiveIntensity: 0.7, roughness: 0.35 });
+  const pumpkinMat = new THREE.MeshStandardMaterial({
+    color: 0xe85a12,
+    emissive: 0xff5a18,
+    emissiveIntensity: 0.35,
+    roughness: 0.48,
+  });
+  const warm = new THREE.MeshStandardMaterial({
+    color: 0xffd2a0,
+    emissive: 0xffb45a,
+    emissiveIntensity: 0.7,
+    roughness: 0.35,
+  });
   glow.push(warm);
   const boothX = hx - 10.6;
   const boothZ = frontZ - 4.6;
   const boothWood = hauntSurface("wood");
   box(2.65, 0.15, 1.6, boothX, 0.08, boothZ, boothWood, exterior);
   box(2.65, 2.15, 0.14, boothX, 1.1, boothZ + 0.65, boothWood, exterior);
-  for (const x of [boothX - 1.25, boothX + 1.25]) box(0.14, 2.15, 1.45, x, 1.1, boothZ, boothWood, exterior);
+  for (const x of [boothX - 1.25, boothX + 1.25])
+    box(0.14, 2.15, 1.45, x, 1.1, boothZ, boothWood, exterior);
   box(2.9, 0.18, 1.9, boothX, 2.35, boothZ, dark, exterior);
   box(2.5, 0.85, 0.18, boothX, 0.5, boothZ - 0.65, boothWood, exterior);
   box(2.7, 0.12, 0.5, boothX, 1, boothZ - 0.65, dark, exterior);
@@ -214,7 +259,11 @@ function dressApproach(exterior: THREE.Object3D, solids: Solid[], glow: THREE.Me
     const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.035 * s, 0.05 * s, 0.14 * s, 6), dark);
     stem.position.set(x, 0.52 * s, z);
     exterior.add(stem);
-    const slit = new THREE.MeshStandardMaterial({ color: 0x2a1008, emissive: 0xffc56a, emissiveIntensity: 0.45 });
+    const slit = new THREE.MeshStandardMaterial({
+      color: 0x2a1008,
+      emissive: 0xffc56a,
+      emissiveIntensity: 0.45,
+    });
     for (const ox of [-0.1, 0.1]) {
       const eye = new THREE.Mesh(new THREE.BoxGeometry(0.07 * s, 0.07 * s, 0.05), slit);
       eye.position.set(x + ox * s, 0.32 * s, z - 0.26 * s);
@@ -238,7 +287,8 @@ function dressApproach(exterior: THREE.Object3D, solids: Solid[], glow: THREE.Me
       [x1, z1],
       [midX, midZ],
       [x2, z2],
-    ] as const) box(0.08, 1.05, 0.08, px, 0.52, pz, dark, exterior);
+    ] as const)
+      box(0.08, 1.05, 0.08, px, 0.52, pz, dark, exterior);
   };
   rail(hx - 4.6, frontZ - 4.6, hx - 1.35, frontZ - 4.6);
   rail(hx + 1.35, frontZ - 4.6, hx + 4.8, frontZ - 4.6);
@@ -259,7 +309,7 @@ function dressApproach(exterior: THREE.Object3D, solids: Solid[], glow: THREE.Me
 function signPlane(title: string, color: string, w: number, h: number) {
   const c = document.createElement("canvas");
   c.width = 512;
-  c.height = Math.max(32, Math.round(512 * h / w));
+  c.height = Math.max(32, Math.round((512 * h) / w));
   const g = c.getContext("2d")!;
   g.fillStyle = "#12080a";
   g.fillRect(0, 0, c.width, c.height);
@@ -269,14 +319,17 @@ function signPlane(title: string, color: string, w: number, h: number) {
   g.fillStyle = color;
   const fontSize = Math.floor(c.height * 0.58);
   g.font = `800 ${fontSize}px sans-serif`;
-  const fitSize = Math.min(fontSize, fontSize * 480 / Math.max(1, g.measureText(title).width));
+  const fitSize = Math.min(fontSize, (fontSize * 480) / Math.max(1, g.measureText(title).width));
   g.font = `800 ${fitSize}px sans-serif`;
   g.textAlign = "center";
   g.textBaseline = "middle";
   g.fillText(title, c.width / 2, c.height / 2, c.width - 24);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex }));
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(w, h),
+    new THREE.MeshBasicMaterial({ map: tex }),
+  );
   return mesh;
 }
 
@@ -295,7 +348,12 @@ const ROOMS: { name: string; x: number; z: number; color: number; light: number 
 ];
 
 /** Seasonal house on the west end of the block, plus the walkable room graph. */
-export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow: THREE.MeshStandardMaterial[], lamps: THREE.PointLight[]): { world: HauntWorld; solids: Solid[] } {
+export function buildHaunt(
+  exterior: THREE.Object3D,
+  streetSolids: Solid[],
+  glow: THREE.MeshStandardMaterial[],
+  lamps: THREE.PointLight[],
+): { world: HauntWorld; solids: Solid[] } {
   const trim = new THREE.MeshStandardMaterial({ color: 0x252021, roughness: 0.7 });
   const hx = -78;
   const hz = 16;
@@ -335,8 +393,13 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
     opacity: 0.78,
   });
   for (const [ox, z, sx, sz] of [
-    [-14, 2.1, 2.6, 0.7], [-9.4, 5.7, 1.7, 0.55], [-4.8, 2.8, 2.2, 0.62],
-    [0, 4.1, 2.8, 0.72], [5.1, 2.2, 1.8, 0.52], [9.7, 5.6, 2.4, 0.65], [14.2, 2.9, 1.9, 0.5],
+    [-14, 2.1, 2.6, 0.7],
+    [-9.4, 5.7, 1.7, 0.55],
+    [-4.8, 2.8, 2.2, 0.62],
+    [0, 4.1, 2.8, 0.72],
+    [5.1, 2.2, 1.8, 0.52],
+    [9.7, 5.6, 2.4, 0.65],
+    [14.2, 2.9, 1.9, 0.5],
   ] as const) {
     const puddle = new THREE.Mesh(new THREE.CircleGeometry(1, 28), puddleMaterial);
     puddle.rotation.x = -Math.PI / 2;
@@ -363,17 +426,26 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   reflectionContext.globalCompositeOperation = "destination-out";
   for (let i = 0; i < 42; i++) {
     reflectionContext.fillStyle = `rgba(0,0,0,${0.25 + (i % 4) * 0.15})`;
-    reflectionContext.fillRect((i * 37) % 92, (i * 29) % 252, 24 + i % 28, 2 + i % 4);
+    reflectionContext.fillRect((i * 37) % 92, (i * 29) % 252, 24 + (i % 28), 2 + (i % 4));
   }
   const reflectionTexture = new THREE.CanvasTexture(reflectionCanvas);
   for (const [ox, z, color, length] of [
-    [-6, 4.6, 0xff8a3a, 3.6], [0, 3.8, 0xff321c, 4.8], [6, 4.9, 0xffa24a, 3.4],
-    [-10.5, 2.7, 0xff5a24, 2.3], [10.2, 2.8, 0xff6a2a, 2.5],
+    [-6, 4.6, 0xff8a3a, 3.6],
+    [0, 3.8, 0xff321c, 4.8],
+    [6, 4.9, 0xffa24a, 3.4],
+    [-10.5, 2.7, 0xff5a24, 2.3],
+    [10.2, 2.8, 0xff6a2a, 2.5],
   ] as const) {
     const reflection = new THREE.Mesh(
       new THREE.PlaneGeometry(0.85, length),
-      new THREE.MeshBasicMaterial({ map: reflectionTexture, color, transparent: true, opacity: 0.35,
-        blending: THREE.AdditiveBlending, depthWrite: false }),
+      new THREE.MeshBasicMaterial({
+        map: reflectionTexture,
+        color,
+        transparent: true,
+        opacity: 0.35,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
     );
     reflection.rotation.x = -Math.PI / 2;
     reflection.rotation.z = ox * 0.012;
@@ -422,16 +494,20 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   fogContext.fillRect(0, 0, 128, 128);
   const fogTexture = new THREE.CanvasTexture(fogCanvas);
   for (let i = 0; i < 13; i++) {
-    const mist = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: fogTexture,
-      color: i % 3 === 0 ? 0xd9c4d8 : 0xa98ba9,
-      transparent: true,
-      opacity: 0.13,
-      depthWrite: false,
-    }));
-    mist.position.set(hx - 15 + (i * 37 % 30), 0.32 + (i % 3) * 0.09, 2.2 + (i * 19 % 8));
+    const mist = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: fogTexture,
+        color: i % 3 === 0 ? 0xd9c4d8 : 0xa98ba9,
+        transparent: true,
+        opacity: 0.13,
+        depthWrite: false,
+      }),
+    );
+    mist.position.set(hx - 15 + ((i * 37) % 30), 0.32 + (i % 3) * 0.09, 2.2 + ((i * 19) % 8));
     mist.scale.set(4.8 + (i % 4), 1.15 + (i % 2) * 0.35, 1);
-    mist.name = "haunt-ground-mist"; mist.userData.homeX = mist.position.x; mist.userData.phase = i;
+    mist.name = "haunt-ground-mist";
+    mist.userData.homeX = mist.position.x;
+    mist.userData.phase = i;
     exterior.add(mist);
   }
 
@@ -440,14 +516,23 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   group.visible = false;
   const solids: Solid[] = [];
   const lights: THREE.PointLight[] = [];
-  const wall = new THREE.MeshStandardMaterial({ color: 0x211418, roughness: 0.86 });
+  const wall = new THREE.MeshStandardMaterial({ color: 0x6b5a5a, roughness: 0.86 });
+  // Board 9: aged damask on the shared walls; three rooms get their own liners on door-free walls below.
+  paintedScan(wall, "/game-v2/places/haunt/wallpaper.jpg", 2.6, 1.1);
 
   for (const room of ROOMS) {
-    const floor = hauntSurface(room.name === "FOYER" || room.name === "KITCHEN" ? "tile" : "wood");
+    const floor = hauntSurface(
+      room.name === "FOYER" || room.name === "KITCHEN"
+        ? "tile"
+        : room.name === "BOILER" || room.name === "FINAL COURT"
+          ? "stone"
+          : "wood",
+    );
     box(7.7, 0.08, 7.5, room.x + 4, 0.04, room.z + 4, floor, group);
     // References guide the room architecture; only portrait paintings remain wall art.
     if (room.name === "PORTRAIT HALL") {
-      for (const x of [17.5, 20, 22.5]) hangArt(ROOM_ART[room.name], 1.4, 1.85, x, 2.05, 0.25, 0, group);
+      for (const x of [17.5, 20, 22.5])
+        hangArt(ROOM_ART[room.name], 1.4, 1.85, x, 2.05, 0.25, 0, group);
     }
     const molding = new THREE.MeshStandardMaterial({ color: 0x67513a, roughness: 0.8 });
     for (const z of [room.z + 0.3, room.z + 7.65]) {
@@ -468,7 +553,12 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   addGround({ minX: 0, maxX: 48, minZ: OZ, maxZ: OZ + 16, y: 0.06 });
 
   dressRooms(group, glow, solids, lights);
-  const wax = new THREE.MeshStandardMaterial({ color: 0xf2e2b8, emissive: 0xffc56a, emissiveIntensity: 0.7, roughness: 0.5 });
+  const wax = new THREE.MeshStandardMaterial({
+    color: 0xf2e2b8,
+    emissive: 0xffc56a,
+    emissiveIntensity: 0.7,
+    roughness: 0.5,
+  });
   glow.push(wax);
   const detail = dressHauntDetail(group, wax);
   buildHauntAtmosphere(group);
@@ -481,6 +571,53 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   solids.push({ minX: 0, maxX: 48, minZ: -0.2, maxZ: 0.2 });
   box(0.2, h, 16, 0, h / 2, 8, wall, group);
   box(0.2, h, 8, 40, h / 2, 4, wall, group);
+  // Room liners (inside faces of door-free walls): nursery stripe, cellar stone, and the Final Court's 901.
+  {
+    const liner = (
+      w: number,
+      hh: number,
+      x: number,
+      y: number,
+      z: number,
+      ry: number,
+      mat: THREE.Material,
+      name: string,
+    ) => {
+      const p = new THREE.Mesh(new THREE.PlaneGeometry(w, hh), mat);
+      p.position.set(x, y, z);
+      p.rotation.y = ry;
+      p.name = name;
+      group.add(p);
+    };
+    const nursery = paintedScan(
+      new THREE.MeshStandardMaterial({ color: 0xd8d4c4, roughness: 0.9 }),
+      "/game-v2/places/haunt/nursery.jpg",
+      2.4,
+      1.1,
+    );
+    const stone = paintedScan(
+      new THREE.MeshStandardMaterial({ color: 0x9a9a92, roughness: 0.95 }),
+      "/game-v2/places/haunt/stone.jpg",
+      2.2,
+      1.1,
+    );
+    const mural = paintedScan(
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.8,
+        emissive: 0x331100,
+        emissiveIntensity: 0.25,
+      }),
+      "/game-v2/places/haunt/final-mural.jpg",
+      1,
+      1,
+    );
+    liner(7.6, 4, 4, 2.05, 15.78, Math.PI, nursery, "haunt-liner-toy-n");
+    liner(7.6, 4, 0.12, 2.05, 12, Math.PI / 2, nursery, "haunt-liner-toy-w");
+    liner(7.6, 4, 36, 2.05, 15.78, Math.PI, stone, "haunt-liner-boiler-n");
+    liner(7.6, 4, 47.88, 2.05, 12, -Math.PI / 2, stone, "haunt-liner-final-e");
+    liner(7.4, 4.1, 44, 2.05, 15.78, Math.PI, mural, "haunt-liner-final-mural");
+  }
   box(0.2, h, 8, 48, h / 2, 12, wall, group);
   solids.push({ minX: -0.2, maxX: 0.2, minZ: 0, maxZ: 16 });
   solids.push({ minX: 39.85, maxX: 40.15, minZ: 0, maxZ: 7.9 });
@@ -516,7 +653,11 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   const doorWood = hauntSurface("wood");
   const doorTrim = new THREE.MeshStandardMaterial({ color: 0x827054, roughness: 0.65 });
   const panel = new THREE.MeshStandardMaterial({ color: 0x35251e, roughness: 0.8 });
-  const hardware = new THREE.MeshStandardMaterial({ color: 0xb79a53, roughness: 0.3, metalness: 0.7 });
+  const hardware = new THREE.MeshStandardMaterial({
+    color: 0xb79a53,
+    roughness: 0.3,
+    metalness: 0.7,
+  });
   box(1.6, 2.5, 0.16, 4, 1.32, 0.22, doorWood, group);
   for (const y of [0.8, 1.85]) box(1.14, 0.72, 0.08, 4, y, 0.34, panel, group);
   for (const x of [3.1, 4.9]) box(0.15, 2.7, 0.3, x, 1.4, 0.26, doorTrim, group);
@@ -545,17 +686,31 @@ export function buildHaunt(exterior: THREE.Object3D, streetSolids: Solid[], glow
   };
 }
 
-function dressRooms(group: THREE.Group, glow: THREE.MeshStandardMaterial[], solids: Solid[], lights: THREE.PointLight[]) {
+function dressRooms(
+  group: THREE.Group,
+  glow: THREE.MeshStandardMaterial[],
+  solids: Solid[],
+  lights: THREE.PointLight[],
+) {
   const wood = new THREE.MeshStandardMaterial({ color: 0x6a4030, roughness: 0.7 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x2a140e, roughness: 0.65 });
   const cloth = new THREE.MeshStandardMaterial({ color: 0x7a1838, roughness: 0.55 });
   const gold = new THREE.MeshStandardMaterial({ color: 0xd4b15a, roughness: 0.4, metalness: 0.45 });
-  const metal = new THREE.MeshStandardMaterial({ color: 0x6a746c, roughness: 0.35, metalness: 0.55 });
-  const wax = new THREE.MeshStandardMaterial({ color: 0xf2e2b8, emissive: 0xffc56a, emissiveIntensity: 0.7, roughness: 0.5 });
+  const metal = new THREE.MeshStandardMaterial({
+    color: 0x6a746c,
+    roughness: 0.35,
+    metalness: 0.55,
+  });
+  const wax = new THREE.MeshStandardMaterial({
+    color: 0xf2e2b8,
+    emissive: 0xffc56a,
+    emissiveIntensity: 0.7,
+    roughness: 0.5,
+  });
   glow.push(wax);
 
-
-  for (let i = 0; i < 5; i++) box(1.5, 0.16, 0.7, 10.2, 0.2 + i * 0.28, 2.2 + i * 0.55, wood, group);
+  for (let i = 0; i < 5; i++)
+    box(1.5, 0.16, 0.7, 10.2, 0.2 + i * 0.28, 2.2 + i * 0.55, wood, group);
   box(0.9, 1.1, 0.9, 13.4, 0.55, 5.4, wood, group);
 
   for (let i = 0; i < 4; i++) {
@@ -569,11 +724,28 @@ function dressRooms(group: THREE.Group, glow: THREE.MeshStandardMaterial[], soli
   for (let i = 0; i < 4; i++) box(0.12, 0.12, 3.6, 33.2 + i * 0.7, 2.55, 3.2, wood, group);
   box(1.6, 0.7, 0.9, 35.2, 0.4, 5.2, wood, group);
 
-  const dollHead = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 10), new THREE.MeshStandardMaterial({ color: 0xf0d2c0, roughness: 0.6 }));
+  const dollHead = new THREE.Mesh(
+    new THREE.SphereGeometry(0.28, 12, 10),
+    new THREE.MeshStandardMaterial({ color: 0xf0d2c0, roughness: 0.6 }),
+  );
   dollHead.position.set(2.4, 1.55, 11.2);
   group.add(dollHead);
-  box(0.7, 0.9, 0.45, 2.4, 0.7, 11.2, new THREE.MeshStandardMaterial({ color: 0x6a2cff, roughness: 0.5 }), group);
-  for (const [bx, bz] of [[1.2, 13.2], [3.4, 13.4], [2.2, 14.2]] as const) box(0.35, 0.35, 0.35, bx, 0.2, bz, cloth, group);
+  box(
+    0.7,
+    0.9,
+    0.45,
+    2.4,
+    0.7,
+    11.2,
+    new THREE.MeshStandardMaterial({ color: 0x6a2cff, roughness: 0.5 }),
+    group,
+  );
+  for (const [bx, bz] of [
+    [1.2, 13.2],
+    [3.4, 13.4],
+    [2.2, 14.2],
+  ] as const)
+    box(0.35, 0.35, 0.35, bx, 0.2, bz, cloth, group);
 
   box(4.4, 0.12, 1.35, 12, 0.78, 12.2, wood, group);
   for (const cx of [10.2, 11.4, 12.6, 13.6]) box(0.12, 0.7, 0.12, cx, 0.4, 11.5, wood, group);
@@ -601,7 +773,10 @@ function dressRooms(group: THREE.Group, glow: THREE.MeshStandardMaterial[], soli
     group.add(pot);
   }
 
-  for (const [px, pz, len] of [[33.2, 10.4, 2.4], [35.6, 13.5, 1.8]] as const) {
+  for (const [px, pz, len] of [
+    [33.2, 10.4, 2.4],
+    [35.6, 13.5, 1.8],
+  ] as const) {
     const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, len, 8), metal);
     pipe.rotation.z = Math.PI / 2;
     pipe.position.set(px, 1.6, pz);
@@ -609,19 +784,30 @@ function dressRooms(group: THREE.Group, glow: THREE.MeshStandardMaterial[], soli
   }
   const core = new THREE.Mesh(
     new THREE.SphereGeometry(0.35, 12, 10),
-    new THREE.MeshStandardMaterial({ color: 0x39ff7a, emissive: 0x39ff7a, emissiveIntensity: 1.1, roughness: 0.3 }),
+    new THREE.MeshStandardMaterial({
+      color: 0x39ff7a,
+      emissive: 0x39ff7a,
+      emissiveIntensity: 1.1,
+      roughness: 0.3,
+    }),
   );
   core.position.set(34.4, 1.1, 12.2);
   group.add(core);
 
-
   // Furnishings are physical obstacles, with the central room/door routes kept open.
   for (const [x, z, w, d] of [
-    [10.2, 3.3, 1.6, 3.4], [13.4, 5.4, 1, 1], [24.7, 3.5, 0.7, 6.2],
-    [27.2, 4.9, 1.9, 0.9], [35.2, 5.2, 1.7, 1], [2.4, 11.2, 0.8, 0.6],
-    [12, 12.2, 4.5, 1.5], [20, 12, 1.8, 1.8], [26.2, 9.6, 3.7, 0.8],
+    [10.2, 3.3, 1.6, 3.4],
+    [13.4, 5.4, 1, 1],
+    [24.7, 3.5, 0.7, 6.2],
+    [27.2, 4.9, 1.9, 0.9],
+    [35.2, 5.2, 1.7, 1],
+    [2.4, 11.2, 0.8, 0.6],
+    [12, 12.2, 4.5, 1.5],
+    [20, 12, 1.8, 1.8],
+    [26.2, 9.6, 3.7, 0.8],
     [29.4, 13.4, 2.3, 0.9],
-  ]) solids.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
+  ])
+    solids.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
   const courtTex = woodCourt();
   const court = new THREE.Mesh(
     new THREE.PlaneGeometry(6.6, 5.6),
@@ -637,10 +823,14 @@ function dressRooms(group: THREE.Group, glow: THREE.MeshStandardMaterial[], soli
   court.rotation.x = -Math.PI / 2;
   court.position.set(44, 0.09, 12.2);
   group.add(court);
-  const line = new THREE.MeshStandardMaterial({ color: 0xe0b33a, roughness: 0.4, emissive: 0xe0b33a, emissiveIntensity: 0.25 });
+  const line = new THREE.MeshStandardMaterial({
+    color: 0xe0b33a,
+    roughness: 0.4,
+    emissive: 0xe0b33a,
+    emissiveIntensity: 0.25,
+  });
   box(6.2, 0.02, 0.06, 44, 0.11, 9.7, line, group);
   box(6.2, 0.02, 0.06, 44, 0.11, 14.7, line, group);
   box(0.06, 0.02, 5.1, 41.1, 0.11, 12.2, line, group);
   box(0.06, 0.02, 5.1, 46.9, 0.11, 12.2, line, group);
 }
-

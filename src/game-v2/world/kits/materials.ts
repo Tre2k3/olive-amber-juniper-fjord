@@ -25,7 +25,7 @@ export function canvasTex(
  * loads; a missing file leaves the drawn one. `tint` keeps per-house colour
  * variation on top of a neutral scan.
  */
-function paintedScan(
+export function paintedScan(
   mat: THREE.MeshStandardMaterial,
   url: string,
   sx: number,
