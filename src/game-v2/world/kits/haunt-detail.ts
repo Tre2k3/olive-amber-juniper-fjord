@@ -576,13 +576,20 @@ export function animateHauntDetail(motes: THREE.Points, group: THREE.Object3D, t
       0.6 + Math.sin(t * 1.7) * 0.35;
 }
 
-
 /**
  * Drop a generated GLB prop into the house (public/game-v2/places/haunt/props/).
  * The model is scaled to `height` metres, floored at y=0, and replaces
  * `placeholder` (hidden) once it loads; a missing file leaves the placeholder.
  */
-export function hauntProp(parent: THREE.Object3D, file: string, x: number, z: number, height: number, ry: number, placeholder?: THREE.Object3D) {
+export function hauntProp(
+  parent: THREE.Object3D,
+  file: string,
+  x: number,
+  z: number,
+  height: number,
+  ry: number,
+  placeholder?: THREE.Object3D,
+) {
   new GLTFLoader().load(
     `/game-v2/places/haunt/props/${file}`,
     (gltf) => {
@@ -593,13 +600,21 @@ export function hauntProp(parent: THREE.Object3D, file: string, x: number, z: nu
       const s = height / Math.max(size.y, 0.001);
       model.scale.setScalar(s);
       const after = new THREE.Box3().setFromObject(model);
-      model.position.set(x - (after.min.x + after.max.x) / 2, -after.min.y, z - (after.min.z + after.max.z) / 2);
+      model.position.set(
+        x - (after.min.x + after.max.x) / 2,
+        -after.min.y,
+        z - (after.min.z + after.max.z) / 2,
+      );
       model.rotation.y = ry;
       model.traverse((o) => {
         if ((o as THREE.Mesh).isMesh) {
           const m = o as THREE.Mesh;
           m.castShadow = true;
           m.receiveShadow = true;
+          // An untextured pass ships white; give it painted wood until the textured file lands.
+          const mat = m.material as THREE.MeshStandardMaterial;
+          if (mat && !mat.map)
+            m.material = new THREE.MeshStandardMaterial({ color: 0x8c7f74, roughness: 0.72 });
         }
       });
       model.name = `haunt-prop-${file.replace(/\.glb$/, "")}`;
