@@ -96,8 +96,13 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - HUD rebuilt to the mockups (`Hud.tsx`): SACKDOLLARS / RESPECT chips; location pill with green dot and the boards' clock per lighting mode (2:15 PM / 6:42 PM / 10:35 PM); DROP ON chip; `Objective` panel top-right ("THE DROP DAY" + COURT/FISH/BOWL/EAT/RUN/HOUSE marks + mission line + "SELL YOUR CATCH" sub-line when the cooler has fish); `PromptLabel` renders the key in a box; MEMPHIS minimap with N compass, bottom-left. Old `.hud-mission`/`.hud-marks` removed (the vendor smoke asserts `.hud-mission` is absent near trucks — still true). Capture `artifacts/after/hud-hq-night.png`.
 - CI on 451ec5f: steps 1–15 green (typecheck, core, assets, lint, build, Chromium, preview, runtime reliability + mobile, production visual regression incl. the new fishing contract, food trucks, basketball camera); step 16 (basketball polish) still running at the time of writing. HUD commit held locally until that run reports (a push cancels it).
 
+## 2026-10-23 late — stuck CI step, dunk fix, push
+- The 451ec5f run sat >1 h in step 16 `basketball-polish-smoke.mjs` (steps 1–15 green). That test has no unbounded waits of its own, so a hang means the page's frame loop stopped and `frames()` never returned. Suspect: iron on dunk/layup flights (the athlete carries the ball into the rim from above; the torus deflected it before the crossing the dunk logic waits on). Fix: `tickCourtMatch` skips `rimContact` while `match.dunk >= 0 || match.layup >= 0`. Pushed with the HUD rebuild as e989b3a; the new `verify` run is in progress. If step 16 hangs again, reproduce the dunk path locally with `simulate()`.
+- Trey chose the deploy key ("one click"); instructions given with the direct settings link. The token can't list deploy keys (admin scope), so the key is verified from the Higgsfield sandbox (`git ls-remote` over SSH) at the start of the next turn.
+
 ## Next (in order)
-1. Visual pass per location against its board, court first (handoff §8), using the 901 production kit assets in `assets/sackreligious_game_asset_pack/` — art-led, needs Trey's eye.
+1. Verify the deploy key from the Higgsfield sandbox; if live, run the board-6 court batch: murals (2 remaining) + worn asphalt + block materials + image-to-3D bleachers/scoreboard/rack/cooler, pushed to `art/court`, fetched here, wired, captured against the board.
+2. Visual pass per location against its board, court first (handoff §8), using the 901 production kit assets in `assets/sackreligious_game_asset_pack/` — art-led, needs Trey's eye.
 2. Basketball presentation (handoff Pass C): net response on actual passage is there; next is camera stability and team readability. Then Pass A animation continuity.
 2. Haunt: layer staged events/audio onto `haunt-navigation.ts` rooms (no pasted plates); wire haunt audio bed.
 3. Bowling/racing feel items from the handoff §8.
