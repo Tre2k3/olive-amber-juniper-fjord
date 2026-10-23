@@ -105,8 +105,16 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Deploy key still NOT registered as of this turn (`Permission denied (publickey)` from the Higgsfield sandbox).
 - Board-6 textures generated (gpt_image_2_5, seamless 1:1): asphalt (ffd7234f), block wall (05960d11), chain-link on white → keyed transparent (7b1a0028), bleacher aluminum (6164c226). Staged in the Higgsfield sandbox at `~/art/court/` as 1024-px JPEG/PNG alongside `memphis-mural.jpg` and `sideline-banner.jpg`; inspected via a sandbox montage — on brief. Waiting on the key to push them to `art/court`.
 
+## 2026-10-23 — ART PIPELINE LIVE (token on the Higgsfield side, per Trey's "just finish")
+- Higgsfield sandbox: `~/repo` is a shallow clone of the repo (HTTPS with the token in the URL — the token is already in the chat transcript; Trey can revoke it any time). Flow: generate → curl into `~/art/<place>/` → convert (1024-px JPEG / keyed PNG) → copy into `public/game-v2/places/<place>/` on an `art/<place>` branch → push. Here: `git fetch origin +refs/heads/art/<place>:refs/remotes/origin/art/<place>` then `git cherry-pick --no-commit`, wire, verify, commit, push. Preview textures with `montage` + `image_paths` (cheap) instead of the text channel.
+- Board 6 shipped (3faee30): `kits/materials.ts` gains `courtBlock()` (chipped block, swaps over `brick()`), `courtAsphalt()` (apron), `bleacherAluminum()` (stand planks), `paintedChainLink()` (real mesh with alpha over `chainMat()`); court kit uses block for both mural walls, Memphis mural + sideline banner now `.jpg`; `slice.ts` fence and bleachers routed. Fallbacks keep the drawn materials when a file is missing. Capture `artifacts/after/court-board6-sideline.png`. HUD: court button row moved `sm:left-48` so it clears the minimap.
+- Board 2 generated and staged in the sandbox (`~/art/home/`: siding, shingles, wood-fence, lawn — inspected, on brief) but the `art/home` push did not land (connector timeouts, stale index.lock cleared). Retry: `cd ~/repo && rm -f .git/index.lock && git checkout -b art/home ...` then wire: house siding/roofs in `kits/home-detail.ts` / `districts.ts`, lawn on the home-block ground, cedar fence boards.
+- CI on 3faee30 in progress at the time of writing.
+
 ## Next (in order)
-1. Verify the deploy key from the Higgsfield sandbox; if live, run the board-6 court batch: murals (2 remaining) + worn asphalt + block materials + image-to-3D bleachers/scoreboard/rack/cooler, pushed to `art/court`, fetched here, wired, captured against the board.
+1. Land `art/home`, wire board 2 (siding/roof/fence/lawn), capture against the board.
+2. Board 7 (alley neon, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), board 10 props via image-to-3D.
+3. Verify the deploy key from the Higgsfield sandbox; if live, run the board-6 court batch: murals (2 remaining) + worn asphalt + block materials + image-to-3D bleachers/scoreboard/rack/cooler, pushed to `art/court`, fetched here, wired, captured against the board.
 2. Visual pass per location against its board, court first (handoff §8), using the 901 production kit assets in `assets/sackreligious_game_asset_pack/` — art-led, needs Trey's eye.
 2. Basketball presentation (handoff Pass C): net response on actual passage is there; next is camera stability and team readability. Then Pass A animation continuity.
 2. Haunt: layer staged events/audio onto `haunt-navigation.ts` rooms (no pasted plates); wire haunt audio bed.
