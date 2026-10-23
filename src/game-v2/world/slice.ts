@@ -4,7 +4,7 @@ import { characters, frameSize, type Facing, type Spawnable } from "../assets/ch
 import { carBody, resetVehicleCards } from "./kits/vehicles";
 import { residence } from "./kits/residence";
 import { sidewalkRun } from "./kits/street";
-import { concreteSlab, grass as grassMatKit, surface } from "./kits/materials";
+import { concreteSlab, grass as grassMatKit, surface, paintedChainLink, bleacherAluminum } from "./kits/materials";
 import { crepeMyrtle, matureTree, ornamental, resetFoliage, shadeTree, shrub as kitShrub, streetTree } from "./kits/trees";
 import { bench, hydrant, picketFence, planter, stormDrain, streetlight, trashBin } from "./kits/props";
 import { addGround, clearGround } from "./ground";
@@ -713,7 +713,7 @@ export function buildSlice(): SliceWorld {
     exterior.add(logo);
   }
   addGround({ minX: courtX - 11, maxX: courtX + 11, minZ: courtZ - 7, maxZ: courtZ + 7, y: 0.06 });
-  const fence = chainMat();
+  const fence = paintedChainLink(chainMat());
   box(22.4, 2.6, 0.08, courtX, 1.3, courtZ - 7.1, fence, exterior);
   box(9.2, 2.6, 0.08, courtX - 6.4, 1.3, courtZ + 7.1, fence, exterior);
   box(9.2, 2.6, 0.08, courtX + 6.4, 1.3, courtZ + 7.1, fence, exterior);
@@ -739,7 +739,7 @@ export function buildSlice(): SliceWorld {
   streetSolids.push({ minX: courtX + 10.9, maxX: courtX + 11.5, minZ: courtZ - 7, maxZ: courtZ + 7 });
   for (let i = 0; i < 5; i++) {
     const seat = new THREE.MeshStandardMaterial({ color: i % 2 ? 0x141414 : 0xff4a12, roughness: 0.5, metalness: 0.15 });
-    box(18, 0.22, 1.15, courtX, 0.28 + i * 0.32, courtZ - 9.4 - i * 0.55, seat, exterior);
+    box(18, 0.22, 1.15, courtX, 0.28 + i * 0.32, courtZ - 9.4 - i * 0.55, bleacherAluminum(), exterior);
     box(18, 0.55, 0.08, courtX, 0.62 + i * 0.32, courtZ - 9.85 - i * 0.55, seat, exterior);
   }
   const west = buildGoal(courtX - 8.7, courtZ, 1, exterior);

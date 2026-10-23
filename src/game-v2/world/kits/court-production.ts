@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { canvasTex, brick, concreteSlab } from "./materials";
+import { canvasTex, concreteSlab, courtBlock, courtAsphalt } from "./materials";
 import { flagshipLogo } from "./brand";
 
 /**
@@ -198,7 +198,7 @@ function mural(parent: THREE.Object3D, x: number, z: number) {
   group.position.set(x, 0, z);
   // The wall is dimensional brick/block with separate murals/signage, not a
   // full-screen concept image wrapped around a wall.
-  const block = brick();
+  const block = courtBlock();
   box(group, 23.6, 4.25, 0.45, 0, 2.13, 0, block);
   box(group, 24.05, 0.15, 0.65, 0, 4.28, 0, bronze);
   box(group, 24.05, 0.23, 0.74, 0, 0.15, 0, charcoal);
@@ -218,7 +218,7 @@ function mural(parent: THREE.Object3D, x: number, z: number) {
   const memphisMat = new THREE.MeshStandardMaterial({ roughness: 0.84 });
   paintedArt(
     memphisMat,
-    "memphis-mural.png",
+    "memphis-mural.jpg",
     labelTexture("MEMPHIS", "RESPECT THE GAME", "#1b2b29", "#efb94b"),
   );
   const memphis = part(
@@ -241,7 +241,7 @@ function endMural(parent: THREE.Object3D, x: number, z: number) {
   const g = new THREE.Group();
   g.position.set(x, 0, z);
   g.rotation.y = Math.PI / 2;
-  const block = brick();
+  const block = courtBlock();
   box(g, 11.4, 4.1, 0.45, 0, 2.05, 0, block);
   box(g, 11.8, 0.15, 0.65, 0, 4.13, 0, bronze);
   box(g, 11.8, 0.23, 0.74, 0, 0.15, 0, charcoal);
@@ -257,7 +257,7 @@ function sidelineBanner(parent: THREE.Object3D, x: number, z: number) {
   const mat = new THREE.MeshStandardMaterial({ roughness: 0.7, side: THREE.DoubleSide });
   paintedArt(
     mat,
-    "sideline-banner.png",
+    "sideline-banner.jpg",
     labelTexture("901", "RESPECT THE GAME", "#101010", "#efb94b"),
   );
   const banner = part(g, new THREE.PlaneGeometry(9.6, 1.35), mat, 0, 1.45, 0.06, false);
@@ -314,7 +314,7 @@ export function dress901Court(parent: THREE.Object3D, cx: number, cz: number) {
   // The walkway apron runs OUTSIDE the playable floor, preserving z fighting
   // and the court paint / sole-contact under Benji's feet.
   for (const side of [-1, 1]) {
-    box(court, 2.3, 0.07, 16.6, cx + side * 12.45, 0.045, cz, concreteSlab(side + 3));
+    box(court, 2.3, 0.07, 16.6, cx + side * 12.45, 0.045, cz, courtAsphalt());
     box(court, 2.3, 0.08, 0.11, cx + side * 12.45, 0.11, cz + 7.8, bronze);
   }
   for (const side of [-1, 1]) {

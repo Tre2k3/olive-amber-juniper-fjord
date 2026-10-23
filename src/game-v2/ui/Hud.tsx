@@ -58,7 +58,9 @@ export function Hud({
         <div className="flex items-center gap-2 self-start rounded-full border border-[#e0b33a66] bg-[#0b0b0fe6] px-3 py-1 text-xs text-[#f4efe4]">
           <span className="inline-block h-2 w-2 rounded-full bg-[#39ff14] shadow-[0_0_6px_#39ff14]" />
           <span className="font-medium">{locationLine(state)}</span>
-          <span className="text-[10px] font-semibold tracking-[0.18em] text-[#e0b33a]">{state.night ? "NIGHT" : state.golden ? "GOLDEN" : "DAY"}</span>
+          <span className="text-[10px] font-semibold tracking-[0.18em] text-[#e0b33a]">
+            {state.night ? "NIGHT" : state.golden ? "GOLDEN" : "DAY"}
+          </span>
           <span className="text-[#f4efe499]">{clockFor(state)}</span>
         </div>
         <div className="flex gap-2">
@@ -143,7 +145,7 @@ export function Hud({
         </div>
       )}
       {state.place === "court" && (
-        <div className="pointer-events-auto absolute bottom-36 left-3 flex max-w-[calc(100vw-6rem)] flex-wrap gap-1 sm:bottom-16 sm:max-w-none">
+        <div className="pointer-events-auto absolute bottom-36 left-3 flex max-w-[calc(100vw-6rem)] flex-wrap gap-1 sm:bottom-16 sm:left-48 sm:max-w-none">
           {[
             ["HALF 2v2", "KeyG"],
             ["FULL 2v2", "KeyH"],
