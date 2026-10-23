@@ -86,6 +86,17 @@ export function Hud({
       {state.dialogue && (
         <Dialogue line={state.dialogue} brother={state.foodCourt?.activeBrother} />
       )}
+      {state.paused && <PauseMenu muted={!!state.muted} action={action} />}
+      {!state.paused && (
+        <button
+          type="button"
+          aria-label="Pause"
+          onClick={() => action("Pause")}
+          className="pointer-events-auto absolute right-3 top-[7.6rem] z-20 rounded-md border border-[#f4efe433] bg-[#0d0d0dcc] px-2 py-1 text-[10px] tracking-[0.16em] text-[#f4efe4] sm:top-[8.4rem]"
+        >
+          II MENU
+        </button>
+      )}
       {state.bowl && <BowlBoard bowl={state.bowl} />}
       {state.fishing && state.fishing.phase !== "idle" && <FishPanel fish={state.fishing} />}
       {state.fishing && state.fishing.phase === "idle" && state.fishing.cooler > 0 && (
@@ -571,6 +582,66 @@ function BowlBoard({ bowl }: { bowl: NonNullable<HudState["bowl"]> }) {
         <div className="text-[9px] tracking-widest">TOTAL</div>
         <div className="text-lg leading-5">{bowl.score}</div>
         <div className="text-[9px] text-[#f4efe488]">BEST {bowl.best}</div>
+      </div>
+    </div>
+  );
+}
+
+function PauseMenu({ muted, action }: { muted: boolean; action: (code: string) => void }) {
+  const rows: [string, string][] = [
+    ["WASD / Arrows", "move · Shift run"],
+    ["E", "interact · talk · pick up · cast / hook"],
+    ["Space", "hold to shoot, roll, cast, reel · drift in the race"],
+    ["G / H", "start a half / full 2v2 at the court"],
+    ["F · C · V · L", "pass · cross · dunk · layup (2v2)"],
+    ["B", "cycle court camera (Behind / Sideline / Baseline)"],
+    ["Q / R", "orbit camera · N day / night · X mute"],
+    ["Esc", "pause · leave a match"],
+  ];
+  return (
+    <div
+      data-testid="pause-menu"
+      className="pointer-events-auto absolute inset-0 z-[60] flex items-center justify-center bg-[#05060aee]"
+    >
+      <div className="w-[min(92vw,34rem)] rounded-xl border border-[#e0b33a66] bg-[#0b0b12] p-5 text-[#f4efe4] shadow-2xl">
+        <div className="text-[11px] tracking-[0.3em] text-[#e0b33a]">$ACKRELIGIOUS · MEMPHIS</div>
+        <div className="mt-1 text-2xl">Paused</div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => action("Resume")}
+            className="rounded-md bg-[#e0b33a] px-4 py-2 text-sm font-semibold text-[#141414]"
+          >
+            Resume
+          </button>
+          <button
+            type="button"
+            onClick={() => action("SoundToggle")}
+            className="rounded-md border border-[#f4efe433] px-4 py-2 text-sm"
+          >
+            {muted ? "Sound: off" : "Sound: on"}
+          </button>
+        </div>
+        <div className="mt-4 max-h-[40vh] overflow-y-auto rounded-md border border-[#f4efe41a] p-3 text-xs">
+          {rows.map(([k, w]) => (
+            <div key={k} className="flex gap-3 py-1">
+              <span className="w-28 shrink-0 font-semibold text-[#7af0ff]">{k}</span>
+              <span className="text-[#f4efe4cc]">{w}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 flex items-center justify-between text-xs text-[#f4efe488]">
+          <span>Progress saves on its own.</span>
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm("Wipe your save and start over?")) action("ResetSave");
+            }}
+            className="rounded-md border border-[#ff4d4d55] px-3 py-1 text-[#ff8a8a]"
+          >
+            Reset save
+          </button>
+        </div>
       </div>
     </div>
   );

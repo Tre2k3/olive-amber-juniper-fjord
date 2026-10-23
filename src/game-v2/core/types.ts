@@ -29,6 +29,8 @@ export type HudState = {
   taken: number;
   activity?: "race" | "bowl" | "fish";
   fishing?: FishHud | null;
+  paused?: boolean;
+  muted?: boolean;
   bowl?: { frames: FrameBox[]; score: number; best: number; standing: number } | null;
   veli?: { near: boolean; open: boolean; serving: number; order: string; price: number };
   foodCourt?: { open: "brothers" | "catch901" | null; serving: "brothers" | "catch901" | null; left: number; order: string; near: boolean; activeBrother: number; nextBrother: number };

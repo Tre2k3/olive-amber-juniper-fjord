@@ -77,6 +77,10 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Runtime: a human 2v2 win (GREEN, team 0) is detected on the finished edge → first win $120 + 8 respect + Court OG line; later wins $40 + 2. The haunt clear refreshes the mission line. K Blanco pays the finale once all six are done: $500 + 25 respect + closing line; afterwards "Memphis is yours. The block stays open."
 - HUD marks strip now COURT · FISH · BOWL · EAT · RACE · HOUSE. Core suite 27 PASS (new chain test); browser: marks render, a full 2v2 runs to a result, zero errors.
 
+## Done 2026-10-23 (pass 14 — pause menu)
+- Esc on the street (menus and matches take Esc first; not during a race or bowling) or the HUD "II MENU" button pauses: the loop keeps drawing but stops stepping, keys clear, audio suspends. Menu: Resume, Sound on/off, a controls table, Reset save (confirm → wipes `sack-v2` and reloads). `HudState.paused/muted`; `GameAudio.muted` getter. Lesson: the HUD root is `pointer-events-none` — any new interactive panel needs `pointer-events-auto` (fixed) and a z above the touch layer.
+- Verified: typecheck/lint clean, core suite 27 PASS, build passes; browser: button opens the menu, movement is frozen while paused, Sound toggles, Resume closes, zero errors. (Playwright's actionability waits are unreliable at 0.5 fps — drive buttons through DOM clicks in QA here.)
+
 ## Next (in order)
 1. Visual pass per location against its board, court first (handoff §8), using the 901 production kit assets in `assets/sackreligious_game_asset_pack/` — art-led, needs Trey's eye.
 2. Basketball presentation (handoff Pass C): net response on actual passage is there; next is camera stability and team readability. Then Pass A animation continuity.

@@ -163,6 +163,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   // Real fishing lives in play/fishing.ts; `city.fish` stays null from here on.
   const fishing: Fishing = freshFishing();
   let castArmed = false;
+  let paused = false;
   let lastCountdownTick = -1;
   const audio = new GameAudio();
   // Cast beside the deck so the line and float remain visible in open water.
@@ -412,7 +413,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if ((veli.open || foodCourt.open) && code !== "KeyE") { if(down && code === "Escape") { veli.open=false; foodCourt.open=null; e.preventDefault(); push(hud()); } return; }
     if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyN", "KeyE", "KeyM", "KeyQ", "KeyR", "ShiftLeft", "ShiftRight"].includes(code) || ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
     if (down && e.repeat) return;
+    if (paused) {
+      if (down && code === "Escape") { e.preventDefault(); togglePause(false); }
+      return;
+    }
     if (down && courtCommand(code)) { e.preventDefault(); return; }
+    if (down && code === "Escape" && !city.race && !city.bowl) { e.preventDefault(); togglePause(true); return; }
     const names = [code, e.key].filter(Boolean);
     if (down) names.forEach((name) => keys.add(name));
     else names.forEach((name) => keys.delete(name));
@@ -424,6 +430,18 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (down && (code === "KeyN" || e.key === "n" || e.key === "N")) cycleLight();
     if (down && (code === "KeyM" || e.key === "m" || e.key === "M")) logOpen = !logOpen;
   };
+  function togglePause(next = !paused) {
+    paused = next;
+    if (paused) {
+      clearKeys();
+      charging = false;
+      audio.suspend();
+    } else {
+      audio.resume();
+      last = performance.now();
+    }
+    push(hud());
+  }
   const kd = (e: KeyboardEvent) => onKey(e, true);
   const ku = (e: KeyboardEvent) => onKey(e, false);
   const clearKeys = () => {
@@ -544,6 +562,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     last = now;
     resize();
     if (captureFrozen) { composer.render(); return; }
+    if (paused) { composer.render(); return; }
 
     const { hold, interactEdge } = pollInput();
     if (veli.serving > 0) veli.serving = Math.max(0,veli.serving-dt);
@@ -608,6 +627,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       marks: { fish: city.fished, bowl: city.bowled, food: city.fed, race: city.raced, court: city.wonMatch, haunt: hauntCleared },
       fishing: fishing.phase !== "idle" || near(world.districts.pier, 2.4) ? fishingHud(fishing) : null,
       bowl: city.bowl ? { frames: frameBoard(city.bowl), score: city.bowl.score, best: city.bestBowl, standing: city.bowl.standing } : null,
+      paused,
+      muted: audio.muted,
       bestBowl: city.bestBowl,
       bestRace: city.bestRace,
     };
@@ -2059,6 +2080,14 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       charging = next;
     },
     press(code: string) {
+      if (code === "Pause") { togglePause(true); return; }
+      if (code === "Resume") { togglePause(false); return; }
+      if (code === "SoundToggle") { audio.toggleMuted(); push(hud()); return; }
+      if (code === "ResetSave") {
+        try { localStorage.removeItem(SAVE_KEY); } catch { /* storage denied */ }
+        window.location.reload();
+        return;
+      }
       if (code === "VeliTVToggle" || code === "VeliTVMute") {
         if(place === "street" && near(VELI_ANCHOR,4)) { if(code === "VeliTVToggle") veliTv.toggle(); else veliTv.mute(); push(hud()); }
         return;

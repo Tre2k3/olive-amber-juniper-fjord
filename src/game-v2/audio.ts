@@ -158,6 +158,10 @@ export class GameAudio {
     this.save();
   }
 
+  get muted() {
+    return this.mix.muted;
+  }
+
   toggleMuted() {
     this.mix.muted = !this.mix.muted;
     this.apply();
