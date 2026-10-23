@@ -81,6 +81,10 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Esc on the street (menus and matches take Esc first; not during a race or bowling) or the HUD "II MENU" button pauses: the loop keeps drawing but stops stepping, keys clear, audio suspends. Menu: Resume, Sound on/off, a controls table, Reset save (confirm → wipes `sack-v2` and reloads). `HudState.paused/muted`; `GameAudio.muted` getter. Lesson: the HUD root is `pointer-events-none` — any new interactive panel needs `pointer-events-auto` (fixed) and a z above the touch layer.
 - Verified: typecheck/lint clean, core suite 27 PASS, build passes; browser: button opens the menu, movement is frozen while paused, Sound toggles, Resume closes, zero errors. (Playwright's actionability waits are unreliable at 0.5 fps — drive buttons through DOM clicks in QA here.)
 
+## Pushed 2026-10-23
+- Trey provided a fine-grained GitHub token (Contents RW on this repo; it lives in the chat transcript and in Claude's sandbox credential store, never in these docs). `feat/production-hq-world-pass` pushed 8d29c60..4cd2e7c (15 commits, fast-forward). PR #2 head is 4cd2e7c and still a draft. CI `verify` run: https://github.com/Tre2k3/olive-amber-juniper-fjord/actions/runs/39962409510 — was still in progress ~5 min after push; its smoke suites are the ones Claude could not run on the 0.5 fps host, so its result is the first full-suite signal for these commits. No Vercel deployment or bot comment had appeared yet.
+- From here Claude pushes directly. Higgsfield-side pushes (art branches) still need either the deploy key or Trey's OK to use the token inside the Higgsfield sandbox.
+
 ## Next (in order)
 1. Visual pass per location against its board, court first (handoff §8), using the 901 production kit assets in `assets/sackreligious_game_asset_pack/` — art-led, needs Trey's eye.
 2. Basketball presentation (handoff Pass C): net response on actual passage is there; next is camera stability and team readability. Then Pass A animation continuity.
