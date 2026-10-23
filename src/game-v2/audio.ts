@@ -18,6 +18,16 @@ export type Sfx =
   | "release"
   | "heat"
   | "buzzer"
+  | "bowlRelease"
+  | "engine"
+  | "drift"
+  | "countdown"
+  | "bowlRoll"
+  | "pins"
+  | "strike"
+  | "spare"
+  | "gutter"
+  | "foul"
   | "whistle"
   // river
   | "cast"
@@ -244,6 +254,9 @@ export class GameAudio {
       nibble: 0.3,
       flicker: 0.12,
       strain: 0.2,
+      bowlRoll: 0.22,
+      engine: 0.16,
+      drift: 0.14,
     };
     const g = gate[name];
     if (g !== undefined) {
@@ -271,6 +284,89 @@ export class GameAudio {
         break;
       case "bounce":
         this.tone({ f: 112 + v * 40, dur: 0.12, vol: 0.09 + v * 0.05, to: 72 });
+        break;
+      case "engine":
+        // V8 idle to redline: a sawtooth whose pitch and bite follow speed (v 0..1), retriggered while driving.
+        this.tone({
+          f: 52 + v * 160,
+          type: "sawtooth",
+          dur: 0.2,
+          vol: 0.035 + v * 0.03,
+          to: 50 + v * 165,
+          attack: 0.02,
+        });
+        this.tone({
+          f: 104 + v * 320,
+          type: "square",
+          dur: 0.2,
+          vol: 0.012 + v * 0.015,
+          attack: 0.02,
+        });
+        break;
+      case "drift":
+        this.hiss({ dur: 0.2, vol: 0.06 + v * 0.05, f: 1800, to: 900, q: 2.5, type: "bandpass" });
+        break;
+      case "countdown":
+        this.tone({
+          f: v >= 1 ? 1047 : 660,
+          type: "square",
+          dur: v >= 1 ? 0.5 : 0.14,
+          vol: 0.09,
+          attack: 0.004,
+        });
+        break;
+      case "bowlRelease":
+        // Sixteen pounds meeting maple: a low thump with a short lane rattle.
+        this.tone({ f: 70, dur: 0.22, vol: 0.16, to: 46 });
+        this.hiss({ dur: 0.08, vol: 0.05, f: 700, to: 300 });
+        break;
+      case "bowlRoll":
+        // Rolling rumble, retriggered while the ball travels; v is speed 0..1.
+        this.hiss({
+          dur: 0.26,
+          vol: 0.03 + v * 0.05,
+          f: 180 + v * 120,
+          to: 160,
+          q: 1.2,
+          type: "lowpass",
+        });
+        break;
+      case "pins": {
+        // Maple clatter: a burst of short knocks spread over ~0.3 s, more of them for more pins (v 0..1).
+        const n = 3 + Math.round(v * 9);
+        for (let i = 0; i < n; i++) {
+          const at = i * (0.03 + Math.random() * 0.02);
+          this.tone({
+            f: 420 + Math.random() * 500,
+            type: "square",
+            dur: 0.05,
+            vol: 0.05 + v * 0.03,
+            to: 220,
+            delay: at,
+            attack: 0.002,
+          });
+          this.hiss({ dur: 0.07, vol: 0.04, f: 2200 + Math.random() * 1500, to: 900, delay: at });
+        }
+        this.tone({ f: 90, dur: 0.3, vol: 0.12 + v * 0.06, to: 55 });
+        break;
+      }
+      case "strike":
+        this.tone({ f: 523, dur: 0.1, vol: 0.09, attack: 0.005 });
+        this.tone({ f: 659, dur: 0.1, vol: 0.09, delay: 0.1, attack: 0.005 });
+        this.tone({ f: 784, dur: 0.12, vol: 0.1, delay: 0.2, attack: 0.005 });
+        this.tone({ f: 1047, dur: 0.45, vol: 0.12, delay: 0.32, attack: 0.01 });
+        break;
+      case "spare":
+        this.tone({ f: 587, dur: 0.1, vol: 0.09, attack: 0.005 });
+        this.tone({ f: 880, dur: 0.4, vol: 0.11, delay: 0.12, attack: 0.01 });
+        break;
+      case "gutter":
+        this.tone({ f: 60, dur: 0.3, vol: 0.14, to: 40 });
+        this.hiss({ dur: 0.35, vol: 0.04, f: 300, to: 120, type: "lowpass" });
+        break;
+      case "foul":
+        this.tone({ f: 220, type: "square", dur: 0.18, vol: 0.07 });
+        this.tone({ f: 220, type: "square", dur: 0.28, vol: 0.07, delay: 0.24 });
         break;
       case "pickup":
         this.hiss({ dur: 0.08, vol: 0.05, f: 900 });

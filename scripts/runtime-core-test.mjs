@@ -433,3 +433,22 @@ console.log('PASS: separate defensive assignments, rebound pursuit and non-telep
   assert.ok(second.r.fallen.every((f, i) => f || left[i]), 'the second ball only counts pins still standing');
   console.log('PASS: bowling approach, foul, gutter, pocket strikes and spare pickups are simulated');
 }
+
+// ---- bowling scoreboard strip (added with the finish pass) ----
+{
+  const { frameBoard, bowlingScore } = await load('../src/game-v2/play/city.ts');
+  const bowl = (throws, frame, phase = 'aim') => ({ throws, frame, phase, score: bowlingScore(throws), standing: 10 });
+  let b = frameBoard(bowl([[10], [7, 3], [4, 2], []], 3));
+  assert.deepEqual(b[0].rolls, ['X'], 'strike shows as X');
+  assert.deepEqual(b[1].rolls, ['7', '/'], 'spare shows as /');
+  assert.equal(b[0].total, 20, 'strike total waits for two rolls then counts them: 10+7+3');
+  assert.equal(b[1].total, 34, 'spare counts the next roll: 20 + 10 + 4');
+  assert.equal(b[2].total, 40, 'open frame adds its pins');
+  assert.equal(b[3].total, null, 'the frame in play has no total yet');
+  assert.ok(b[3].current, 'the frame in play is marked');
+  b = frameBoard(bowl([[10], []], 1));
+  assert.equal(b[0].total, null, 'a strike has no total until its bonus rolls exist');
+  b = frameBoard(bowl([[0, 0], [10], [10], [10], [10], [10], [10], [10], [10], [10, 10, 10]], 9, 'finished'));
+  assert.equal(b[9].total, 270, 'tenth frame totals the whole game');
+  console.log('PASS: bowling scoreboard marks strikes, spares, pending and running totals');
+}

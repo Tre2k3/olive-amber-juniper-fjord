@@ -61,6 +61,7 @@ import {
   type City,
   type PlayEvent,
   type Spot,
+  frameBoard,
 } from "./play/city";
 
 type Car = { lane: number; s: number; speed: number; mesh: THREE.Group };
@@ -161,6 +162,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   // Real fishing lives in play/fishing.ts; `city.fish` stays null from here on.
   const fishing: Fishing = freshFishing();
   let castArmed = false;
+  let lastCountdownTick = -1;
   const audio = new GameAudio();
   // Cast beside the deck so the line and float remain visible in open water.
   bobber.position.set(-21.5, 0.055, -73);
@@ -600,6 +602,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       log: logOpen,
       marks: { fish: city.fished, bowl: city.bowled, food: city.fed, race: city.raced },
       fishing: fishing.phase !== "idle" || near(world.districts.pier, 2.4) ? fishingHud(fishing) : null,
+      bowl: city.bowl ? { frames: frameBoard(city.bowl), score: city.bowl.score, best: city.bestBowl, standing: city.bowl.standing } : null,
       bestBowl: city.bestBowl,
       bestRace: city.bestRace,
     };
@@ -766,6 +769,22 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
     if (interact) tryEnter();
     const play = tickCity(city, dt, hold, steer);
+    if (city.bowl?.lastEvents?.length) {
+      for (const e of city.bowl.lastEvents) {
+        if (e === "release") audio.play("bowlRelease");
+        else if (e === "gutter") audio.play("gutter");
+        else if (e === "foul") audio.play("foul");
+        else if (e === "pinhit") audio.play("pins", Math.min(1, city.bowl.roll.fellThisRoll / 10));
+        else if (e === "settled") {
+          const b = city.bowl;
+          if (b.roll.foul) { /* foul buzz already played */ }
+          else if (b.roll.fellThisRoll === 10) audio.play("strike");
+          else if (b.standing - b.roll.fellThisRoll === 0) audio.play("spare");
+        }
+      }
+      city.bowl.lastEvents.length = 0;
+    }
+    if (city.bowl?.phase === "roll" && city.bowl.roll.ball && !city.bowl.roll.ball.gutter) audio.play("bowlRoll", Math.min(1, city.bowl.roll.ball.vs / 9));
     if (play) grant(play);
     if (!city.bowl && /901 Bowl|on the lane/.test(dialogue)) {
       dialogue = "";
@@ -874,6 +893,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const result = crossFinish(city); if (result) grant(result);
     circuit.human.position.set(race.x,.065,race.z); circuit.human.rotation.y = race.yaw+Math.PI;
     const rival = rivalPose(race);
+    if (race.phase === "running") {
+      audio.play("engine", Math.min(1, race.speed / 27));
+      if (drift && race.speed > 8) audio.play("drift", Math.min(1, race.speed / 27));
+    } else if (race.phase === "countdown") {
+      const tick = Math.ceil(race.countdown);
+      if (tick !== lastCountdownTick) { lastCountdownTick = tick; audio.play("countdown", tick <= 0 ? 1 : 0); }
+    }
     for (const e of race.events) {
       if (e === "contact") audio.play("backboard");
       else if (e === "draft") audio.play("pickup");

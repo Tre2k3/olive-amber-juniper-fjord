@@ -14,6 +14,7 @@ export type Solid = {
 };
 
 import type { FishHud } from "../play/fishing";
+import type { FrameBox } from "../play/city";
 
 export type HudState = {
   place: Place;
@@ -28,6 +29,7 @@ export type HudState = {
   taken: number;
   activity?: "race" | "bowl" | "fish";
   fishing?: FishHud | null;
+  bowl?: { frames: FrameBox[]; score: number; best: number; standing: number } | null;
   veli?: { near: boolean; open: boolean; serving: number; order: string; price: number };
   foodCourt?: { open: "brothers" | "catch901" | null; serving: "brothers" | "catch901" | null; left: number; order: string; near: boolean; activeBrother: number; nextBrother: number };
   veliTv?: { near: boolean; playing: boolean; muted: boolean; ready: boolean; error: string };

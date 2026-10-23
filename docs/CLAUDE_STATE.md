@@ -67,6 +67,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Fix: `endMural()` — a 11.4×4.1 m block wall with bronze cap 13.6 m west of centre (just outside the west fence), rotated to face the court, carrying the painted mural at 7.6×3.25 m, y 2.2. It sits directly behind the west backboard in the default camera. Capture `artifacts/after/court-end-mural.png`, zero errors. The north sideline mural stays (lifted to y 2.75, 6.8×2.9) and the flagship logo moved beside it onto the block at x −9.2.
 - Deploy key still not on the repo as of this pass.
 
+## Done 2026-10-23 (pass 12 — finish pass: bowling scoreboard + sound, racing sound)
+- Bowling was silent and had only a text line for score. `audio.ts` gains bowlRelease, bowlRoll (speed-scaled rumble while the ball travels), pins (clatter burst scaled by pins down), strike/spare stingers, gutter, foul. Driven from sim events (`bowl.lastEvents`) in the runtime. `city.ts`: `frameBoard()` builds the ten-frame strip (X, /, -, pending totals, current frame) and `cumulative()` scores through a frame with bonus rolls from later frames; best score is now the best **game**, recorded at the tenth frame with a line and respect. `Hud.tsx`: `BowlBoard` strip (frames, running totals, TOTAL, BEST). Core test added (strike/spare/open/pending/tenth); browser capture `artifacts/after/bowl-scoreboard.png`.
+- Racing: engine note by speed, drift sizzle while drifting at speed, countdown beeps with a higher tone on go. Touch audit: stick x aims the bowl, ROLL holds the approach, E button releases the cast — no new controls needed.
+- Verified: typecheck/lint clean, core suite 26 PASS, build passes, zero page errors.
+
 ## Next (in order)
 1. Visual pass per location against its board, court first (handoff §8), using the 901 production kit assets in `assets/sackreligious_game_asset_pack/` — art-led, needs Trey's eye.
 2. Basketball presentation (handoff Pass C): net response on actual passage is there; next is camera stability and team readability. Then Pass A animation continuity.
