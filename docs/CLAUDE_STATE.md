@@ -91,6 +91,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Rule: a push cancels an in-progress `verify` run (concurrency); don't push docs while waiting on CI.
 - Playing it: no Vercel deployment exists for PR branches (none appeared), so today the path is local: checkout the branch, `npm ci && npm run dev`. A Vercel preview needs the repo connected in Vercel.
 
+## Concept boards (2026-10-23) — the brief
+- Trey supplied the full board set; downscaled copies live in `docs/concept/` (world map, home/neighborhood kit, 901 court kit, downtown/bowling/racing, haunted house + 901 Day, vehicles/props/HUD, and seven in-game HUD mockups). These are the targets for every visual pass and the reference inputs for Higgsfield prompts.
+- HUD rebuilt to the mockups (`Hud.tsx`): SACKDOLLARS / RESPECT chips; location pill with green dot and the boards' clock per lighting mode (2:15 PM / 6:42 PM / 10:35 PM); DROP ON chip; `Objective` panel top-right ("THE DROP DAY" + COURT/FISH/BOWL/EAT/RUN/HOUSE marks + mission line + "SELL YOUR CATCH" sub-line when the cooler has fish); `PromptLabel` renders the key in a box; MEMPHIS minimap with N compass, bottom-left. Old `.hud-mission`/`.hud-marks` removed (the vendor smoke asserts `.hud-mission` is absent near trucks — still true). Capture `artifacts/after/hud-hq-night.png`.
+- CI on 451ec5f: steps 1–15 green (typecheck, core, assets, lint, build, Chromium, preview, runtime reliability + mobile, production visual regression incl. the new fishing contract, food trucks, basketball camera); step 16 (basketball polish) still running at the time of writing. HUD commit held locally until that run reports (a push cancels it).
+
 ## Next (in order)
 1. Visual pass per location against its board, court first (handoff §8), using the 901 production kit assets in `assets/sackreligious_game_asset_pack/` — art-led, needs Trey's eye.
 2. Basketball presentation (handoff Pass C): net response on actual passage is there; next is camera stability and team readability. Then Pass A animation continuity.

@@ -50,36 +50,37 @@ export function Hud({
           )}
         </div>
       )}
-      <div className="hud-wallet absolute left-3 top-3 flex max-w-[11.5rem] flex-wrap gap-2 sm:max-w-none">
-        <Chip label="SACK" value={`$${state.dollars}`} />
-        <Chip label="RESPECT" value={String(state.respect)} />
-        <Chip
-          label={placeName(state.place)}
-          value={state.night ? "NIGHT" : state.golden ? "GOLDEN" : "DAY"}
-        />
-        {state.carrying && <Chip label="DROP" value="ON" />}
-        {state.boost && <Chip label="FED" value="GO" />}
-        {state.fit !== "default" && <Chip label="FIT" value={state.fit.toUpperCase()} />}
+      <div className="hud-wallet absolute left-3 top-3 flex max-w-[12rem] flex-col gap-2 sm:max-w-none">
+        <div className="flex gap-2">
+          <Chip label="SACKDOLLARS" value={`$${state.dollars}`} />
+          <Chip label="RESPECT" value={String(state.respect)} />
+        </div>
+        <div className="flex items-center gap-2 self-start rounded-full border border-[#e0b33a66] bg-[#0b0b0fe6] px-3 py-1 text-xs text-[#f4efe4]">
+          <span className="inline-block h-2 w-2 rounded-full bg-[#39ff14] shadow-[0_0_6px_#39ff14]" />
+          <span className="font-medium">{locationLine(state)}</span>
+          <span className="text-[#f4efe499]">{clockFor(state)}</span>
+        </div>
+        <div className="flex gap-2">
+          {state.carrying && <Chip label="DROP" value="ON" />}
+          {state.boost && <Chip label="FED" value="GO" />}
+          {state.fit !== "default" && <Chip label="FIT" value={state.fit.toUpperCase()} />}
+        </div>
       </div>
-      <div className="absolute right-3 top-3 w-24 rounded-md border border-[#e0b33a55] bg-[#0d0d0dcc] p-2 sm:top-4 sm:w-36">
-        <div className="text-[10px] tracking-[0.18em] text-[#e0b33a]">
-          {state.activity === "race" ? "NITRO" : "MEMPHIS"}
+      <div className="hud-minimap absolute bottom-[9.5rem] left-3 w-28 rounded-md border border-[#e0b33a66] bg-[#0b0b0fe6] p-2 sm:bottom-4 sm:w-40">
+        <div className="flex items-baseline justify-between">
+          <div className="text-[11px] font-semibold tracking-[0.18em] text-[#e0b33a]">
+            {state.activity === "race" ? "NITRO" : "MEMPHIS"}
+          </div>
+          <div className="text-[9px] tracking-widest text-[#f4efe488]">N ▲</div>
         </div>
         <Mini state={state} />
       </div>
-      {!state.veli?.near && !state.foodCourt?.near && (
-        <div className="hud-mission absolute left-3 right-[7.5rem] top-[7.15rem] rounded-md bg-[#0d0d0dcc] px-3 py-2 text-center text-sm sm:left-1/2 sm:right-auto sm:top-4 sm:max-w-[70vw] sm:-translate-x-1/2">
-          {state.activity === "race" ? "NITRO CIRCUIT · 3 LAPS" : state.mission}
-        </div>
-      )}
       {!state.veli?.near && !state.foodCourt?.near && state.activity !== "race" && (
-        <div className="hud-marks absolute left-3 top-[10.6rem] flex gap-1 text-[10px] tracking-[0.14em] sm:left-1/2 sm:top-14 sm:-translate-x-1/2">
-          <Mark on={state.marks.court} label="COURT" />
-          <Mark on={state.marks.fish} label="FISH" />
-          <Mark on={state.marks.bowl} label="BOWL" />
-          <Mark on={state.marks.food} label="EAT" />
-          <Mark on={state.marks.race} label="RACE" />
-          <Mark on={state.marks.haunt} label="HOUSE" />
+        <Objective state={state} />
+      )}
+      {state.activity === "race" && (
+        <div className="hud-mission absolute left-1/2 top-3 -translate-x-1/2 rounded-md bg-[#0d0d0dcc] px-3 py-2 text-center text-sm">
+          NITRO CIRCUIT · 3 LAPS
         </div>
       )}
       {state.log && <Log state={state} />}
@@ -127,7 +128,7 @@ export function Hud({
           data-testid="interaction-prompt"
           className={`absolute left-3 right-3 top-[12.5rem] rounded-full border border-[#e0b33a] bg-[#0d0d0df2] px-4 py-2 text-center text-sm sm:right-auto ${state.basketball ? "sm:top-32 sm:left-3 sm:translate-x-0" : "sm:bottom-8 sm:top-auto sm:left-1/2 sm:-translate-x-1/2"}`}
         >
-          {state.prompt}
+          <PromptLabel text={state.prompt} />
         </div>
       )}
       {state.place === "court" && (
@@ -193,24 +194,6 @@ export function Hud({
   );
 }
 
-function placeName(place: HudState["place"]) {
-  if (place === "home") return "BENJI HOME";
-  if (place === "hq") return "HQ";
-  if (place === "court") return "901 COURT";
-  if (place === "haunt") return "HAUNTED";
-  return "THE BLOCK";
-}
-
-function Mark({ on, label }: { on: boolean; label: string }) {
-  return (
-    <div
-      className={`rounded px-2 py-1 ${on ? "bg-[#e0b33a] text-[#0d0d0d]" : "bg-[#0d0d0dcc] text-[#f4efe488]"}`}
-    >
-      {label}
-    </div>
-  );
-}
-
 function Log({ state }: { state: HudState }) {
   return (
     <div className="absolute left-3 top-[12.4rem] w-56 rounded-md border border-[#e0b33a] bg-[#0d0d0df2] p-3 text-sm sm:left-4 sm:top-28">
@@ -260,9 +243,9 @@ function Dialogue({ line, brother = 0 }: { line: string; brother?: number }) {
 
 function Chip({ label, value }: { label: string; value: string }) {
   return (
-    <div className="hud-chip rounded-md border border-[#e0b33a55] bg-[#0d0d0dcc] px-3 py-2">
-      <div className="text-[10px] tracking-[0.16em] text-[#e0b33a]">{label}</div>
-      <div className="text-lg leading-none">{value}</div>
+    <div className="hud-chip rounded-md border border-[#e0b33a88] bg-[#0b0b0fe6] px-3 py-2">
+      <div className="text-[10px] font-semibold tracking-[0.2em] text-[#e0b33a]">{label}</div>
+      <div className="text-xl font-semibold leading-none">{value}</div>
     </div>
   );
 }
@@ -645,4 +628,73 @@ function PauseMenu({ muted, action }: { muted: boolean; action: (code: string) =
       </div>
     </div>
   );
+}
+
+/** Chapter + marks + the next move, top right, as on the concept boards. */
+function Objective({ state }: { state: HudState }) {
+  const marks: [keyof HudState["marks"], string][] = [
+    ["court", "COURT"],
+    ["fish", "FISH"],
+    ["bowl", "BOWL"],
+    ["food", "EAT"],
+    ["race", "RUN"],
+    ["haunt", "HOUSE"],
+  ];
+  const sub =
+    state.fishing && state.fishing.cooler > 0 && state.fishing.phase === "idle"
+      ? `SELL YOUR CATCH · ${state.fishing.cooler} in the cooler`
+      : null;
+  return (
+    <div className="hud-objective absolute right-3 top-3 w-[min(60vw,22rem)] rounded-md border border-[#e0b33a66] bg-[#0b0b0fe6] px-3 py-2 sm:w-[24rem]">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="text-[10px] font-semibold tracking-[0.22em] text-[#39ff14]">
+          THE DROP DAY
+        </span>
+        <span className="flex gap-2 text-[10px] tracking-[0.14em]">
+          {marks.map(([k, label]) => (
+            <span
+              key={k}
+              className={
+                state.marks[k] ? "rounded-sm bg-[#e0b33a] px-1 text-[#0d0d0d]" : "text-[#f4efe466]"
+              }
+            >
+              {label}
+            </span>
+          ))}
+        </span>
+      </div>
+      <div className="mt-1 text-[15px] leading-snug text-[#f4efe4]">{state.mission}</div>
+      {sub && (
+        <div className="mt-0.5 text-[11px] font-semibold tracking-wide text-[#39ff14]">{sub}</div>
+      )}
+    </div>
+  );
+}
+
+/** "[E]  Talk to K Blanco": the key in a box, the action beside it. */
+function PromptLabel({ text }: { text: string }) {
+  const m = text.match(/^(E|Space|Shift\+E|G|B)\s{2}(.*)$/);
+  if (!m) return <>{text}</>;
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="rounded border border-[#f4efe466] bg-[#1a1a1f] px-2 py-0.5 text-xs font-semibold">
+        {m[1]}
+      </span>
+      <span>{m[2]}</span>
+    </span>
+  );
+}
+
+function locationLine(state: HudState) {
+  if (state.place === "home") return "Benji Home - North Memphis";
+  if (state.place === "hq") return "SackReligious HQ - Memphis";
+  if (state.place === "court") return "901 Memphis - Courts";
+  if (state.place === "haunt") return "Haunted House - 901";
+  if (state.activity === "race") return "Nitro Circuit - The Strip";
+  return "The Block - Memphis";
+}
+
+/** The clock the boards show for each lighting mode. */
+function clockFor(state: HudState) {
+  return state.night ? "10:35 PM" : state.golden ? "6:42 PM" : "2:15 PM";
 }
