@@ -62,6 +62,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - NOT yet visually confirmed on the wall: the free-shoot camera frames the hoops (along x) and the 2v2 Sideline camera sees the wall band but the centre slot is behind the stands from that angle. Next: capture from the Baseline camera or from the street side, and confirm the mural reads at play distance; if the stands hide it, raise the panel (y 2.12 → ~2.9) so it clears the top row.
 - Channel cost: ~53 K chars each way per 40 KB asset. Viable for hero textures, not for batches — the deploy key remains the real pipeline.
 
+## Done 2026-10-23 (pass 11 — mural verified in-game)
+- Finding: every court camera (free-shoot Behind, 2v2 Behind/Sideline/Baseline) looks along the court's long axis toward a hoop, and the existing mural wall is on the north **sideline** behind the stands and fence — it is never on screen. Not an art problem; a placement problem in the kit.
+- Fix: `endMural()` — a 11.4×4.1 m block wall with bronze cap 13.6 m west of centre (just outside the west fence), rotated to face the court, carrying the painted mural at 7.6×3.25 m, y 2.2. It sits directly behind the west backboard in the default camera. Capture `artifacts/after/court-end-mural.png`, zero errors. The north sideline mural stays (lifted to y 2.75, 6.8×2.9) and the flagship logo moved beside it onto the block at x −9.2.
+- Deploy key still not on the repo as of this pass.
+
 ## Next (in order)
 1. Visual pass per location against its board, court first (handoff §8), using the 901 production kit assets in `assets/sackreligious_game_asset_pack/` — art-led, needs Trey's eye.
 2. Basketball presentation (handoff Pass C): net response on actual passage is there; next is camera stability and team readability. Then Pass A animation continuity.

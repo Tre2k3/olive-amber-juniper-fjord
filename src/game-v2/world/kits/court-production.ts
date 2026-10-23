@@ -13,23 +13,41 @@ import { flagshipLogo } from "./brand";
  * pasted production reference image or a billboard building.
  */
 const steel = new THREE.MeshStandardMaterial({ color: 0x202b2d, roughness: 0.46, metalness: 0.63 });
-const bronze = new THREE.MeshStandardMaterial({ color: 0xb57d35, roughness: 0.38, metalness: 0.59 });
+const bronze = new THREE.MeshStandardMaterial({
+  color: 0xb57d35,
+  roughness: 0.38,
+  metalness: 0.59,
+});
 const charcoal = new THREE.MeshStandardMaterial({ color: 0x141a1c, roughness: 0.78 });
 const paving = new THREE.MeshStandardMaterial({ color: 0x454f51, roughness: 0.88 });
 const tile = new THREE.MeshStandardMaterial({ color: 0x222d2d, roughness: 0.86 });
 const warmLight = new THREE.MeshStandardMaterial({
-  color: 0xffd0a0, emissive: 0xffb25c, emissiveIntensity: 0.55, roughness: 0.45,
+  color: 0xffd0a0,
+  emissive: 0xffb25c,
+  emissiveIntensity: 0.55,
+  roughness: 0.45,
 });
 const lightsOff = new THREE.MeshStandardMaterial({
-  color: 0x5b6462, roughness: 0.43, metalness: 0.42,
+  color: 0x5b6462,
+  roughness: 0.43,
+  metalness: 0.42,
 });
 const basketball = new THREE.MeshStandardMaterial({ color: 0xcc6637, roughness: 0.82 });
 const ballStripe = new THREE.MeshStandardMaterial({ color: 0x2e241d, roughness: 0.92 });
-const plant = new THREE.MeshStandardMaterial({ color: 0x346a47, roughness: 0.91, side: THREE.DoubleSide });
+const plant = new THREE.MeshStandardMaterial({
+  color: 0x346a47,
+  roughness: 0.91,
+  side: THREE.DoubleSide,
+});
 
 function part(
-  parent: THREE.Object3D, geo: THREE.BufferGeometry, mat: THREE.Material,
-  x: number, y: number, z: number, castShadow = true,
+  parent: THREE.Object3D,
+  geo: THREE.BufferGeometry,
+  mat: THREE.Material,
+  x: number,
+  y: number,
+  z: number,
+  castShadow = true,
 ) {
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.set(x, y, z);
@@ -39,30 +57,40 @@ function part(
   return mesh;
 }
 function box(
-  parent: THREE.Object3D, w: number, h: number, d: number,
-  x: number, y: number, z: number, mat: THREE.Material,
+  parent: THREE.Object3D,
+  w: number,
+  h: number,
+  d: number,
+  x: number,
+  y: number,
+  z: number,
+  mat: THREE.Material,
 ) {
   return part(parent, new THREE.BoxGeometry(w, h, d), mat, x, y, z);
 }
 function labelTexture(title: string, subtitle: string, background: string, ink: string) {
-  return canvasTex((g, w, h) => {
-    g.fillStyle = background;
-    g.fillRect(0, 0, w, h);
-    g.fillStyle = "rgba(255,255,255,.075)";
-    for (let i = 0; i < 25; i++) {
-      g.fillRect((i * 77) % w, (i * 37) % h, 28, 12);
-    }
-    g.strokeStyle = "#bc8d48";
-    g.lineWidth = 9;
-    g.strokeRect(12, 12, w - 24, h - 24);
-    g.fillStyle = ink;
-    g.textBaseline = "middle";
-    g.textAlign = "center";
-    g.font = "900 112px Impact, sans-serif";
-    g.fillText(title, w / 2, h * 0.43, w * 0.92);
-    g.font = "700 37px Arial, sans-serif";
-    g.fillText(subtitle, w / 2, h * 0.76, w * 0.85);
-  }, 1024, 512);
+  return canvasTex(
+    (g, w, h) => {
+      g.fillStyle = background;
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = "rgba(255,255,255,.075)";
+      for (let i = 0; i < 25; i++) {
+        g.fillRect((i * 77) % w, (i * 37) % h, 28, 12);
+      }
+      g.strokeStyle = "#bc8d48";
+      g.lineWidth = 9;
+      g.strokeRect(12, 12, w - 24, h - 24);
+      g.fillStyle = ink;
+      g.textBaseline = "middle";
+      g.textAlign = "center";
+      g.font = "900 112px Impact, sans-serif";
+      g.fillText(title, w / 2, h * 0.43, w * 0.92);
+      g.font = "700 37px Arial, sans-serif";
+      g.fillText(subtitle, w / 2, h * 0.76, w * 0.85);
+    },
+    1024,
+    512,
+  );
 }
 /**
  * Painted mural art from public/game-v2/places/court/. Starts on the drawn
@@ -72,19 +100,36 @@ function labelTexture(title: string, subtitle: string, background: string, ink: 
  */
 function paintedArt(material: THREE.MeshStandardMaterial, file: string, fallback: THREE.Texture) {
   material.map = fallback;
-  new THREE.TextureLoader().load(`/game-v2/places/court/${file}`, (tex) => {
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 8;
-    material.map = tex;
-    material.needsUpdate = true;
-  }, undefined, () => { /* keep the drawn label */ });
+  new THREE.TextureLoader().load(
+    `/game-v2/places/court/${file}`,
+    (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      material.map = tex;
+      material.needsUpdate = true;
+    },
+    undefined,
+    () => {
+      /* keep the drawn label */
+    },
+  );
 }
 
-function sign(parent: THREE.Object3D, x: number, y: number, z: number,
-  w: number, h: number, title: string, subtitle: string) {
+function sign(
+  parent: THREE.Object3D,
+  x: number,
+  y: number,
+  z: number,
+  w: number,
+  h: number,
+  title: string,
+  subtitle: string,
+) {
   const mat = new THREE.MeshStandardMaterial({
     map: labelTexture(title, subtitle, "#141f20", "#f6c47d"),
-    roughness: 0.63, emissive: 0xffdeaf, emissiveIntensity: 0.08,
+    roughness: 0.63,
+    emissive: 0xffdeaf,
+    emissiveIntensity: 0.08,
     side: THREE.DoubleSide,
   });
   const board = part(parent, new THREE.PlaneGeometry(w, h), mat, x, y, z, false);
@@ -140,7 +185,7 @@ function courtGate(parent: THREE.Object3D, cx: number, z: number) {
     box(g, 0.15, 3.25, 0.18, x, 1.63, 0, steel);
     box(g, 0.48, 0.18, 0.4, x, 3.35, 0, bronze);
     box(g, 0.28, 0.38, 0.26, x, 3.66, 0, warmLight);
-    box(g, 0.2, 0.10, 0.2, x, 3.88, 0, bronze);
+    box(g, 0.2, 0.1, 0.2, x, 3.88, 0, bronze);
   }
   const lintel = box(g, 3.06, 0.24, 0.25, 0, 3.27, 0, charcoal);
   lintel.castShadow = false;
@@ -164,27 +209,69 @@ function mural(parent: THREE.Object3D, x: number, z: number) {
   const artMat = new THREE.MeshStandardMaterial({ roughness: 0.84 });
   paintedArt(artMat, "901-memphis-mural.jpg", labelTexture("901", "", "#1b2b29", "#efb94b"));
   // Sized to the painting (2.34:1) so the block wall shows either side instead of stretching the art.
-  const panel = part(group, new THREE.PlaneGeometry(7.68, 3.28), artMat, 0, 2.12, 0.24, false);
+  const panel = part(group, new THREE.PlaneGeometry(6.8, 2.9), artMat, 0, 2.75, 0.24, false);
   panel.name = "901-mural-panel";
   const logo = flagshipLogo(2.2);
-  logo.position.set(0, 1.05, 0.265);
+  logo.position.set(-9.2, 1.0, 0.265);
   group.add(logo);
   sign(group, -8.7, 2.3, 0.24, 4.1, 2.25, "COURT", "THE HOME OF 901");
   const memphisMat = new THREE.MeshStandardMaterial({ roughness: 0.84 });
-  paintedArt(memphisMat, "memphis-mural.png", labelTexture("MEMPHIS", "RESPECT THE GAME", "#1b2b29", "#efb94b"));
-  const memphis = part(group, new THREE.PlaneGeometry(4.1, 2.25), memphisMat, 8.7, 2.3, 0.24, false);
+  paintedArt(
+    memphisMat,
+    "memphis-mural.png",
+    labelTexture("MEMPHIS", "RESPECT THE GAME", "#1b2b29", "#efb94b"),
+  );
+  const memphis = part(
+    group,
+    new THREE.PlaneGeometry(4.1, 2.25),
+    memphisMat,
+    8.7,
+    2.3,
+    0.24,
+    false,
+  );
   memphis.name = "901-mural-memphis";
   parent.add(group);
+}
+/**
+ * Baseline mural: a block wall just outside the west fence, facing the court,
+ * so the painting is in frame behind the hoop from every court camera.
+ */
+function endMural(parent: THREE.Object3D, x: number, z: number) {
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
+  g.rotation.y = Math.PI / 2;
+  const block = brick();
+  box(g, 11.4, 4.1, 0.45, 0, 2.05, 0, block);
+  box(g, 11.8, 0.15, 0.65, 0, 4.13, 0, bronze);
+  box(g, 11.8, 0.23, 0.74, 0, 0.15, 0, charcoal);
+  const mat = new THREE.MeshStandardMaterial({ roughness: 0.84 });
+  paintedArt(mat, "901-memphis-mural.jpg", labelTexture("901", "MEMPHIS", "#1b2b29", "#efb94b"));
+  const art = part(g, new THREE.PlaneGeometry(7.6, 3.25), mat, 0, 2.2, 0.24, false);
+  art.name = "901-end-mural";
+  parent.add(g);
 }
 function sidelineBanner(parent: THREE.Object3D, x: number, z: number) {
   const g = new THREE.Group();
   g.position.set(x, 0, z);
   const mat = new THREE.MeshStandardMaterial({ roughness: 0.7, side: THREE.DoubleSide });
-  paintedArt(mat, "sideline-banner.png", labelTexture("901", "RESPECT THE GAME", "#101010", "#efb94b"));
+  paintedArt(
+    mat,
+    "sideline-banner.png",
+    labelTexture("901", "RESPECT THE GAME", "#101010", "#efb94b"),
+  );
   const banner = part(g, new THREE.PlaneGeometry(9.6, 1.35), mat, 0, 1.45, 0.06, false);
   banner.name = "901-sideline-banner";
   // Zip-ties along the top rail.
-  for (let i = 0; i < 9; i++) part(g, new THREE.CylinderGeometry(0.012, 0.012, 0.12, 6), charcoal, -4.4 + i * 1.1, 2.15, 0.06);
+  for (let i = 0; i < 9; i++)
+    part(
+      g,
+      new THREE.CylinderGeometry(0.012, 0.012, 0.12, 6),
+      charcoal,
+      -4.4 + i * 1.1,
+      2.15,
+      0.06,
+    );
   parent.add(g);
 }
 function shadePlanter(parent: THREE.Object3D, x: number, z: number, scale = 1) {
@@ -216,7 +303,7 @@ function spectatorZone(parent: THREE.Object3D, x: number, z: number) {
   for (const xx of [-1.95, -0.95, 0, 0.95, 1.95]) {
     box(rail, 0.06, 1.05, 0.1, xx, 0.5, 0, steel);
   }
-  box(rail, 4.1, 0.10, 0.17, 0, 0.2, 0, bronze);
+  box(rail, 4.1, 0.1, 0.17, 0, 0.2, 0, bronze);
   parent.add(rail);
 }
 
@@ -227,7 +314,7 @@ export function dress901Court(parent: THREE.Object3D, cx: number, cz: number) {
   // The walkway apron runs OUTSIDE the playable floor, preserving z fighting
   // and the court paint / sole-contact under Benji's feet.
   for (const side of [-1, 1]) {
-    box(court, 2.3, 0.07, 16.6, cx + side * 12.45, 0.045, cz, concreteSlab(side+3));
+    box(court, 2.3, 0.07, 16.6, cx + side * 12.45, 0.045, cz, concreteSlab(side + 3));
     box(court, 2.3, 0.08, 0.11, cx + side * 12.45, 0.11, cz + 7.8, bronze);
   }
   for (const side of [-1, 1]) {
@@ -238,6 +325,7 @@ export function dress901Court(parent: THREE.Object3D, cx: number, cz: number) {
   // Existing scoreboard, stands, hoops and chain link stay intact.
   courtGate(court, cx, cz + 7.25);
   mural(court, cx, cz - 17.55);
+  endMural(court, cx - 13.6, cz);
   sidelineBanner(court, cx, cz + 7.0);
   for (const x of [cx - 12.65, cx + 12.65]) {
     for (const z of [cz - 9.35, cz + 9.4]) {
@@ -253,27 +341,56 @@ export function dress901Court(parent: THREE.Object3D, cx: number, cz: number) {
     [cx + 13, cz + 9.0, 1.3],
     [cx - 13.2, cz - 13.0, 1.1],
     [cx + 13.2, cz - 13.0, 1.1],
-  ] as const) shadePlanter(court, x, z, scale);
+  ] as const)
+    shadePlanter(court, x, z, scale);
   // Bench/kits and scorer's table stay outside every playable boundary.
-  const fabric=new THREE.MeshStandardMaterial({color:0xf0ddba,roughness:.97});
-  for(const x of [cx-6,cx+6]) {
-    box(court,3.5,.12,.6,x,.48,cz-9.1,bronze);
-    box(court,3.5,.6,.1,x,.82,cz-9.4,charcoal);
-    for(const xx of [-1.4,1.4])box(court,.12,.45,.5,x+xx,.24,cz-9.1,steel);
-    box(court,.48,.04,.4,x-.6,.57,cz-9.1,fabric);
-    box(court,.5,.28,.3,x+.5,.2,cz-8.8,charcoal);
-    for(let n=0;n<3;n++)part(court,new THREE.CylinderGeometry(.05,.06,.19,8),bronze,x-.6+n*.2,.67,cz-9.05);
+  const fabric = new THREE.MeshStandardMaterial({ color: 0xf0ddba, roughness: 0.97 });
+  for (const x of [cx - 6, cx + 6]) {
+    box(court, 3.5, 0.12, 0.6, x, 0.48, cz - 9.1, bronze);
+    box(court, 3.5, 0.6, 0.1, x, 0.82, cz - 9.4, charcoal);
+    for (const xx of [-1.4, 1.4]) box(court, 0.12, 0.45, 0.5, x + xx, 0.24, cz - 9.1, steel);
+    box(court, 0.48, 0.04, 0.4, x - 0.6, 0.57, cz - 9.1, fabric);
+    box(court, 0.5, 0.28, 0.3, x + 0.5, 0.2, cz - 8.8, charcoal);
+    for (let n = 0; n < 3; n++)
+      part(
+        court,
+        new THREE.CylinderGeometry(0.05, 0.06, 0.19, 8),
+        bronze,
+        x - 0.6 + n * 0.2,
+        0.67,
+        cz - 9.05,
+      );
   }
-  box(court,2.2,.12,.8,cx,1.0,cz-9.1,charcoal);
-  for(const x of [-.9,.9])box(court,.1,1,.6,cx+x,.5,cz-9.1,steel);
-  const tableBrand=flagshipLogo(1.2);tableBrand.position.set(cx,.78,cz-8.68);court.add(tableBrand);
-  sign(court,cx,1.32,cz-9.1,1.15,.4,"901","PICKUP · RESPECT");
-  const dummy=new THREE.Object3D(),bulbs=new THREE.InstancedMesh(new THREE.SphereGeometry(.045,6,5),warmLight,16);
-  for(let i=0;i<16;i++){dummy.position.set(cx-11+i*1.47,4.3-Math.sin(i/15*Math.PI)*.45,cz-9.8);dummy.updateMatrix();bulbs.setMatrixAt(i,dummy.matrix);}
-  bulbs.instanceMatrix.needsUpdate=true;court.add(bulbs);
-  const wirePoints=Array.from({length:16},(_,i)=>new THREE.Vector3(cx-11+i*1.47,4.345-Math.sin(i/15*Math.PI)*.45,cz-9.8));
-  part(court,new THREE.TubeGeometry(new THREE.CatmullRomCurve3(wirePoints),24,.009,5,false),charcoal,0,0,0,false);
-  for(const x of [cx-12,cx+12])box(court,.07,4.3,.07,x,2.15,cz-9.8,steel);
+  box(court, 2.2, 0.12, 0.8, cx, 1.0, cz - 9.1, charcoal);
+  for (const x of [-0.9, 0.9]) box(court, 0.1, 1, 0.6, cx + x, 0.5, cz - 9.1, steel);
+  const tableBrand = flagshipLogo(1.2);
+  tableBrand.position.set(cx, 0.78, cz - 8.68);
+  court.add(tableBrand);
+  sign(court, cx, 1.32, cz - 9.1, 1.15, 0.4, "901", "PICKUP · RESPECT");
+  const dummy = new THREE.Object3D(),
+    bulbs = new THREE.InstancedMesh(new THREE.SphereGeometry(0.045, 6, 5), warmLight, 16);
+  for (let i = 0; i < 16; i++) {
+    dummy.position.set(cx - 11 + i * 1.47, 4.3 - Math.sin((i / 15) * Math.PI) * 0.45, cz - 9.8);
+    dummy.updateMatrix();
+    bulbs.setMatrixAt(i, dummy.matrix);
+  }
+  bulbs.instanceMatrix.needsUpdate = true;
+  court.add(bulbs);
+  const wirePoints = Array.from(
+    { length: 16 },
+    (_, i) =>
+      new THREE.Vector3(cx - 11 + i * 1.47, 4.345 - Math.sin((i / 15) * Math.PI) * 0.45, cz - 9.8),
+  );
+  part(
+    court,
+    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(wirePoints), 24, 0.009, 5, false),
+    charcoal,
+    0,
+    0,
+    0,
+    false,
+  );
+  for (const x of [cx - 12, cx + 12]) box(court, 0.07, 4.3, 0.07, x, 2.15, cz - 9.8, steel);
   court.userData.productionVersion = 2;
   court.userData.gateClearWidth = 2.72;
   court.userData.rimLocationsUnmodified = true;
