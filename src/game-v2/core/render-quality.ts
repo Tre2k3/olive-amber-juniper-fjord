@@ -89,13 +89,13 @@ export function createRenderQuality(
     geo.dispose();
     return tex;
   };
-  const env: Record<LightMode, THREE.Texture> = {
+  const envBase = {
     day: envFor(0x6fa8e6, 0xe9dfca, 0x5b5a3e),
     golden: envFor(0x5b4f8e, 0xffb77a, 0x5a3a26),
     night: envFor(0x070b16, 0x1b2436, 0x08090b),
     interior: envFor(0x3a3a3a, 0x8a8178, 0x2a2622),
-    haunt: envFor(0x1a0c12, 0x4a2a24, 0x120a0a),
   };
+  const env: Record<LightMode, THREE.Texture> = { ...envBase, haunt: envBase.interior };
   const intensity: Record<LightMode, number> = {
     day: 0.85,
     golden: 0.75,
@@ -130,7 +130,8 @@ export function createRenderQuality(
       return new THREE.WebGLRenderTarget(width, height, { type: THREE.HalfFloatType, samples });
     },
     applyMode(mode: LightMode, grade: { uniforms: Record<string, { value: unknown }> }) {
-      scene.environment = env[mode];
+      // Software renderers skip image-based lighting: it is a per-pixel cost on every material.
+      scene.environment = software ? null : env[mode];
       scene.environmentIntensity = intensity[mode];
       const u = grade.uniforms;
       (u.vignette!.value as number) =

@@ -141,6 +141,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   composer.addPass(bloom);
   const grade = new ShaderPass(quality.gradeShader);
   composer.addPass(grade);
+  if (quality.software) {
+    bloom.enabled = false;
+    grade.enabled = false;
+  }
+  const alleyRig = world.exterior.getObjectByName("901-bowl-interior");
   composer.addPass(new OutputPass());
   const player = new THREE.Group();
   const shadow = new THREE.Mesh(
@@ -2747,6 +2752,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         )
         .slice(0, 4),
     );
+    if (alleyRig) {
+      const c = alleyRig.userData.centre as { x: number; z: number };
+      const near =
+        place === "street" && Math.hypot(player.position.x - c.x, player.position.z - c.z) < 24;
+      for (const l of alleyRig.userData.lights as THREE.PointLight[]) l.visible = near;
+    }
     for (const light of world.haunt.lights) {
       light.intensity =
         typeof light.userData.baseIntensity === "number" ? light.userData.baseIntensity : 18;

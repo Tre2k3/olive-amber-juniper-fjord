@@ -80,6 +80,9 @@ export function dressBowlingAlley(parent: THREE.Object3D, x: number, z: number) 
   const deck = new THREE.PointLight(0xeaf6ff, 22, 9, 2);
   deck.position.set(x, 2.9, z - 5.6);
   g.add(warm, mid, deck);
+  // The runtime switches these on only near the alley: a point light costs every lit pixel in view.
+  g.userData.lights = [warm, mid, deck];
+  g.userData.centre = { x, z };
 
   // ---- masking unit over the four pin decks ----
   const housing = mat(0x1b1620, 0.75);

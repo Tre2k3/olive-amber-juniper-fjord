@@ -134,6 +134,12 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Not changed: `window.__SACK_V2__`/`__SACK_V2_INPUT__` are exposed without `?qa=1`; several CI suites (browser, commerce, connected-slice, dom, foundation) depend on that, so gating them is a separate, coordinated change.
 - Helper lesson: never `pkill -f` a pattern that appears in your own command line — it kills the shell.
 
+## 2026-10-24 — CI timeout, frame cost, and an upside-down view
+- 32e720d's run went 24 steps green, **including step 13** (the startup fix worked), then hit the job's `timeout-minutes: 40` inside step 16. The suite was already 38 min on the base commit 8d29c60 (15→18→25→30→38 over Oct 11–12). Against base, every browser step had ~doubled (12: 3.0→5.9, 13: 3.3→6.3, 14: 4.3→9.4, 15: 7.5→15.4 min) because the suites wait on rendered frames and my passes made each software-rendered frame ~2× dearer.
+- Per-pixel fixes: software tier now also drops image-based lighting (`scene.environment = null`), bloom and the grade pass; the alley's three always-on PointLights only switch on within 24 m (`g.userData.lights`, gated each frame in `applyNight`) — a point light costs every lit pixel in view, for every player. Steady frame on the vendor view (SwiftShader): ~3,500 ms → ~940–1,250 ms.
+- Upside-down view: the vendor smoke's Veli view (x 62, z 22.4, dist 5.8, height 2.5, lookY 1.8) rendered vertically flipped from 4a01a27 onward. Bisected (5f43ad5 ok, 95c1ef3 ok, 4a01a27 flipped; current build with the GLB not loaded still flipped) to the **fifth `pmrem.fromScene` call** (the `haunt` env map). Fix: `haunt` reuses the `interior` env map. Rule: keep PMREM generations to four in `render-quality.ts`.
+- Bisect method that worked: `/home/claude/green` worktree checked out at a commit + `iron-green.sh` + a one-view capture script.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.
