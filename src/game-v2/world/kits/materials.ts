@@ -20,6 +20,69 @@ export function canvasTex(
   return tex;
 }
 
+/**
+ * Swap a painted scan (public/game-v2/places/...) onto a drawn material once it
+ * loads; a missing file leaves the drawn one. `tint` keeps per-house colour
+ * variation on top of a neutral scan.
+ */
+// ---- Painted scans: one decode and one GPU upload per file, however many materials use it ----
+const scanSources = new Map<string, Promise<THREE.Texture>>();
+const scanLoader = new THREE.TextureLoader();
+/** A 1×1 neutral map so a material's shader never changes when its scan arrives. */
+const placeholderMap = (() => {
+  const t = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.needsUpdate = true;
+  return t;
+})();
+
+/** Load a scan once; every caller gets a clone that shares the uploaded image but has its own repeat. */
+export function sharedScan(url: string, sx: number, sy: number): Promise<THREE.Texture> {
+  let base = scanSources.get(url);
+  if (!base) {
+    base = scanLoader.loadAsync(url).then((t) => {
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.wrapS = THREE.RepeatWrapping;
+      t.wrapT = THREE.RepeatWrapping;
+      t.anisotropy = 4;
+      return t;
+    });
+    scanSources.set(url, base);
+  }
+  return base.then((t) => {
+    const c = t.clone();
+    c.repeat.set(sx, sy);
+    c.needsUpdate = false;
+    return c;
+  });
+}
+
+/**
+ * Swap a painted scan (public/game-v2/places/...) onto a drawn material once it
+ * loads; a missing file leaves the drawn one. `tint` keeps per-house colour
+ * variation on top of a neutral scan. Materials without a map get a 1×1
+ * placeholder now so the arrival never forces a shader recompile.
+ */
+export function paintedScan(
+  mat: THREE.MeshStandardMaterial,
+  url: string,
+  sx: number,
+  sy: number,
+  tint?: string,
+) {
+  if (!mat.map) mat.map = placeholderMap;
+  sharedScan(url, sx, sy).then(
+    (t) => {
+      mat.map = t;
+      if (tint) mat.color.set(tint).lerp(new THREE.Color(0xffffff), 0.35);
+    },
+    () => {
+      /* keep the drawn material */
+    },
+  );
+  return mat;
+}
+
 const sidingCache = new Map<string, THREE.MeshStandardMaterial>();
 const shingleCache = new Map<string, THREE.MeshStandardMaterial>();
 const concreteCache = new Map<number, THREE.MeshStandardMaterial>();
@@ -28,36 +91,52 @@ let roughTex: THREE.Texture | null = null;
 
 function roughnessTex() {
   if (roughTex) return roughTex;
-  roughTex = canvasTex((g, w, h) => {
-    g.fillStyle = "#b4b4b4";
-    g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 180; i++) {
-      const v = 96 + ((i * 17) % 70);
-      g.fillStyle = `rgb(${v},${v},${v})`;
-      g.fillRect((i * 29) % w, (i * 13) % h, 10, 4);
-    }
-  }, 128, 128, true);
+  roughTex = canvasTex(
+    (g, w, h) => {
+      g.fillStyle = "#b4b4b4";
+      g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 180; i++) {
+        const v = 96 + ((i * 17) % 70);
+        g.fillStyle = `rgb(${v},${v},${v})`;
+        g.fillRect((i * 29) % w, (i * 13) % h, 10, 4);
+      }
+    },
+    128,
+    128,
+    true,
+  );
   return roughTex;
 }
 
 export function siding(hex: string) {
   const hit = sidingCache.get(hex);
   if (hit) return hit;
-  const map = canvasTex((g, w, h) => {
-    g.fillStyle = hex;
-    g.fillRect(0, 0, w, h);
-    for (let y = 0; y < h; y += 14) {
-      g.fillStyle = "rgba(0,0,0,0.22)";
-      g.fillRect(0, y, w, 2);
-      g.fillStyle = "rgba(255,255,255,0.12)";
-      g.fillRect(0, y + 2, w, 1);
-    }
-    g.fillStyle = "rgba(80,50,30,0.06)";
-    for (let i = 0; i < 28; i++) g.fillRect((i * 37) % w, (i * 19) % h, 22, 2);
-  }, 256, 256, true);
+  const map = canvasTex(
+    (g, w, h) => {
+      g.fillStyle = hex;
+      g.fillRect(0, 0, w, h);
+      for (let y = 0; y < h; y += 14) {
+        g.fillStyle = "rgba(0,0,0,0.22)";
+        g.fillRect(0, y, w, 2);
+        g.fillStyle = "rgba(255,255,255,0.12)";
+        g.fillRect(0, y + 2, w, 1);
+      }
+      g.fillStyle = "rgba(80,50,30,0.06)";
+      for (let i = 0; i < 28; i++) g.fillRect((i * 37) % w, (i * 19) % h, 22, 2);
+    },
+    256,
+    256,
+    true,
+  );
   map.repeat.set(2.2, 2.4);
   const rough = roughnessTex();
-  const mat = new THREE.MeshStandardMaterial({ map, roughnessMap: rough, roughness: 0.84, metalness: 0 });
+  const mat = new THREE.MeshStandardMaterial({
+    map,
+    roughnessMap: rough,
+    roughness: 0.84,
+    metalness: 0,
+  });
+  paintedScan(mat, "/game-v2/places/home/siding.jpg", 2.2, 2.4, hex);
   sidingCache.set(hex, mat);
   return mat;
 }
@@ -65,31 +144,50 @@ export function siding(hex: string) {
 export function shingle(hex: string) {
   const hit = shingleCache.get(hex);
   if (hit) return hit;
-  const map = canvasTex((g, w, h) => {
-    g.fillStyle = hex;
-    g.fillRect(0, 0, w, h);
-    const rowH = 22;
-    for (let y = 0; y < h; y += rowH) {
-      const off = (y / rowH) % 2 ? 18 : 0;
-      for (let x = -40 + off; x < w; x += 36) {
-        const n = Math.abs((x + y) % 18);
-        g.fillStyle = `rgba(${40 + n},${28 + (n % 8)},${18},0.28)`;
-        g.fillRect(x + 1, y + 1, 33, rowH - 3);
-        g.strokeStyle = "rgba(20,12,8,0.55)";
-        g.strokeRect(x, y, 36, rowH);
+  const map = canvasTex(
+    (g, w, h) => {
+      g.fillStyle = hex;
+      g.fillRect(0, 0, w, h);
+      const rowH = 22;
+      for (let y = 0; y < h; y += rowH) {
+        const off = (y / rowH) % 2 ? 18 : 0;
+        for (let x = -40 + off; x < w; x += 36) {
+          const n = Math.abs((x + y) % 18);
+          g.fillStyle = `rgba(${40 + n},${28 + (n % 8)},${18},0.28)`;
+          g.fillRect(x + 1, y + 1, 33, rowH - 3);
+          g.strokeStyle = "rgba(20,12,8,0.55)";
+          g.strokeRect(x, y, 36, rowH);
+        }
       }
-    }
-  }, 256, 256, true);
+    },
+    256,
+    256,
+    true,
+  );
   map.repeat.set(3.4, 2.6);
   const rough = roughnessTex();
-  const mat = new THREE.MeshStandardMaterial({ map, roughnessMap: rough, roughness: 0.92, metalness: 0.02 });
+  const mat = new THREE.MeshStandardMaterial({
+    map,
+    roughnessMap: rough,
+    roughness: 0.92,
+    metalness: 0.02,
+  });
+  paintedScan(mat, "/game-v2/places/home/shingles.jpg", 3.4, 2.6, hex);
   shingleCache.set(hex, mat);
   return mat;
 }
 
 let brickMat: THREE.MeshStandardMaterial | null = null;
 
-export function surface(url: string, sx: number, sy: number, roughness: number, color = 0xffffff, ox = 0, oy = 0) {
+export function surface(
+  url: string,
+  sx: number,
+  sy: number,
+  roughness: number,
+  color = 0xffffff,
+  ox = 0,
+  oy = 0,
+) {
   const map = new THREE.TextureLoader().load(url);
   map.colorSpace = THREE.SRGBColorSpace;
   map.wrapS = THREE.RepeatWrapping;
@@ -118,7 +216,15 @@ export function concreteSlab(seed: number) {
   const key = Math.abs(seed) % 4;
   const hit = concreteCache.get(key);
   if (hit) return hit;
-  const mat = surface("/game-v2/materials/sidewalk.jpg", 0.5, 0.5, 0.94, 0xffffff, (key % 2) * 0.5, Math.floor(key / 2) * 0.5);
+  const mat = surface(
+    "/game-v2/materials/sidewalk.jpg",
+    0.5,
+    0.5,
+    0.94,
+    0xffffff,
+    (key % 2) * 0.5,
+    Math.floor(key / 2) * 0.5,
+  );
   concreteCache.set(key, mat);
   return mat;
 }
@@ -129,34 +235,49 @@ let barkMat: THREE.MeshStandardMaterial | null = null;
 
 export function grass() {
   if (grassMat) return grassMat;
-  const map = canvasTex((g, w, h) => {
-    g.fillStyle = "#3d7438";
-    g.fillRect(0, 0, w, h);
-    g.fillStyle = "#356432";
-    g.fillRect(0, h * 0.42, w, h * 0.16);
-    for (let i = 0; i < 2200; i++) {
-      g.fillStyle = i % 3 === 0 ? "#2c5a2a" : i % 3 === 1 ? "#4c8642" : "#356832";
-      g.fillRect((i * 53) % w, (i * 29) % h, 2, 3);
-    }
-    g.fillStyle = "rgba(90,70,30,0.18)";
-    g.fillRect(18, 40, 28, 14);
-    g.fillRect(80, 90, 22, 10);
-  }, 128, 128, true);
+  const map = canvasTex(
+    (g, w, h) => {
+      g.fillStyle = "#3d7438";
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = "#356432";
+      g.fillRect(0, h * 0.42, w, h * 0.16);
+      for (let i = 0; i < 2200; i++) {
+        g.fillStyle = i % 3 === 0 ? "#2c5a2a" : i % 3 === 1 ? "#4c8642" : "#356832";
+        g.fillRect((i * 53) % w, (i * 29) % h, 2, 3);
+      }
+      g.fillStyle = "rgba(90,70,30,0.18)";
+      g.fillRect(18, 40, 28, 14);
+      g.fillRect(80, 90, 22, 10);
+    },
+    128,
+    128,
+    true,
+  );
   map.repeat.set(14, 10);
-  grassMat = new THREE.MeshStandardMaterial({ map, roughness: 1 });
+  grassMat = paintedScan(
+    new THREE.MeshStandardMaterial({ map, roughness: 1 }),
+    "/game-v2/places/home/lawn.jpg",
+    14,
+    10,
+  );
   return grassMat;
 }
 
 export function mulch() {
   if (mulchMat) return mulchMat;
-  const map = canvasTex((g, w, h) => {
-    g.fillStyle = "#5a3a28";
-    g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 140; i++) {
-      g.fillStyle = i % 2 ? "#3e2618" : "#7a5136";
-      g.fillRect((i * 17) % w, (i * 13) % h, 8, 3);
-    }
-  }, 128, 128, true);
+  const map = canvasTex(
+    (g, w, h) => {
+      g.fillStyle = "#5a3a28";
+      g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 140; i++) {
+        g.fillStyle = i % 2 ? "#3e2618" : "#7a5136";
+        g.fillRect((i * 17) % w, (i * 13) % h, 8, 3);
+      }
+    },
+    128,
+    128,
+    true,
+  );
   map.repeat.set(2, 1);
   mulchMat = new THREE.MeshStandardMaterial({ map, roughness: 1 });
   return mulchMat;
@@ -164,18 +285,23 @@ export function mulch() {
 
 export function bark() {
   if (barkMat) return barkMat;
-  const map = canvasTex((g, w, h) => {
-    g.fillStyle = "#5c4030";
-    g.fillRect(0, 0, w, h);
-    g.strokeStyle = "rgba(30,18,10,0.55)";
-    g.lineWidth = 3;
-    for (let x = 4; x < w; x += 14) {
-      g.beginPath();
-      g.moveTo(x, 0);
-      g.lineTo(x + 4, h);
-      g.stroke();
-    }
-  }, 64, 128, true);
+  const map = canvasTex(
+    (g, w, h) => {
+      g.fillStyle = "#5c4030";
+      g.fillRect(0, 0, w, h);
+      g.strokeStyle = "rgba(30,18,10,0.55)";
+      g.lineWidth = 3;
+      for (let x = 4; x < w; x += 14) {
+        g.beginPath();
+        g.moveTo(x, 0);
+        g.lineTo(x + 4, h);
+        g.stroke();
+      }
+    },
+    64,
+    128,
+    true,
+  );
   barkMat = new THREE.MeshStandardMaterial({ map, roughness: 0.95 });
   return barkMat;
 }
@@ -184,3 +310,75 @@ export const trim = new THREE.MeshStandardMaterial({ color: 0xf4f0e8, roughness:
 export const soil = new THREE.MeshStandardMaterial({ color: 0x4a3828, roughness: 1 });
 export const curb = new THREE.MeshStandardMaterial({ color: 0x8d8880, roughness: 0.92 });
 export const gutter = new THREE.MeshStandardMaterial({ color: 0x2a2e32, roughness: 0.9 });
+
+// ---- 901 court painted materials (Higgsfield, public/game-v2/places/court) ----
+// Each starts from the existing drawn material and swaps its map in when the file loads,
+// so a missing file leaves the court exactly as it was.
+function swapMap(mat: THREE.MeshStandardMaterial, url: string, sx: number, sy: number) {
+  return paintedScan(mat, url, sx, sy);
+}
+
+let courtBlockMat: THREE.MeshStandardMaterial | null = null;
+/** Chipped, grimy block wall for the mural walls (board 6 J). */
+export function courtBlock() {
+  if (courtBlockMat) return courtBlockMat;
+  courtBlockMat = new THREE.MeshStandardMaterial({
+    color: 0xd8d2cc,
+    roughness: 0.92,
+    metalness: 0.02,
+  });
+  const b = brick();
+  courtBlockMat.map = b.map;
+  swapMap(courtBlockMat, "/game-v2/places/court/block.jpg", 3.2, 1.3);
+  return courtBlockMat;
+}
+
+let courtAsphaltMat: THREE.MeshStandardMaterial | null = null;
+/** Weathered sport asphalt for the walkway apron around the court (the painted floor art stays canonical). */
+export function courtAsphalt() {
+  if (courtAsphaltMat) return courtAsphaltMat;
+  courtAsphaltMat = new THREE.MeshStandardMaterial({
+    color: 0xbfc4cc,
+    roughness: 0.95,
+    metalness: 0,
+  });
+  swapMap(courtAsphaltMat, "/game-v2/places/court/asphalt.jpg", 6, 6);
+  return courtAsphaltMat;
+}
+
+let bleacherMat: THREE.MeshStandardMaterial | null = null;
+/** Ridged aluminum bleacher planks (board 6 H). */
+export function bleacherAluminum() {
+  if (bleacherMat) return bleacherMat;
+  bleacherMat = new THREE.MeshStandardMaterial({
+    color: 0xcfd3d8,
+    roughness: 0.42,
+    metalness: 0.55,
+  });
+  swapMap(bleacherMat, "/game-v2/places/court/bleacher.jpg", 6, 0.35);
+  return bleacherMat;
+}
+
+/** Real chain-link mesh with alpha, laid over the drawn one once it loads. */
+export function paintedChainLink(fallback: THREE.MeshStandardMaterial) {
+  sharedScan("/game-v2/places/court/chainlink.png", 10, 1.3).then(
+    (t) => {
+      fallback.map = t;
+      fallback.color.set(0xffffff);
+      fallback.alphaTest = 0.35;
+    },
+    () => {
+      /* keep the drawn mesh */
+    },
+  );
+  return fallback;
+}
+
+let cedarMat: THREE.MeshStandardMaterial | null = null;
+/** Weathered cedar privacy-fence boards (board 2 G). */
+export function cedarFence() {
+  if (cedarMat) return cedarMat;
+  cedarMat = new THREE.MeshStandardMaterial({ color: 0x8a7458, roughness: 0.9, metalness: 0 });
+  paintedScan(cedarMat, "/game-v2/places/home/wood-fence.jpg", 2.2, 1);
+  return cedarMat;
+}

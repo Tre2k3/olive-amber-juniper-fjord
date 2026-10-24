@@ -7,7 +7,14 @@ export type Solid = {
   maxX: number;
   minZ: number;
   maxZ: number;
+  /** Optional vertical limits for gallery guards and upstairs furnishings. */
+  minY?: number;
+  maxY?: number;
+  cameraBlock?: boolean;
 };
+
+import type { FishHud } from "../play/fishing";
+import type { FrameBox } from "../play/city";
 
 export type HudState = {
   place: Place;
@@ -20,6 +27,18 @@ export type HudState = {
   golden: boolean;
   made: number;
   taken: number;
+  activity?: "race" | "bowl" | "fish";
+  fishing?: FishHud | null;
+  paused?: boolean;
+  muted?: boolean;
+  bowl?: { frames: FrameBox[]; score: number; best: number; standing: number } | null;
+  veli?: { near: boolean; open: boolean; serving: number; order: string; price: number };
+  foodCourt?: { open: "brothers" | "catch901" | null; serving: "brothers" | "catch901" | null; left: number; order: string; near: boolean; activeBrother: number; nextBrother: number };
+  veliTv?: { near: boolean; playing: boolean; muted: boolean; ready: boolean; error: string };
+  basketball?: { mode: "half" | "full"; score: number[]; clock: number; feedback: string; phase: string };
+  basketballCamera?: "behind" | "sideline" | "baseline";
+  teamJerseys?: boolean;
+  basketballKit?: string;
   dialogue: string;
   carrying: boolean;
   x: number;
@@ -28,12 +47,14 @@ export type HudState = {
   bait: number;
   boost: boolean;
   log: boolean;
-  marks: { fish: boolean; bowl: boolean; food: boolean; race: boolean };
+  marks: { fish: boolean; bowl: boolean; food: boolean; race: boolean; court: boolean; haunt: boolean };
   bestBowl: number;
   bestRace: number;
 };
 
 export type V2Public = {
+  hauntStage?: { room: string | null; fired: number; lightScale: number; blackout: number; heartbeat: number };
+  fishing?: { phase: string; cooler: number; worms: number; shad: number; tension: number };
   x: number;
   y: number;
   z: number;
@@ -48,3 +69,4 @@ export type V2Public = {
   /** Standing view, or `${facing}-walk` while a stride sheet is showing. */
   pose: string;
 };
+

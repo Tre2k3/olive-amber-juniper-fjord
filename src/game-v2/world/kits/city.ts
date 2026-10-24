@@ -5,6 +5,7 @@ import { concreteSlab, surface } from "./materials";
 import { bench, hydrant, planter, streetlight, trashBin } from "./props";
 import { streetTree } from "./trees";
 import { carBody } from "./vehicles";
+import { dressBealeNightlife } from "./beale-production";
 
 const metal = new THREE.MeshStandardMaterial({ color: 0x1a1c20, roughness: 0.42, metalness: 0.55 });
 const glass = new THREE.MeshStandardMaterial({
@@ -313,6 +314,25 @@ export function buildDowntown(
     { x: 123, z: -11.5, w: 8.4, d: 7, floors: 3, face: 1, wall: "#e4d2b8", awning: 0x8e2438, name: "HORN", ink: "#f4efe4" },
   ];
   for (const spec of row) storefront(parent, solids, glow, spec);
+
+  // A populated facing block is essential for Beale's enclosed, busy, neon
+  // corridor. The old version had no south-side buildings at all: the camera
+  // looked through one empty roadside toward distant skyline placeholders.
+  // South front is +Z, so shop glass and awnings face the actual asphalt.
+  const opposite: Storefront[] = [
+    { x: 20.2, z: -66.4, w: 7.7, d: 7.2, floors: 3, face: 1, awning: 0x2c5947, name: "RHYTHM", ink: "#f6dcb8" },
+    { x: 29.4, z: -66.35, w: 9.1, d: 7.2, floors: 4, face: 1, wall: "#e4d4b9", awning: 0x242424, name: "VINYL", ink: "#e8b866" },
+    { x: 40.0, z: -66.6, w: 9.4, d: 7.4, floors: 5, face: 1, awning: 0x693041, name: "JUKE", ink: "#ffecb9" },
+    { x: 51.7, z: -66.35, w: 11, d: 7.2, floors: 6, face: 1, wall: "#d5bfa7", awning: 0x164b5c, name: "SOUL", ink: "#f7dca4" },
+    { x: 63.4, z: -66.5, w: 10.0, d: 7.4, floors: 4, face: 1, awning: 0x7d1e2e, name: "BLUES", ink: "#f9ddba" },
+    { x: 74, z: -66.35, w: 8.6, d: 7.2, floors: 3, face: 1, wall: "#e7d7c4", awning: 0x315c48, name: "LIVE", ink: "#f3bd65" },
+  ];
+  for (const spec of opposite) storefront(parent, solids, glow, spec);
+  // Short frontage pavement bridges the sidewalk/building setback and remains
+  // a registered walkable surface without modifying the original traffic road.
+  addGround({ minX: 16, maxX: 79, minZ: -62.75, maxZ: -61.0, y: 0.17, id: "beale-south-frontage" });
+  box(63, 0.10, 1.75, 47.5, 0.12, -61.9, concreteSlab(2), parent);
+  dressBealeNightlife(parent, glow);
 
   streetTree(16, eastWestZ + 6.35, parent, 0.85);
   streetTree(48, eastWestZ + 6.45, parent, 0.9);
