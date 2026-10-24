@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { canvasTex, concreteSlab, courtBlock, courtAsphalt } from "./materials";
+import { canvasTex, concreteSlab, courtBlock, courtAsphalt, sharedScan } from "./materials";
 import { flagshipLogo } from "./brand";
 
 /**
@@ -100,15 +100,12 @@ function labelTexture(title: string, subtitle: string, background: string, ink: 
  */
 function paintedArt(material: THREE.MeshStandardMaterial, file: string, fallback: THREE.Texture) {
   material.map = fallback;
-  new THREE.TextureLoader().load(
-    `/game-v2/places/court/${file}`,
+  sharedScan(`/game-v2/places/court/${file}`, 1, 1).then(
     (tex) => {
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.anisotropy = 8;
+      tex.wrapS = THREE.ClampToEdgeWrapping;
+      tex.wrapT = THREE.ClampToEdgeWrapping;
       material.map = tex;
-      material.needsUpdate = true;
     },
-    undefined,
     () => {
       /* keep the drawn label */
     },

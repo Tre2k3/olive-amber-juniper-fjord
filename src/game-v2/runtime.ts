@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GameAudio, type Sfx } from "./audio";
 import { enterHaunt, freshStage, hauntLightScale, tickHauntStage } from "./play/haunt-events";
-import { animateHauntDetail, updateApparition } from "./world/kits/haunt-detail";
+import { animateHauntDetail, loadHauntProps, updateApparition } from "./world/kits/haunt-detail";
 import {
   beginCast,
   buyBait,
@@ -120,6 +120,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 220);
   const quality = createRenderQuality(renderer, world.scene, world.sun);
+  // Software renderers: cheaper shadow filtering and native pixel ratio keep frames interactive.
+  if (quality.software) {
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.setPixelRatio(1);
+  }
   // MSAA on the composer target: `antialias: true` on the renderer is lost the
   // moment bloom renders through its own targets, so without this every edge jags.
   const composer = new EffectComposer(
@@ -1193,7 +1198,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     presentBowl(dt);
     if ((place === "haunt") !== wasInHaunt) {
       wasInHaunt = place === "haunt";
-      if (wasInHaunt) enterHaunt(hauntStage);
+      if (wasInHaunt) {
+        enterHaunt(hauntStage);
+        loadHauntProps();
+      }
       audio.mood = wasInHaunt ? "haunt" : "street";
     }
     if (place === "haunt") {
@@ -2737,7 +2745,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
             a.getWorldPosition(new THREE.Vector3()).distanceToSquared(player.position) -
             b.getWorldPosition(new THREE.Vector3()).distanceToSquared(player.position),
         )
-        .slice(0, 6),
+        .slice(0, 4),
     );
     for (const light of world.haunt.lights) {
       light.intensity =

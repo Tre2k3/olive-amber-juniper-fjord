@@ -125,8 +125,17 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Props pipeline PROVED: `generate_image` (white-background product shot) → `generate_3d` model `image_to_3d` (20 credits; pass `should_texture: true` — `texture` is ignored) → GLB via the Contents API → `hauntProp()` in `kits/haunt-detail.ts` (GLTFLoader, scaled to a height, floored, placeholder hidden on load, untextured meshes tinted). First prop: `public/game-v2/places/haunt/props/rocking-horse.glb` (30k tris, 1.9 MB, untextured pass); textured job 3594325e was still rendering — replace the file when it lands. Capture `artifacts/after/haunt-prop-horse.png`.
 - Rule: every room pass = materials + lighting + 3–5 hero props from the board's "key props" row, not materials alone.
 
+## 2026-10-24 — production readiness: the CI failure was a real startup stall
+- CI step 13 (`vendor-race-visual-smoke.mjs`) failed on 8d8b08e and c2b106d with a 60 s screenshot timeout. Read the log via the Higgsfield sandbox (it can follow GitHub's log redirect; Claude's sandbox can't). Reproduced against the **production preview** exactly as CI serves it: on c2b106d the game never reached `veliState().loaded` within 90 s. Cause, introduced by the art passes: every material loaded its own copy of each scan (each house's siding/shingles, each room's floor → one JPEG decoded and uploaded a dozen times), and map-less materials gained a map on arrival → shader recompiles mid-load.
+- Fix: `sharedScan(url, sx, sy)` in `kits/materials.ts` — one `loadAsync` per file, clones share the `Source` (single GPU upload) with their own repeat; `paintedScan` gives map-less materials a 1×1 placeholder up front so arrival never changes the program; court murals and chain-link route through it. After: first screenshot in 14 s on the production preview, zero errors.
+- Software-renderer tier (`render-quality.ts`): renderer string matches SwiftShader/llvmpipe → no MSAA, 1024 shadow map, PCF filtering, pixel ratio 1. Chrome uses this path on GPU-blocklisted machines, so it's a player-facing fix as well as CI headroom. `quality.software` / `quality.rendererName` exposed.
+- House props load on first entry (`loadHauntProps()` from the haunt-entry edge); verified 0 GLB requests at boot, 1 after entering. Textured rocking horse (5.7 MB, job 3594325e) replaces the untextured pass.
+- Live haunt lights back to the 4 nearest (haunt-3d-smoke asserts `activeLights <= 4` — a performance contract).
+- Not changed: `window.__SACK_V2__`/`__SACK_V2_INPUT__` are exposed without `?qa=1`; several CI suites (browser, commerce, connected-slice, dom, foundation) depend on that, so gating them is a separate, coordinated change.
+- Helper lesson: never `pkill -f` a pattern that appears in your own command line — it kills the shell.
+
 ## Next (in order)
-1. Land the textured horse; generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
+1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.
 2. Land `art/home` (done), wire board 2 (siding/roof/fence/lawn), capture against the board.
 2. Board 7 (alley neon, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), board 10 props via image-to-3D.

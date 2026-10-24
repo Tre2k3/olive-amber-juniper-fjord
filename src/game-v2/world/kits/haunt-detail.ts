@@ -581,6 +581,15 @@ export function animateHauntDetail(motes: THREE.Points, group: THREE.Object3D, t
  * The model is scaled to `height` metres, floored at y=0, and replaces
  * `placeholder` (hidden) once it loads; a missing file leaves the placeholder.
  */
+const propQueue: (() => void)[] = [];
+let propsLoaded = false;
+/** Props are 1–6 MB each: fetch them the first time the player enters the house, not at boot. */
+export function loadHauntProps() {
+  if (propsLoaded) return;
+  propsLoaded = true;
+  for (const load of propQueue.splice(0)) load();
+}
+
 export function hauntProp(
   parent: THREE.Object3D,
   file: string,
@@ -590,40 +599,42 @@ export function hauntProp(
   ry: number,
   placeholder?: THREE.Object3D,
 ) {
-  new GLTFLoader().load(
-    `/game-v2/places/haunt/props/${file}`,
-    (gltf) => {
-      const model = gltf.scene;
-      const box = new THREE.Box3().setFromObject(model);
-      const size = new THREE.Vector3();
-      box.getSize(size);
-      const s = height / Math.max(size.y, 0.001);
-      model.scale.setScalar(s);
-      const after = new THREE.Box3().setFromObject(model);
-      model.position.set(
-        x - (after.min.x + after.max.x) / 2,
-        -after.min.y,
-        z - (after.min.z + after.max.z) / 2,
-      );
-      model.rotation.y = ry;
-      model.traverse((o) => {
-        if ((o as THREE.Mesh).isMesh) {
-          const m = o as THREE.Mesh;
-          m.castShadow = true;
-          m.receiveShadow = true;
-          // An untextured pass ships white; give it painted wood until the textured file lands.
-          const mat = m.material as THREE.MeshStandardMaterial;
-          if (mat && !mat.map)
-            m.material = new THREE.MeshStandardMaterial({ color: 0x8c7f74, roughness: 0.72 });
-        }
-      });
-      model.name = `haunt-prop-${file.replace(/\.glb$/, "")}`;
-      parent.add(model);
-      if (placeholder) placeholder.visible = false;
-    },
-    undefined,
-    () => {
-      /* keep the placeholder */
-    },
+  propQueue.push(() =>
+    new GLTFLoader().load(
+      `/game-v2/places/haunt/props/${file}`,
+      (gltf) => {
+        const model = gltf.scene;
+        const box = new THREE.Box3().setFromObject(model);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const s = height / Math.max(size.y, 0.001);
+        model.scale.setScalar(s);
+        const after = new THREE.Box3().setFromObject(model);
+        model.position.set(
+          x - (after.min.x + after.max.x) / 2,
+          -after.min.y,
+          z - (after.min.z + after.max.z) / 2,
+        );
+        model.rotation.y = ry;
+        model.traverse((o) => {
+          if ((o as THREE.Mesh).isMesh) {
+            const m = o as THREE.Mesh;
+            m.castShadow = true;
+            m.receiveShadow = true;
+            // An untextured pass ships white; give it painted wood until the textured file lands.
+            const mat = m.material as THREE.MeshStandardMaterial;
+            if (mat && !mat.map)
+              m.material = new THREE.MeshStandardMaterial({ color: 0x8c7f74, roughness: 0.72 });
+          }
+        });
+        model.name = `haunt-prop-${file.replace(/\.glb$/, "")}`;
+        parent.add(model);
+        if (placeholder) placeholder.visible = false;
+      },
+      undefined,
+      () => {
+        /* keep the placeholder */
+      },
+    ),
   );
 }

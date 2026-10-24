@@ -50,7 +50,15 @@ export function createRenderQuality(
 ) {
   const isWebGL2 = renderer.capabilities.isWebGL2;
   const coarse = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
-  const samples = isWebGL2 ? (coarse ? 2 : 4) : 0;
+  // Software rendering (SwiftShader / llvmpipe): what Chrome falls back to on blocklisted or
+  // missing GPUs, and what CI uses. The scene stays identical; only the per-pixel cost drops.
+  const gl = renderer.getContext();
+  const dbg = gl.getExtension("WEBGL_debug_renderer_info");
+  const rendererName = String(
+    dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER),
+  );
+  const software = /swiftshader|llvmpipe|softpipe|software/i.test(rendererName);
+  const samples = software ? 0 : isWebGL2 ? (coarse ? 2 : 4) : 0;
 
   // ---- environment maps from a gradient sky, one per mode ----
   const pmrem = new THREE.PMREMGenerator(renderer);
@@ -97,7 +105,8 @@ export function createRenderQuality(
   };
 
   // ---- shadows ----
-  sun.shadow.mapSize.set(coarse ? 2048 : 4096, coarse ? 2048 : 4096);
+  const mapSize = software ? 1024 : coarse ? 2048 : 4096;
+  sun.shadow.mapSize.set(mapSize, mapSize);
   sun.shadow.bias = -0.00025;
   sun.shadow.normalBias = 0.02;
   const half = 34;
@@ -114,6 +123,8 @@ export function createRenderQuality(
 
   return {
     samples,
+    software,
+    rendererName,
     gradeShader: GradeShader,
     renderTarget(width: number, height: number) {
       return new THREE.WebGLRenderTarget(width, height, { type: THREE.HalfFloatType, samples });

@@ -25,6 +25,44 @@ export function canvasTex(
  * loads; a missing file leaves the drawn one. `tint` keeps per-house colour
  * variation on top of a neutral scan.
  */
+// ---- Painted scans: one decode and one GPU upload per file, however many materials use it ----
+const scanSources = new Map<string, Promise<THREE.Texture>>();
+const scanLoader = new THREE.TextureLoader();
+/** A 1×1 neutral map so a material's shader never changes when its scan arrives. */
+const placeholderMap = (() => {
+  const t = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.needsUpdate = true;
+  return t;
+})();
+
+/** Load a scan once; every caller gets a clone that shares the uploaded image but has its own repeat. */
+export function sharedScan(url: string, sx: number, sy: number): Promise<THREE.Texture> {
+  let base = scanSources.get(url);
+  if (!base) {
+    base = scanLoader.loadAsync(url).then((t) => {
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.wrapS = THREE.RepeatWrapping;
+      t.wrapT = THREE.RepeatWrapping;
+      t.anisotropy = 4;
+      return t;
+    });
+    scanSources.set(url, base);
+  }
+  return base.then((t) => {
+    const c = t.clone();
+    c.repeat.set(sx, sy);
+    c.needsUpdate = false;
+    return c;
+  });
+}
+
+/**
+ * Swap a painted scan (public/game-v2/places/...) onto a drawn material once it
+ * loads; a missing file leaves the drawn one. `tint` keeps per-house colour
+ * variation on top of a neutral scan. Materials without a map get a 1×1
+ * placeholder now so the arrival never forces a shader recompile.
+ */
 export function paintedScan(
   mat: THREE.MeshStandardMaterial,
   url: string,
@@ -32,19 +70,12 @@ export function paintedScan(
   sy: number,
   tint?: string,
 ) {
-  new THREE.TextureLoader().load(
-    url,
+  if (!mat.map) mat.map = placeholderMap;
+  sharedScan(url, sx, sy).then(
     (t) => {
-      t.colorSpace = THREE.SRGBColorSpace;
-      t.wrapS = THREE.RepeatWrapping;
-      t.wrapT = THREE.RepeatWrapping;
-      t.repeat.set(sx, sy);
-      t.anisotropy = 8;
       mat.map = t;
       if (tint) mat.color.set(tint).lerp(new THREE.Color(0xffffff), 0.35);
-      mat.needsUpdate = true;
     },
-    undefined,
     () => {
       /* keep the drawn material */
     },
@@ -283,31 +314,8 @@ export const gutter = new THREE.MeshStandardMaterial({ color: 0x2a2e32, roughnes
 // ---- 901 court painted materials (Higgsfield, public/game-v2/places/court) ----
 // Each starts from the existing drawn material and swaps its map in when the file loads,
 // so a missing file leaves the court exactly as it was.
-function swapMap(
-  mat: THREE.MeshStandardMaterial,
-  url: string,
-  sx: number,
-  sy: number,
-  onLoad?: (t: THREE.Texture) => void,
-) {
-  new THREE.TextureLoader().load(
-    url,
-    (t) => {
-      t.colorSpace = THREE.SRGBColorSpace;
-      t.wrapS = THREE.RepeatWrapping;
-      t.wrapT = THREE.RepeatWrapping;
-      t.repeat.set(sx, sy);
-      t.anisotropy = 8;
-      mat.map = t;
-      onLoad?.(t);
-      mat.needsUpdate = true;
-    },
-    undefined,
-    () => {
-      /* keep the drawn material */
-    },
-  );
-  return mat;
+function swapMap(mat: THREE.MeshStandardMaterial, url: string, sx: number, sy: number) {
+  return paintedScan(mat, url, sx, sy);
 }
 
 let courtBlockMat: THREE.MeshStandardMaterial | null = null;
@@ -353,23 +361,12 @@ export function bleacherAluminum() {
 
 /** Real chain-link mesh with alpha, laid over the drawn one once it loads. */
 export function paintedChainLink(fallback: THREE.MeshStandardMaterial) {
-  new THREE.TextureLoader().load(
-    "/game-v2/places/court/chainlink.png",
+  sharedScan("/game-v2/places/court/chainlink.png", 10, 1.3).then(
     (t) => {
-      t.colorSpace = THREE.SRGBColorSpace;
-      t.wrapS = THREE.RepeatWrapping;
-      t.wrapT = THREE.RepeatWrapping;
-      t.repeat.set(10, 1.3);
-      t.anisotropy = 8;
       fallback.map = t;
-      fallback.alphaMap = null;
-      fallback.transparent = true;
-      fallback.alphaTest = 0.35;
-      fallback.side = THREE.DoubleSide;
       fallback.color.set(0xffffff);
-      fallback.needsUpdate = true;
+      fallback.alphaTest = 0.35;
     },
-    undefined,
     () => {
       /* keep the drawn mesh */
     },
