@@ -160,6 +160,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Placement on the south frontage (faces +z, front ≈ z −62.7): BLUES CLUB over BLUES (x 63.4), LIVE MUSIC over LIVE (74), BAR-B-Q over SOUL (51.7) at y ≈ 4.7; projecting blades on iron arms — BEALE ST. at x 57.3, vertical MEMPHIS at x 45.
 - Framing note: the default follow camera is close and low, so wall signs sit near the top of frame when hugging the storefronts; they read from the road and across the street (`artifacts/after/beale-after.png`).
 
+## 2026-10-25 — MERGED TO MAIN (Trey: "merge and keep updating")
+- `main` was 8e69a8f (Oct 6), an ancestor of PR #2 (GitHub compare: behind 0, ahead 157 — the local clone is shallow, so local `git merge-base` lies; use the compare API). Fast-forwarded with `PATCH /git/refs/heads/main {sha, force:false}` (server refuses non-FF) — never force-push main. main → 8b6dd0b (PR #2 auto-marked **merged** 02:11 UTC), then → 0db3794 after `feat/art-pass-2` went CI-green. `main` is not branch-protected.
+- **No production deploy happened**: the repo isn't connected to Vercel's GitHub integration (no statuses/deployments on main). Deploy path per docs/DEPLOYMENT.md is Vercel `npm run build` (vite + db migrate), embedded in Lovable. `scripts/preflight.mjs` BLOCKS deployed builds unless `DATABASE_URL` (postgres://, Neon) is set and `VITE_AUTH_ENABLED` is not "false". Optional: VITE_STORE_BASE_URL, VITE_PRODUCT_CATALOG_URL, VITE_ALLOWED_PARENT_ORIGIN (Lovable embed parent), VITE_ANALYTICS_ENABLED, VITE_GAME_BUILD_VERSION.
+- New work: branch **`feat/art-pass-3`** off main; merge to main by API fast-forward after its CI is green.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.
