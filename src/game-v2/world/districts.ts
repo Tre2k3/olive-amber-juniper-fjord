@@ -3,7 +3,7 @@ import type { Solid } from "../core/types";
 import type { Spawnable } from "../assets/characters";
 import { characters } from "../assets/characters";
 import { addGround } from "./ground";
-import { concreteSlab, surface } from "./kits/materials";
+import { concreteSlab, surface, paintedScan } from "./kits/materials";
 import { streetTree } from "./kits/trees";
 import { dressRiverfront, riverWaterMaterial } from "./riverfront-production";
 import { carBody } from "./kits/vehicles";
@@ -18,9 +18,24 @@ export type DistrictAnchors = {
   truckOrder: { x: number; z: number };
 };
 
-type Pace = (asset: Spawnable, x: number, z: number, pts: { x: number; z: number }[], speed: number) => void;
+type Pace = (
+  asset: Spawnable,
+  x: number,
+  z: number,
+  pts: { x: number; z: number }[],
+  speed: number,
+) => void;
 
-function box(w: number, h: number, d: number, x: number, y: number, z: number, mat: THREE.Material, parent: THREE.Object3D) {
+function box(
+  w: number,
+  h: number,
+  d: number,
+  x: number,
+  y: number,
+  z: number,
+  mat: THREE.Material,
+  parent: THREE.Object3D,
+) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
   m.position.set(x, y, z);
   m.castShadow = true;
@@ -69,7 +84,14 @@ function sign(title: string, sub: string, titleColor: string, subColor: string) 
   });
 }
 
-function lamp(x: number, y: number, z: number, color: number, parent: THREE.Object3D, into: THREE.PointLight[]) {
+function lamp(
+  x: number,
+  y: number,
+  z: number,
+  color: number,
+  parent: THREE.Object3D,
+  into: THREE.PointLight[],
+) {
   const light = new THREE.PointLight(color, 0, 16, 2);
   light.position.set(x, y, z);
   parent.add(light);
@@ -77,7 +99,16 @@ function lamp(x: number, y: number, z: number, color: number, parent: THREE.Obje
 }
 
 function road(parent: THREE.Object3D, x: number, z: number, w: number, d: number) {
-  box(w, 0.06, d, x, 0.03, z, surface("/game-v2/materials/asphalt.jpg", Math.max(1, w / 3.4), Math.max(1, d / 3.4), 0.95), parent);
+  box(
+    w,
+    0.06,
+    d,
+    x,
+    0.03,
+    z,
+    surface("/game-v2/materials/asphalt.jpg", Math.max(1, w / 3.4), Math.max(1, d / 3.4), 0.95),
+    parent,
+  );
   addGround({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, y: 0.06 });
 }
 
@@ -105,22 +136,46 @@ export function buildDistricts(
   trucks(parent, solids, glow, lamps, warm);
   meet(parent, solids, glow, lamps, warm);
 
-  pace(characters.pedestrian.female02, 90, -10.2, [
-    { x: 78, z: -10.2 },
-    { x: 102, z: -10.2 },
-  ], 0.9);
-  pace(characters.pedestrian.male02, -16, -40, [
-    { x: -16, z: -14 },
-    { x: -16, z: -58 },
-  ], 0.95);
-  pace(characters.pedestrian.female01, 70, 20, [
-    { x: 62, z: 20 },
-    { x: 82, z: 20 },
-  ], 0.8);
-  pace(characters.pedestrian.male04, -36, -30.2, [
-    { x: -50, z: -30.2 },
-    { x: -24, z: -30.2 },
-  ], 0.85);
+  pace(
+    characters.pedestrian.female02,
+    90,
+    -10.2,
+    [
+      { x: 78, z: -10.2 },
+      { x: 102, z: -10.2 },
+    ],
+    0.9,
+  );
+  pace(
+    characters.pedestrian.male02,
+    -16,
+    -40,
+    [
+      { x: -16, z: -14 },
+      { x: -16, z: -58 },
+    ],
+    0.95,
+  );
+  pace(
+    characters.pedestrian.female01,
+    70,
+    20,
+    [
+      { x: 62, z: 20 },
+      { x: 82, z: 20 },
+    ],
+    0.8,
+  );
+  pace(
+    characters.pedestrian.male04,
+    -36,
+    -30.2,
+    [
+      { x: -50, z: -30.2 },
+      { x: -24, z: -30.2 },
+    ],
+    0.85,
+  );
 
   return {
     bowlDoor: { x: 92, z: -15.2 },
@@ -184,31 +239,58 @@ function bowling(
   addGround({ minX: x - 8.2, maxX: x + 8.2, minZ: z - 7.2, maxZ: z + 7.6, y: 0.12 });
   const lane = new THREE.MeshStandardMaterial({ color: 0xc9844a, roughness: 0.24 });
   const gutter = new THREE.MeshStandardMaterial({ color: 0x3a2418, roughness: 0.7 });
-  const pinMat = new THREE.MeshStandardMaterial({ color:0xf4efe4,roughness:.35 });
-  const bandMat = new THREE.MeshStandardMaterial({ color:0xb82924,roughness:.5 });
-  const profile = [[.045,0],[.095,.07],[.095,.17],[.055,.28],[.03,.35],[.052,.41],[.03,.47],[0,.49]].map(([r,y])=>new THREE.Vector2(r!,y!));
-  const shape = new THREE.LatheGeometry(profile,12);
+  const pinMat = new THREE.MeshStandardMaterial({ color: 0xf4efe4, roughness: 0.35 });
+  const bandMat = new THREE.MeshStandardMaterial({ color: 0xb82924, roughness: 0.5 });
+  const profile = [
+    [0.045, 0],
+    [0.095, 0.07],
+    [0.095, 0.17],
+    [0.055, 0.28],
+    [0.03, 0.35],
+    [0.052, 0.41],
+    [0.03, 0.47],
+    [0, 0.49],
+  ].map(([r, y]) => new THREE.Vector2(r!, y!));
+  const shape = new THREE.LatheGeometry(profile, 12);
   for (let i = 0; i < 4; i++) {
     const lx = x - 4.6 + i * 2.3;
-    box(1.7,.02,12,lx,.14,z-.6,lane,parent);
-    box(.25,.04,12,lx-1,.14,z-.6,gutter,parent);
-    box(.25,.04,12,lx+1,.14,z-.6,gutter,parent);
-    box(1.7,.01,.06,lx,.16,z+5.5,bandMat,parent);
-    for(let p=-2;p<=2;p++) {
-      const arrow=new THREE.Mesh(new THREE.ConeGeometry(.045,.12,3),pinMat);arrow.rotation.x=-Math.PI/2;
-      arrow.position.set(lx+p*.25,.17,z+2.7-Math.abs(p)*.12);parent.add(arrow);
+    box(1.7, 0.02, 12, lx, 0.14, z - 0.6, lane, parent);
+    box(0.25, 0.04, 12, lx - 1, 0.14, z - 0.6, gutter, parent);
+    box(0.25, 0.04, 12, lx + 1, 0.14, z - 0.6, gutter, parent);
+    box(1.7, 0.01, 0.06, lx, 0.16, z + 5.5, bandMat, parent);
+    for (let p = -2; p <= 2; p++) {
+      const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.12, 3), pinMat);
+      arrow.rotation.x = -Math.PI / 2;
+      arrow.position.set(lx + p * 0.25, 0.17, z + 2.7 - Math.abs(p) * 0.12);
+      parent.add(arrow);
     }
-    if(i!==2) for(let row=0;row<4;row++) for(let col=0;col<=row;col++) {
-      const pin=new THREE.Mesh(shape,pinMat);pin.position.set(lx+(col-row/2)*.25,.16,z-5.3-row*.25);parent.add(pin);
-      const band=new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,.055,10),bandMat);band.position.copy(pin.position);band.position.y+=.35;parent.add(band);
-    }
+    if (i !== 2)
+      for (let row = 0; row < 4; row++)
+        for (let col = 0; col <= row; col++) {
+          const pin = new THREE.Mesh(shape, pinMat);
+          pin.position.set(lx + (col - row / 2) * 0.25, 0.16, z - 5.3 - row * 0.25);
+          parent.add(pin);
+          const band = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.055, 10), bandMat);
+          band.position.copy(pin.position);
+          band.position.y += 0.35;
+          parent.add(band);
+        }
   }
   const seat = new THREE.MeshStandardMaterial({ color: 0x8e2438, roughness: 0.6 });
   box(1.4, 0.45, 6, x - 7.2, 0.4, z + 1, seat, parent);
   box(1.4, 0.45, 6, x + 7.2, 0.4, z + 1, seat, parent);
   solid(solids, x - 8, x - 6.4, z - 2, z + 4);
   solid(solids, x + 6.4, x + 8, z - 2, z + 4);
-  box(2.2, 1.1, 0.4, x - 6.6, 1.3, z + 4.5, new THREE.MeshStandardMaterial({ color: 0x6a4328, roughness: 0.7 }), parent);
+  box(
+    2.2,
+    1.1,
+    0.4,
+    x - 6.6,
+    1.3,
+    z + 4.5,
+    new THREE.MeshStandardMaterial({ color: 0x6a4328, roughness: 0.7 }),
+    parent,
+  );
   lamp(x, 4.4, z + 6, 0xff4fd8, parent, lamps);
   lamp(x, 3.2, z - 2, 0xffb45a, parent, lamps);
   dressBowlingAlley(parent, x, z);
@@ -235,6 +317,21 @@ function river(
   water.position.set(0, 0.02, -84);
   parent.add(water);
   walk(parent, -8, -64, 70, 4.2);
+  // Board: riverfront promenade pavers over the walkway.
+  {
+    const pavers = paintedScan(
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.82 }),
+      "/game-v2/places/river/promenade.jpg",
+      14,
+      1,
+    );
+    const top = new THREE.Mesh(new THREE.PlaneGeometry(70, 4.2), pavers);
+    top.rotation.x = -Math.PI / 2;
+    top.position.set(-8, 0.176, -64);
+    top.receiveShadow = true;
+    top.name = "riverfront-pavers";
+    parent.add(top);
+  }
 
   const pierY = 0.42;
   box(4.2, 0.16, 16, -16, pierY, -72, wood, parent);
@@ -255,7 +352,16 @@ function river(
   const baitBoard = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.3), bait);
   baitBoard.position.set(-30, 2.6, -57.8);
   parent.add(baitBoard);
-  box(1.4, 0.8, 0.6, -27.2, 0.55, -58.6, new THREE.MeshStandardMaterial({ color: 0x2c4a38, roughness: 0.6 }), parent);
+  box(
+    1.4,
+    0.8,
+    0.6,
+    -27.2,
+    0.55,
+    -58.6,
+    new THREE.MeshStandardMaterial({ color: 0x2c4a38, roughness: 0.6 }),
+    parent,
+  );
 
   // The old plank bridge is replaced by structural double-arch trusses.
   // Keep the original fishing pier, bait interaction and ground surfaces.
@@ -276,9 +382,9 @@ function trucks(
   walk(parent, 72, 13, 4, 10);
   walk(parent, 72, 22, 22, 14);
   // Modeled vendor trucks are assembled by runtime; keep their collision aligned.
-  for (const x of [62,70,78]) solid(solids,x-1.8,x+1.8,24.4,31.6);
-  solid(solids,59.3,60.6,23.3,23.9);
-  for (const x of [62,70,78]) lamp(x,3.4,24,0xffb45a,parent,lamps);
+  for (const x of [62, 70, 78]) solid(solids, x - 1.8, x + 1.8, 24.4, 31.6);
+  solid(solids, 59.3, 60.6, 23.3, 23.9);
+  for (const x of [62, 70, 78]) lamp(x, 3.4, 24, 0xffb45a, parent, lamps);
   const table = new THREE.MeshStandardMaterial({ color: 0x6a4328, roughness: 0.75 });
   for (const tx of [66, 74]) {
     box(2.4, 0.08, 1.1, tx, 0.78, 18.5, table, parent);
@@ -293,7 +399,16 @@ function trucks(
   const menuBoard = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.4), menu);
   menuBoard.position.set(84, 2.2, 24);
   parent.add(menuBoard);
-  box(0.12, 2.4, 0.12, 84, 1.2, 24.1, new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 }), parent);
+  box(
+    0.12,
+    2.4,
+    0.12,
+    84,
+    1.2,
+    24.1,
+    new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 }),
+    parent,
+  );
   for (let i = 0; i < 8; i++) {
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), warm);
     bulb.position.set(60 + i * 3.2, 3.6, 21);
@@ -355,4 +470,3 @@ function meet(
   lamp(-50, 4.2, -24, 0xff4d4d, parent, lamps);
   box(12, 0.9, 0.08, -28, 0.7, -39.2, warm, parent);
 }
-

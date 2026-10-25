@@ -140,6 +140,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Upside-down view: the vendor smoke's Veli view (x 62, z 22.4, dist 5.8, height 2.5, lookY 1.8) rendered vertically flipped from 4a01a27 onward. Bisected (5f43ad5 ok, 95c1ef3 ok, 4a01a27 flipped; current build with the GLB not loaded still flipped) to the **fifth `pmrem.fromScene` call** (the `haunt` env map). Fix: `haunt` reuses the `interior` env map. Rule: keep PMREM generations to four in `render-quality.ts`.
 - Bisect method that worked: `/home/claude/green` worktree checked out at a commit + `iron-green.sh` + a one-view capture script.
 
+## 2026-10-25 — CI GREEN on PR #2; riverfront pass on a side branch
+- `8b6dd0b` (PR #2 head): `verify` **success**, 35 steps green + 3 manual-only skipped, 33.5 min (cap 40). First full green since base 8d29c60. PR #2 left as a draft: production merge waits on Trey's explicit "merge it" (handoff rule).
+- New work goes on **`feat/art-pass-2`** (branched from 8b6dd0b) so the PR head stays green; CI concurrency is per ref, so its runs don't cancel PR #2's.
+- Riverfront/sky pass: fog pushed back (day 50/220, golden 30/150, night 22/110 — the bridge at z −91 was hidden in the old 12/58 golden haze); painted sky panoramas `public/game-v2/places/sky/{day,golden}.jpg` (2048×1024, equirect) replace the gradient backgrounds once loaded; pier planks + promenade pavers scans (`places/river/`), pavers laid as a plane over the existing walk at (−8, −64) 70×4.2; `setRiverSky()` gives the river the panorama as its own env map (metalness 0.62, roughness 0.16; golden 1.25, day 0.9, night none), set only when the mode changes. Vendor view rechecked upright after the change (the PMREM-flip watch item). Captures `artifacts/after/river-and-vendor.png`.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

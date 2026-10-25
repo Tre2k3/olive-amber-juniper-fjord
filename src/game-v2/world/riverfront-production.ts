@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { paintedScan } from "./kits/materials";
 import type { Solid } from "../core/types";
 import { canvasTex } from "./kits/materials";
 
@@ -14,16 +15,50 @@ import { canvasTex } from "./kits/materials";
  * pasted full-scene concept art. No new raycast/collision surfaces.
  */
 const iron = new THREE.MeshStandardMaterial({ color: 0x454e52, metalness: 0.68, roughness: 0.43 });
-const bridgeRed = new THREE.MeshStandardMaterial({ color: 0x966a49, metalness: 0.47, roughness: 0.5 });
+const bridgeRed = new THREE.MeshStandardMaterial({
+  color: 0x966a49,
+  metalness: 0.47,
+  roughness: 0.5,
+});
 const stone = new THREE.MeshStandardMaterial({ color: 0xb4a394, metalness: 0.08, roughness: 0.9 });
-const pierWood = new THREE.MeshStandardMaterial({ color: 0x6a5037, metalness: 0, roughness: 0.87 });
+const pierWood = paintedScan(
+  new THREE.MeshStandardMaterial({ color: 0xc8b8a4, metalness: 0, roughness: 0.87 }),
+  "/game-v2/places/river/pier-planks.jpg",
+  2,
+  2,
+);
 const blue = new THREE.MeshStandardMaterial({ color: 0x244a61, roughness: 0.55, metalness: 0.12 });
-const orange = new THREE.MeshStandardMaterial({ color: 0xd98039, metalness: 0.04, roughness: 0.66 });
-const golden = new THREE.MeshStandardMaterial({ color: 0xf1c47b, emissive: 0xfbbf68, emissiveIntensity: 0.55, roughness: 0.37 });
-const lanternGlass = new THREE.MeshStandardMaterial({ color: 0xffe4b5, emissive: 0xffca86, emissiveIntensity: 0.6 });
-const foliage = new THREE.MeshStandardMaterial({ color: 0x315d3c, roughness: 0.95, side: THREE.DoubleSide });
+const orange = new THREE.MeshStandardMaterial({
+  color: 0xd98039,
+  metalness: 0.04,
+  roughness: 0.66,
+});
+const golden = new THREE.MeshStandardMaterial({
+  color: 0xf1c47b,
+  emissive: 0xfbbf68,
+  emissiveIntensity: 0.55,
+  roughness: 0.37,
+});
+const lanternGlass = new THREE.MeshStandardMaterial({
+  color: 0xffe4b5,
+  emissive: 0xffca86,
+  emissiveIntensity: 0.6,
+});
+const foliage = new THREE.MeshStandardMaterial({
+  color: 0x315d3c,
+  roughness: 0.95,
+  side: THREE.DoubleSide,
+});
 
-function mesh(parent: THREE.Object3D, geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, shadow = true) {
+function mesh(
+  parent: THREE.Object3D,
+  geo: THREE.BufferGeometry,
+  mat: THREE.Material,
+  x: number,
+  y: number,
+  z: number,
+  shadow = true,
+) {
   const m = new THREE.Mesh(geo, mat);
   m.position.set(x, y, z);
   m.castShadow = shadow;
@@ -31,42 +66,86 @@ function mesh(parent: THREE.Object3D, geo: THREE.BufferGeometry, mat: THREE.Mate
   parent.add(m);
   return m;
 }
-function box(parent: THREE.Object3D, w: number, h: number, d: number, x: number, y: number, z: number, mat: THREE.Material) {
+function box(
+  parent: THREE.Object3D,
+  w: number,
+  h: number,
+  d: number,
+  x: number,
+  y: number,
+  z: number,
+  mat: THREE.Material,
+) {
   return mesh(parent, new THREE.BoxGeometry(w, h, d), mat, x, y, z);
 }
-function cable(parent: THREE.Object3D, from: THREE.Vector3, to: THREE.Vector3, radius: number, mat: THREE.Material) {
+function cable(
+  parent: THREE.Object3D,
+  from: THREE.Vector3,
+  to: THREE.Vector3,
+  radius: number,
+  mat: THREE.Material,
+) {
   const direction = to.clone().sub(from);
   const center = from.clone().add(to).multiplyScalar(0.5);
-  const cylinder = mesh(parent, new THREE.CylinderGeometry(radius, radius, direction.length(), 7), mat, center.x, center.y, center.z);
+  const cylinder = mesh(
+    parent,
+    new THREE.CylinderGeometry(radius, radius, direction.length(), 7),
+    mat,
+    center.x,
+    center.y,
+    center.z,
+  );
   cylinder.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
   return cylinder;
 }
 function bridgeArch(group: THREE.Object3D, start: number, end: number, z: number) {
-  const deckY = 6.5, archStart = 7.2, rise = 7.2, count = 20;
+  const deckY = 6.5,
+    archStart = 7.2,
+    rise = 7.2,
+    count = 20;
   const arch = (t: number) => archStart + rise * Math.sin(t * Math.PI);
   const span = end - start;
   const points = Array.from({ length: count + 1 }, (_, i) => {
     const t = i / count;
     return new THREE.Vector3(start + span * t, arch(t), z);
   });
-  mesh(group, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 56, 0.13, 7, false), bridgeRed, 0, 0, 0);
+  mesh(
+    group,
+    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 56, 0.13, 7, false),
+    bridgeRed,
+    0,
+    0,
+    0,
+  );
   for (let i = 0; i <= 12; i++) {
     const t = i / 12;
     const x = start + span * t;
-    cable(group, new THREE.Vector3(x, deckY + 0.3, z), new THREE.Vector3(x, arch(t) - 0.12, z), 0.038, iron);
+    cable(
+      group,
+      new THREE.Vector3(x, deckY + 0.3, z),
+      new THREE.Vector3(x, arch(t) - 0.12, z),
+      0.038,
+      iron,
+    );
     if (i < 12) {
       const t2 = (i + 1) / 12;
-      cable(group,
+      cable(
+        group,
         new THREE.Vector3(x, deckY + 0.3, z),
         new THREE.Vector3(start + span * t2, arch(t2) - 0.15, z),
-        0.02, iron);
+        0.02,
+        iron,
+      );
     }
   }
 }
 function bridge(group: THREE.Object3D) {
   // Two recognizable arches crossing the Mississippi far behind the pier.
   // Each arch spans 18m in a 36m original design, with bracing and roadway.
-  const x0 = -12, mid = 6, end = 24, z = -91;
+  const x0 = -12,
+    mid = 6,
+    end = 24,
+    z = -91;
   box(group, end - x0 + 2.4, 0.35, 2.55, (x0 + end) / 2, 6.44, z, iron);
   box(group, end - x0 + 2.4, 0.16, 0.24, (x0 + end) / 2, 6.73, z - 1.42, bridgeRed);
   box(group, end - x0 + 2.4, 0.16, 0.24, (x0 + end) / 2, 6.73, z + 1.42, bridgeRed);
@@ -74,7 +153,7 @@ function bridge(group: THREE.Object3D) {
     bridgeArch(group, x0, mid, zz);
     bridgeArch(group, mid, end, zz);
     for (let x = x0; x <= end; x += 2.25) {
-      box(group, 0.07, 0.82, 0.10, x, 7.05, zz, iron);
+      box(group, 0.07, 0.82, 0.1, x, 7.05, zz, iron);
     }
   }
   for (const x of [x0, mid, end]) {
@@ -82,15 +161,22 @@ function bridge(group: THREE.Object3D) {
     box(group, 1.38, 0.32, 2.0, x, 6.38, z, bridgeRed);
   }
   for (const x of [x0, mid, end]) {
-    cable(group, new THREE.Vector3(x, 7.1, z - 1.25), new THREE.Vector3(x, 7.1, z + 1.25), 0.055, iron);
+    cable(
+      group,
+      new THREE.Vector3(x, 7.1, z - 1.25),
+      new THREE.Vector3(x, 7.1, z + 1.25),
+      0.055,
+      iron,
+    );
   }
   group.userData.archSpanCount = 2;
 }
 function railSegment(parent: THREE.Object3D, left: number, right: number, z: number) {
   if (right <= left) return;
-  const length = right - left, cx = (left + right) / 2;
-  box(parent, length, 0.10, 0.095, cx, 1.12, z, iron);
-  box(parent, length, 0.07, 0.10, cx, 0.30, z, iron);
+  const length = right - left,
+    cx = (left + right) / 2;
+  box(parent, length, 0.1, 0.095, cx, 1.12, z, iron);
+  box(parent, length, 0.07, 0.1, cx, 0.3, z, iron);
   for (let x = left; x <= right + 0.1; x += 1.3) {
     box(parent, 0.055, 1.13, 0.07, Math.min(x, right), 0.61, z, iron);
   }
@@ -106,7 +192,7 @@ function bench(parent: THREE.Object3D, x: number, z: number, yaw: number) {
   for (const sx of [-0.7, 0.7]) {
     box(g, 0.055, 0.45, 0.43, sx, 0.25, 0, iron);
   }
-  for (const dz of [-0.12, 0.04, 0.20]) {
+  for (const dz of [-0.12, 0.04, 0.2]) {
     box(g, 1.55, 0.055, 0.125, 0, 0.47, dz, pierWood);
   }
   for (const yy of [0.74, 0.91]) {
@@ -126,11 +212,11 @@ function flowerPlanter(parent: THREE.Object3D, x: number, z: number, variant: nu
   const g = new THREE.Group();
   g.position.set(x, 0, z);
   mesh(g, new THREE.CylinderGeometry(0.33, 0.25, 0.46, 10), stone, 0, 0.29, 0);
-  const blade = new THREE.PlaneGeometry(0.20, 0.53);
+  const blade = new THREE.PlaneGeometry(0.2, 0.53);
   const leaves = new THREE.InstancedMesh(blade, foliage, 14);
   const dummy = new THREE.Object3D();
   for (let i = 0; i < 14; i++) {
-    const theta = i * Math.PI * 2 / 14 + variant * 0.6;
+    const theta = (i * Math.PI * 2) / 14 + variant * 0.6;
     dummy.position.set(Math.sin(theta) * 0.22, 0.8 + (i % 3) * 0.13, Math.cos(theta) * 0.22);
     dummy.rotation.set(0, theta, Math.sin(theta) * 0.1);
     dummy.scale.setScalar(0.65 + (i % 3) * 0.15);
@@ -149,51 +235,90 @@ function pierProps(parent: THREE.Object3D) {
   for (const z of [-66, -69.5, -73, -77.5]) {
     for (const dx of [-2.05, 2.05]) {
       box(parent, 0.26, 1.08, 0.26, dockX + dx, 0.79, z, pierWood);
-      box(parent, 0.31, 0.10, 0.31, dockX + dx, 1.33, z, bridgeRed);
+      box(parent, 0.31, 0.1, 0.31, dockX + dx, 1.33, z, bridgeRed);
     }
   }
   // Distinct weathered boards replace the solid slab appearance, in one draw call.
-  const grain = canvasTex((g, w, h) => {
-    g.fillStyle = "#78604a"; g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 220; i++) {
-      g.strokeStyle = i % 3 ? "rgba(43,30,23,.25)" : "rgba(218,190,145,.2)";
-      g.lineWidth = i % 4 === 0 ? 2 : 1;
-      const y = (i * 37) % h;
-      g.beginPath(); g.moveTo(0, y);
-      g.bezierCurveTo(w * .3, y + i % 9, w * .65, y - i % 7, w, y + i % 5);
-      g.stroke();
-    }
-    for (const x of [38, w - 38]) {
-      g.fillStyle = "#392e27"; g.beginPath(); g.arc(x, h / 2, 3, 0, Math.PI * 2); g.fill();
-      g.strokeStyle = "rgba(35,23,16,.32)";
-      for (const radius of [10, 16, 23]) {
-        g.beginPath(); g.ellipse(x + 23, h * .68, radius * 1.8, radius * .35, .03, 0, Math.PI * 2); g.stroke();
+  const grain = canvasTex(
+    (g, w, h) => {
+      g.fillStyle = "#78604a";
+      g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 220; i++) {
+        g.strokeStyle = i % 3 ? "rgba(43,30,23,.25)" : "rgba(218,190,145,.2)";
+        g.lineWidth = i % 4 === 0 ? 2 : 1;
+        const y = (i * 37) % h;
+        g.beginPath();
+        g.moveTo(0, y);
+        g.bezierCurveTo(w * 0.3, y + (i % 9), w * 0.65, y - (i % 7), w, y + (i % 5));
+        g.stroke();
       }
-    }
-  }, 512, 128);
-  const boardMaterial = new THREE.MeshStandardMaterial({ map: grain, bumpMap: grain,
-    bumpScale: .018, color: 0xc8b49a, roughness: .91 });
-  const boards = new THREE.InstancedMesh(new THREE.BoxGeometry(4.1, .026, .64), boardMaterial, 24);
+      for (const x of [38, w - 38]) {
+        g.fillStyle = "#392e27";
+        g.beginPath();
+        g.arc(x, h / 2, 3, 0, Math.PI * 2);
+        g.fill();
+        g.strokeStyle = "rgba(35,23,16,.32)";
+        for (const radius of [10, 16, 23]) {
+          g.beginPath();
+          g.ellipse(x + 23, h * 0.68, radius * 1.8, radius * 0.35, 0.03, 0, Math.PI * 2);
+          g.stroke();
+        }
+      }
+    },
+    512,
+    128,
+  );
+  const boardMaterial = new THREE.MeshStandardMaterial({
+    map: grain,
+    bumpMap: grain,
+    bumpScale: 0.018,
+    color: 0xc8b49a,
+    roughness: 0.91,
+  });
+  const boards = new THREE.InstancedMesh(
+    new THREE.BoxGeometry(4.1, 0.026, 0.64),
+    boardMaterial,
+    24,
+  );
   const boardTransform = new THREE.Object3D();
   for (let i = 0; i < 24; i++) {
-    boardTransform.position.set(dockX, .515, -64.35 - i * .66);
-    boardTransform.rotation.y = ((i % 3) - 1) * .001;
-    boardTransform.updateMatrix(); boards.setMatrixAt(i, boardTransform.matrix);
-    boards.setColorAt(i, new THREE.Color().setScalar(.82 + (i % 5) * .035));
+    boardTransform.position.set(dockX, 0.515, -64.35 - i * 0.66);
+    boardTransform.rotation.y = ((i % 3) - 1) * 0.001;
+    boardTransform.updateMatrix();
+    boards.setMatrixAt(i, boardTransform.matrix);
+    boards.setColorAt(i, new THREE.Color().setScalar(0.82 + (i % 5) * 0.035));
   }
-  boards.name = "river-weathered-deck"; boards.receiveShadow = true;
-  boards.instanceMatrix.needsUpdate = true; parent.add(boards);
-  const ropeMaterial = new THREE.MeshStandardMaterial({ color: 0x99866b, roughness: .96 });
+  boards.name = "river-weathered-deck";
+  boards.receiveShadow = true;
+  boards.instanceMatrix.needsUpdate = true;
+  parent.add(boards);
+  const ropeMaterial = new THREE.MeshStandardMaterial({ color: 0x99866b, roughness: 0.96 });
   for (const x of [dockX - 2.05, dockX + 2.05]) {
-    for (const [z, endZ] of [[-66, -69.5], [-69.5, -73], [-73, -77.5]]) {
-      const rope = new THREE.QuadraticBezierCurve3(new THREE.Vector3(x, 1.15, z),
-        new THREE.Vector3(x, .9, (z + endZ) / 2), new THREE.Vector3(x, 1.15, endZ));
-      mesh(parent, new THREE.TubeGeometry(rope, 12, .028, 5, false), ropeMaterial, 0, 0, 0);
+    for (const [z, endZ] of [
+      [-66, -69.5],
+      [-69.5, -73],
+      [-73, -77.5],
+    ]) {
+      const rope = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(x, 1.15, z),
+        new THREE.Vector3(x, 0.9, (z + endZ) / 2),
+        new THREE.Vector3(x, 1.15, endZ),
+      );
+      mesh(parent, new THREE.TubeGeometry(rope, 12, 0.028, 5, false), ropeMaterial, 0, 0, 0);
     }
   }
   // A few prepared fishing rods leaning out over the river.
-  for (const [x,z,theta] of [[-17.86,-73,0.16],[-14.12,-76,-0.19]] as const) {
-    cable(parent, new THREE.Vector3(x, 0.62, z), new THREE.Vector3(x + Math.sin(theta) * 1.35, 2.35, z - 1.4), 0.017, iron);
+  for (const [x, z, theta] of [
+    [-17.86, -73, 0.16],
+    [-14.12, -76, -0.19],
+  ] as const) {
+    cable(
+      parent,
+      new THREE.Vector3(x, 0.62, z),
+      new THREE.Vector3(x + Math.sin(theta) * 1.35, 2.35, z - 1.4),
+      0.017,
+      iron,
+    );
     box(parent, 0.28, 0.27, 0.39, x, 0.54, z + 0.31, blue);
   }
   const cooler = box(parent, 0.7, 0.4, 0.42, -15.2, 0.76, -78.9, blue);
@@ -213,7 +338,14 @@ function baitStore(parent: THREE.Object3D) {
   box(g, 1.8, 1.25, 0.09, -31.4, 1.55, -57.7, iron);
   box(g, 1.65, 1.04, 0.04, -31.4, 1.55, -57.62, blue);
   box(g, 0.08, 1.05, 0.05, -31.4, 1.55, -57.58, golden);
-  const barrel = mesh(g, new THREE.CylinderGeometry(0.27, 0.27, 0.8, 11), blue, -27.45, 0.41, -57.05);
+  const barrel = mesh(
+    g,
+    new THREE.CylinderGeometry(0.27, 0.27, 0.8, 11),
+    blue,
+    -27.45,
+    0.41,
+    -57.05,
+  );
   barrel.name = "bait-livewell";
   for (const dx of [-1.9, -1.1]) {
     box(g, 0.06, 1.7, 0.06, -30 + dx, 1.05, -57.1, iron);
@@ -222,13 +354,18 @@ function baitStore(parent: THREE.Object3D) {
 }
 function waterHighlights(parent: THREE.Object3D) {
   // Narrow instanced ripples, not a flat screenshot or a giant second water plane.
-  const ripples = new THREE.MeshBasicMaterial({ color: 0xcac6b1, transparent: true, opacity: 0.16, depthWrite: false });
+  const ripples = new THREE.MeshBasicMaterial({
+    color: 0xcac6b1,
+    transparent: true,
+    opacity: 0.16,
+    depthWrite: false,
+  });
   const geom = new THREE.PlaneGeometry(0.95, 0.025);
   const group = new THREE.InstancedMesh(geom, ripples, 150);
   const transform = new THREE.Object3D();
   for (let i = 0; i < 150; i++) {
-    const x = -52 + (i * 47) % 106;
-    const z = -69 - (i * 23) % 31;
+    const x = -52 + ((i * 47) % 106);
+    const z = -69 - ((i * 23) % 31);
     transform.position.set(x, 0.049, z);
     transform.rotation.set(-Math.PI / 2, 0, 0);
     transform.scale.set(0.25 + (i % 7) * 0.2, 1, 1);
@@ -244,35 +381,46 @@ let riverWater: THREE.MeshStandardMaterial | null = null;
 /** Small generated tiling texture with layered blue/amber wave lines. */
 export function riverWaterMaterial() {
   if (riverWater) return riverWater;
-  const tex = canvasTex((g, w, h) => {
-    const gradient = g.createLinearGradient(0, 0, 0, h);
-    gradient.addColorStop(0, "#2b5269");
-    gradient.addColorStop(0.55, "#2b596b");
-    gradient.addColorStop(1, "#18384f");
-    g.fillStyle = gradient;
-    g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 210; i++) {
-      const px = (i * 57) % w;
-      const py = (i * 79) % h;
-      g.beginPath();
-      g.moveTo(px, py);
-      g.quadraticCurveTo(px + 18, py - 3, px + 45 + i % 19, py + 1);
-      g.lineWidth = i % 5 === 0 ? 2 : 0.9;
-      g.strokeStyle = i % 7 === 0 ? "rgba(242,179,105,.15)" : "rgba(206,226,222,.14)";
-      g.stroke();
-    }
-  }, 512, 512, true);
+  const tex = canvasTex(
+    (g, w, h) => {
+      const gradient = g.createLinearGradient(0, 0, 0, h);
+      gradient.addColorStop(0, "#2b5269");
+      gradient.addColorStop(0.55, "#2b596b");
+      gradient.addColorStop(1, "#18384f");
+      g.fillStyle = gradient;
+      g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 210; i++) {
+        const px = (i * 57) % w;
+        const py = (i * 79) % h;
+        g.beginPath();
+        g.moveTo(px, py);
+        g.quadraticCurveTo(px + 18, py - 3, px + 45 + (i % 19), py + 1);
+        g.lineWidth = i % 5 === 0 ? 2 : 0.9;
+        g.strokeStyle = i % 7 === 0 ? "rgba(242,179,105,.15)" : "rgba(206,226,222,.14)";
+        g.stroke();
+      }
+    },
+    512,
+    512,
+    true,
+  );
   tex.repeat.set(6, 2);
   riverWater = new THREE.MeshStandardMaterial({
-    map: tex, bumpMap: tex, bumpScale: 0.065, color: 0xa9bec6, roughness: 0.32, metalness: 0.2,
-    emissive: 0x12364e, emissiveIntensity: 0.12,
+    map: tex,
+    bumpMap: tex,
+    bumpScale: 0.065,
+    color: 0xa9bec6,
+    roughness: 0.32,
+    metalness: 0.2,
+    emissive: 0x12364e,
+    emissiveIntensity: 0.12,
   });
   return riverWater;
 }
 /** Drift surface detail with elapsed game time; no per-frame geometry or textures. */
 export function animateRiverfront(time: number) {
   if (!riverWater?.map) return;
-  riverWater.map.offset.set(time * .008, Math.sin(time * .12) * .008);
+  riverWater.map.offset.set(time * 0.008, Math.sin(time * 0.12) * 0.008);
 }
 
 export function dressRiverfront(parent: THREE.Object3D, solids: Solid[]) {
@@ -292,7 +440,11 @@ export function dressRiverfront(parent: THREE.Object3D, solids: Solid[]) {
   for (const x of [-34, -25, -6, 13, 23]) {
     flowerPlanter(scene, x, -64.25, Math.floor(x));
   }
-  for (const [x, z, yaw] of [[-36,-63.55,Math.PI],[1,-63.55,Math.PI],[17,-63.55,Math.PI]] as const) {
+  for (const [x, z, yaw] of [
+    [-36, -63.55, Math.PI],
+    [1, -63.55, Math.PI],
+    [17, -63.55, Math.PI],
+  ] as const) {
     bench(scene, x, z, yaw);
     solids.push({ minX: x - 0.85, maxX: x + 0.85, minZ: z - 0.32, maxZ: z + 0.32 });
   }
@@ -304,4 +456,19 @@ export function dressRiverfront(parent: THREE.Object3D, solids: Solid[]) {
   scene.userData.pierLocation = { x: -16, z: -70 };
   parent.add(scene);
   return scene;
+}
+
+/**
+ * Let the river mirror the painted sky: the panorama becomes the water's own
+ * reflection map (only water pixels pay for it). Called when the time of day
+ * changes, never per frame.
+ */
+export function setRiverSky(sky: THREE.Texture | null, strength: number) {
+  const water = riverWaterMaterial();
+  if (water.envMap === sky) return;
+  water.envMap = sky;
+  water.envMapIntensity = strength;
+  water.metalness = sky ? 0.62 : 0.2;
+  water.roughness = sky ? 0.16 : 0.32;
+  water.needsUpdate = true;
 }

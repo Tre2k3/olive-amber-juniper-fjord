@@ -61,7 +61,7 @@ import { buildFoodCourt, animateFoodCourt } from "./world/food-court";
 import { FOOD_VENDORS, freshFoodCourt, orderFood, type FoodVendor } from "./play/food-court";
 import { tickRace, RACE_LENGTH, rivalPose } from "./play/racing";
 import { buildRaceCircuit, animateHauntAtmosphere } from "./world/activities";
-import { animateRiverfront } from "./world/riverfront-production";
+import { animateRiverfront, setRiverSky } from "./world/riverfront-production";
 import { animateHauntLibrary } from "./world/kits/haunt-library";
 import { characters, frameSize, type Cutout } from "./assets/characters";
 import {
@@ -235,6 +235,22 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   // Real fishing lives in play/fishing.ts; `city.fish` stays null from here on.
   const fishing: Fishing = freshFishing();
   let castArmed = false;
+  /** Painted sky panoramas (public/game-v2/places/sky/); the gradient canvases stay until they load. */
+  const paintedSky: { day?: THREE.Texture; golden?: THREE.Texture } = {};
+  for (const mode of ["day", "golden"] as const) {
+    new THREE.TextureLoader().load(
+      `/game-v2/places/sky/${mode}.jpg`,
+      (t) => {
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.mapping = THREE.EquirectangularReflectionMapping;
+        paintedSky[mode] = t;
+      },
+      undefined,
+      () => {
+        /* keep the gradient */
+      },
+    );
+  }
   /** Direction from the pier into open river water (toward the old bobber spot). */
   const PIER_WATER = { x: -0.92, z: -0.4 };
   let paused = false;
@@ -2682,7 +2698,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     world.hemi.groundColor.set(night ? 0x1a140e : golden ? 0x7a4a28 : 0x6a6840);
     renderer.toneMappingExposure = night ? 0.9 : golden ? 1.12 : outside ? 1.1 : 1.03;
     bloom.strength = night ? 0.22 : golden ? 0.17 : 0.11;
-    world.scene.background = night ? world.skyNight : golden ? world.skyGolden : world.skyDay;
+    world.scene.background = night
+      ? world.skyNight
+      : golden
+        ? (paintedSky.golden ?? world.skyGolden)
+        : (paintedSky.day ?? world.skyDay);
+    setRiverSky(
+      night ? null : golden ? (paintedSky.golden ?? null) : (paintedSky.day ?? null),
+      golden ? 1.25 : 0.9,
+    );
     quality.applyMode(
       place === "haunt"
         ? "haunt"
@@ -2703,8 +2727,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       fog.far = 24;
     } else {
       fog.color.setHex(night ? 0x141820 : golden ? 0xf0c090 : 0xc5d4e2);
-      fog.near = night ? 16 : golden ? 12 : 34;
-      fog.far = night ? 72 : golden ? 58 : 120;
+      fog.near = night ? 22 : golden ? 30 : 50;
+      fog.far = night ? 110 : golden ? 150 : 220;
     }
     const hqDay = world.exterior.getObjectByName("hq-plate-day");
     const hqNight = world.exterior.getObjectByName("hq-plate-night");
