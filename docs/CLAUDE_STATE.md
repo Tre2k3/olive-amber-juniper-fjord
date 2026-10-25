@@ -155,6 +155,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - `hauntProp()` now takes `placeholder` as an object, an array, or a name looked up at load time, plus a floor height `y`; and it rotates before centring (it used to centre first, so any prop turned off 0° drifted). All house props still load only on first entry (verified: 5 GLBs after entering, 0 errors).
 - Captures: `artifacts/after/haunt-props-sheet.png`. QA camera rule for interiors: put the player against the far wall facing into the room, or the follow camera lands inside the divider walls.
 
+## 2026-10-25 — Beale neon (board 7)
+- `kits/beale-neon.ts` → `dressBealeNeon(parent, glow)` called after `dressBealeNightlife` in `kits/city.ts`. Signs are generated neon-on-black art (`public/game-v2/places/beale/{blues-club,beale-st,live-music,bar-b-q,memphis-vertical}.jpg`, 36–48 KB each, black crushed with `-black-threshold 6%`), drawn on MeshStandardMaterial planes with `emissiveMap` + AdditiveBlending (black vanishes), emissive (1.9,1.9,1.9), pushed into the city `glow` list so they follow day 0.2 / golden 0.55 / night 1.1. A 1×1 black emissiveMap placeholder keeps the shader fixed until the art loads.
+- Placement on the south frontage (faces +z, front ≈ z −62.7): BLUES CLUB over BLUES (x 63.4), LIVE MUSIC over LIVE (74), BAR-B-Q over SOUL (51.7) at y ≈ 4.7; projecting blades on iron arms — BEALE ST. at x 57.3, vertical MEMPHIS at x 45.
+- Framing note: the default follow camera is close and low, so wall signs sit near the top of frame when hugging the storefronts; they read from the road and across the street (`artifacts/after/beale-after.png`).
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

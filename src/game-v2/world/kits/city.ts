@@ -6,6 +6,7 @@ import { bench, hydrant, planter, streetlight, trashBin } from "./props";
 import { streetTree } from "./trees";
 import { carBody } from "./vehicles";
 import { dressBealeNightlife } from "./beale-production";
+import { dressBealeNeon } from "./beale-neon";
 
 const metal = new THREE.MeshStandardMaterial({ color: 0x1a1c20, roughness: 0.42, metalness: 0.55 });
 const glass = new THREE.MeshStandardMaterial({
@@ -27,7 +28,16 @@ const stone = new THREE.MeshStandardMaterial({ color: 0xc4b8a4, roughness: 0.86 
 const recess = new THREE.MeshStandardMaterial({ color: 0x14110e, roughness: 0.92 });
 const bulk = new THREE.MeshStandardMaterial({ color: 0x241c18, roughness: 0.8 });
 
-function box(w: number, h: number, d: number, x: number, y: number, z: number, mat: THREE.Material, parent: THREE.Object3D) {
+function box(
+  w: number,
+  h: number,
+  d: number,
+  x: number,
+  y: number,
+  z: number,
+  mat: THREE.Material,
+  parent: THREE.Object3D,
+) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
   m.position.set(x, y, z);
   m.castShadow = true;
@@ -75,7 +85,16 @@ export type Storefront = {
   ink?: string;
 };
 
-function punched(parent: THREE.Object3D, x: number, y: number, z: number, face: 1 | -1, w: number, h: number, lit: boolean) {
+function punched(
+  parent: THREE.Object3D,
+  x: number,
+  y: number,
+  z: number,
+  face: 1 | -1,
+  w: number,
+  h: number,
+  lit: boolean,
+) {
   const out = (n: number) => z + face * n;
   box(w + 0.16, 0.08, 0.22, x, y - h / 2 - 0.02, out(0.1), stone, parent);
   box(w + 0.1, 0.07, 0.14, x, y + h / 2 + 0.02, out(0.08), stone, parent);
@@ -100,8 +119,20 @@ export function storefront(
   const bodyFloors = crown ? floors - 1 : floors;
   const bodyH = ground + (bodyFloors - 1) * story + 0.45;
   const wall = spec.wall
-    ? surface("/game-v2/materials/stucco.jpg", Math.max(1, spec.w / 3.2), Math.max(1, bodyH / 2.6), 0.92, Number.parseInt(spec.wall.slice(1), 16))
-    : surface("/game-v2/materials/brick.jpg", Math.max(1, spec.w / 2.2), Math.max(1, bodyH / 1.6), 0.86, 0xffc8b0);
+    ? surface(
+        "/game-v2/materials/stucco.jpg",
+        Math.max(1, spec.w / 3.2),
+        Math.max(1, bodyH / 2.6),
+        0.92,
+        Number.parseInt(spec.wall.slice(1), 16),
+      )
+    : surface(
+        "/game-v2/materials/brick.jpg",
+        Math.max(1, spec.w / 2.2),
+        Math.max(1, bodyH / 1.6),
+        0.86,
+        0xffc8b0,
+      );
   const face = spec.face;
   const front = spec.z + face * (spec.d / 2);
   const out = (n: number) => front + face * n;
@@ -115,7 +146,16 @@ export function storefront(
   box(spec.w + 0.22, 0.14, spec.d + 0.16, spec.x, bodyH - 0.12, spec.z, metal, parent);
   box(spec.w + 0.06, 0.36, spec.d + 0.06, spec.x, bodyH + 0.12, spec.z, wall, parent);
   for (let i = 0; i < Math.floor(spec.w / 0.55); i++) {
-    box(0.08, 0.1, 0.12, spec.x - spec.w / 2 + 0.4 + i * 0.55, bodyH - 0.22, out(0.16), stone, parent);
+    box(
+      0.08,
+      0.1,
+      0.12,
+      spec.x - spec.w / 2 + 0.4 + i * 0.55,
+      bodyH - 0.22,
+      out(0.16),
+      stone,
+      parent,
+    );
   }
 
   const bay = Math.min(spec.w - 1.6, Math.max(3.4, spec.w * 0.62));
@@ -127,7 +167,16 @@ export function storefront(
   box(shopW - 0.12, 1.5, 0.04, shopX, 1.6, out(0.12), glass, parent);
   const mullions = Math.max(2, Math.round(shopW / 1.15));
   for (let i = 0; i <= mullions; i++) {
-    box(0.055, 1.55, 0.06, shopX - shopW / 2 + (shopW * i) / mullions, 1.6, out(0.14), metal, parent);
+    box(
+      0.055,
+      1.55,
+      0.06,
+      shopX - shopW / 2 + (shopW * i) / mullions,
+      1.6,
+      out(0.14),
+      metal,
+      parent,
+    );
   }
   box(shopW, 0.06, 0.06, shopX, 1.6, out(0.15), metal, parent);
   box(shopW, 0.28, 0.06, shopX, 2.55, out(0.1), glass, parent);
@@ -217,16 +266,48 @@ const towerGlass = new THREE.MeshStandardMaterial({
   emissiveIntensity: 0.06,
 });
 
-function tower(parent: THREE.Object3D, x: number, z: number, w: number, d: number, h: number, glassy: boolean) {
+function tower(
+  parent: THREE.Object3D,
+  x: number,
+  z: number,
+  w: number,
+  d: number,
+  h: number,
+  glassy: boolean,
+) {
   const skin = glassy
     ? towerGlass
-    : surface("/game-v2/materials/stone.jpg", Math.max(1, w / 5), Math.max(1, h / 6), 0.8, 0xf4f1ea);
+    : surface(
+        "/game-v2/materials/stone.jpg",
+        Math.max(1, w / 5),
+        Math.max(1, h / 6),
+        0.8,
+        0xf4f1ea,
+      );
   box(w, h, d, x, h / 2, z, skin, parent);
   box(w + 0.4, 0.35, d + 0.4, x, h - 0.15, z, metal, parent);
   const bands = glassy ? 3.4 : 2.8;
   for (let y = 5; y < h - 3; y += bands) {
-    box(w * 0.62, glassy ? 1.5 : 1.05, 0.06, x, y, z + d / 2 + 0.04, glassy ? glass : recess, parent);
-    box(0.06, glassy ? 1.5 : 1.05, d * 0.5, x + w / 2 + 0.04, y, z, glassy ? glass : recess, parent);
+    box(
+      w * 0.62,
+      glassy ? 1.5 : 1.05,
+      0.06,
+      x,
+      y,
+      z + d / 2 + 0.04,
+      glassy ? glass : recess,
+      parent,
+    );
+    box(
+      0.06,
+      glassy ? 1.5 : 1.05,
+      d * 0.5,
+      x + w / 2 + 0.04,
+      y,
+      z,
+      glassy ? glass : recess,
+      parent,
+    );
   }
 }
 
@@ -271,7 +352,13 @@ function mural(parent: THREE.Object3D, glow: THREE.MeshStandardMaterial[]) {
   g.fillRect(276, 470, 22, 22);
   const map = new THREE.CanvasTexture(c);
   map.colorSpace = THREE.SRGBColorSpace;
-  const mat = new THREE.MeshStandardMaterial({ map, emissive: 0xffe0b0, emissiveMap: map, emissiveIntensity: 0.25, roughness: 0.6 });
+  const mat = new THREE.MeshStandardMaterial({
+    map,
+    emissive: 0xffe0b0,
+    emissiveMap: map,
+    emissiveIntensity: 0.25,
+    roughness: 0.6,
+  });
   glow.push(mat);
   const board = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 6.3), mat);
   board.position.set(59.55, 9.2, -42.2);
@@ -293,25 +380,140 @@ export function buildDowntown(
   slabs(parent, eastWestZ + 6.2, 2, 80);
   box(78, 0.16, 0.28, 42, 0.08, eastWestZ + 4.35, stone, parent);
 
-  box(9.1, 0.06, 30, 8, 0.03, -40, surface("/game-v2/materials/asphalt.jpg", 9.1 / 3.4, 30 / 3.4, 0.95), parent);
+  box(
+    9.1,
+    0.06,
+    30,
+    8,
+    0.03,
+    -40,
+    surface("/game-v2/materials/asphalt.jpg", 9.1 / 3.4, 30 / 3.4, 0.95),
+    parent,
+  );
   addGround({ minX: 3.45, maxX: 12.55, minZ: -55, maxZ: -25, y: 0.06 });
   addGround({ minX: 12.7, maxX: 14.8, minZ: -52, maxZ: -28, y: 0.17 });
-  for (let z = -52; z < -28; z += 1.55) box(2.1, 0.1, 1.45, 13.7, 0.12, z + 0.7, concreteSlab(Math.round(z)), parent);
+  for (let z = -52; z < -28; z += 1.55)
+    box(2.1, 0.1, 1.45, 13.7, 0.12, z + 0.7, concreteSlab(Math.round(z)), parent);
   for (let i = 0; i < 6; i++) {
     box(0.85, 0.02, 0.16, 4.6 + i * 1.05, 0.08, eastWestZ + 3.6, metal, parent);
   }
 
   const row: Storefront[] = [
-    { x: 22, z: -42.6, w: 8.4, d: 7.2, floors: 3, face: -1, awning: 0xc4473a, name: "BLUFF", ink: "#f4efe4" },
-    { x: 32.2, z: -42.2, w: 10.2, d: 7.6, floors: 6, face: -1, wall: "#e7d7c4", awning: 0x1c1c1c, name: "DELTA", ink: "#e0b33a" },
-    { x: 43.4, z: -42.8, w: 9.2, d: 7.2, floors: 2, face: -1, awning: 0x2f6a4a, name: "SOUL", ink: "#f4efe4" },
-    { x: 54, z: -42.2, w: 11, d: 8, floors: 8, face: -1, wall: "#d9c3a4", awning: 0xe0b33a, name: "BEALE", ink: "#1a1208" },
-    { x: 66.2, z: -42.4, w: 8.6, d: 7.4, floors: 4, face: -1, awning: 0x8e2438, name: "WAX", ink: "#f4efe4" },
-    { x: 96, z: 11.7, w: 9.4, d: 7.4, floors: 3, face: -1, wall: "#efe4cf", awning: 0xc4473a, name: "CROWN", ink: "#f4efe4" },
-    { x: 107.2, z: 11.9, w: 11.2, d: 7.8, floors: 6, face: -1, awning: 0x1a1a1a, name: "901", ink: "#e0b33a" },
-    { x: 118.4, z: 11.6, w: 8.8, d: 7.2, floors: 4, face: -1, wall: "#d5ddd6", awning: 0x2f6a4a, name: "LAMP", ink: "#f4efe4" },
-    { x: 112, z: -11.6, w: 10, d: 7.2, floors: 5, face: 1, awning: 0xe0b33a, name: "RIVER", ink: "#1a1208" },
-    { x: 123, z: -11.5, w: 8.4, d: 7, floors: 3, face: 1, wall: "#e4d2b8", awning: 0x8e2438, name: "HORN", ink: "#f4efe4" },
+    {
+      x: 22,
+      z: -42.6,
+      w: 8.4,
+      d: 7.2,
+      floors: 3,
+      face: -1,
+      awning: 0xc4473a,
+      name: "BLUFF",
+      ink: "#f4efe4",
+    },
+    {
+      x: 32.2,
+      z: -42.2,
+      w: 10.2,
+      d: 7.6,
+      floors: 6,
+      face: -1,
+      wall: "#e7d7c4",
+      awning: 0x1c1c1c,
+      name: "DELTA",
+      ink: "#e0b33a",
+    },
+    {
+      x: 43.4,
+      z: -42.8,
+      w: 9.2,
+      d: 7.2,
+      floors: 2,
+      face: -1,
+      awning: 0x2f6a4a,
+      name: "SOUL",
+      ink: "#f4efe4",
+    },
+    {
+      x: 54,
+      z: -42.2,
+      w: 11,
+      d: 8,
+      floors: 8,
+      face: -1,
+      wall: "#d9c3a4",
+      awning: 0xe0b33a,
+      name: "BEALE",
+      ink: "#1a1208",
+    },
+    {
+      x: 66.2,
+      z: -42.4,
+      w: 8.6,
+      d: 7.4,
+      floors: 4,
+      face: -1,
+      awning: 0x8e2438,
+      name: "WAX",
+      ink: "#f4efe4",
+    },
+    {
+      x: 96,
+      z: 11.7,
+      w: 9.4,
+      d: 7.4,
+      floors: 3,
+      face: -1,
+      wall: "#efe4cf",
+      awning: 0xc4473a,
+      name: "CROWN",
+      ink: "#f4efe4",
+    },
+    {
+      x: 107.2,
+      z: 11.9,
+      w: 11.2,
+      d: 7.8,
+      floors: 6,
+      face: -1,
+      awning: 0x1a1a1a,
+      name: "901",
+      ink: "#e0b33a",
+    },
+    {
+      x: 118.4,
+      z: 11.6,
+      w: 8.8,
+      d: 7.2,
+      floors: 4,
+      face: -1,
+      wall: "#d5ddd6",
+      awning: 0x2f6a4a,
+      name: "LAMP",
+      ink: "#f4efe4",
+    },
+    {
+      x: 112,
+      z: -11.6,
+      w: 10,
+      d: 7.2,
+      floors: 5,
+      face: 1,
+      awning: 0xe0b33a,
+      name: "RIVER",
+      ink: "#1a1208",
+    },
+    {
+      x: 123,
+      z: -11.5,
+      w: 8.4,
+      d: 7,
+      floors: 3,
+      face: 1,
+      wall: "#e4d2b8",
+      awning: 0x8e2438,
+      name: "HORN",
+      ink: "#f4efe4",
+    },
   ];
   for (const spec of row) storefront(parent, solids, glow, spec);
 
@@ -320,19 +522,83 @@ export function buildDowntown(
   // looked through one empty roadside toward distant skyline placeholders.
   // South front is +Z, so shop glass and awnings face the actual asphalt.
   const opposite: Storefront[] = [
-    { x: 20.2, z: -66.4, w: 7.7, d: 7.2, floors: 3, face: 1, awning: 0x2c5947, name: "RHYTHM", ink: "#f6dcb8" },
-    { x: 29.4, z: -66.35, w: 9.1, d: 7.2, floors: 4, face: 1, wall: "#e4d4b9", awning: 0x242424, name: "VINYL", ink: "#e8b866" },
-    { x: 40.0, z: -66.6, w: 9.4, d: 7.4, floors: 5, face: 1, awning: 0x693041, name: "JUKE", ink: "#ffecb9" },
-    { x: 51.7, z: -66.35, w: 11, d: 7.2, floors: 6, face: 1, wall: "#d5bfa7", awning: 0x164b5c, name: "SOUL", ink: "#f7dca4" },
-    { x: 63.4, z: -66.5, w: 10.0, d: 7.4, floors: 4, face: 1, awning: 0x7d1e2e, name: "BLUES", ink: "#f9ddba" },
-    { x: 74, z: -66.35, w: 8.6, d: 7.2, floors: 3, face: 1, wall: "#e7d7c4", awning: 0x315c48, name: "LIVE", ink: "#f3bd65" },
+    {
+      x: 20.2,
+      z: -66.4,
+      w: 7.7,
+      d: 7.2,
+      floors: 3,
+      face: 1,
+      awning: 0x2c5947,
+      name: "RHYTHM",
+      ink: "#f6dcb8",
+    },
+    {
+      x: 29.4,
+      z: -66.35,
+      w: 9.1,
+      d: 7.2,
+      floors: 4,
+      face: 1,
+      wall: "#e4d4b9",
+      awning: 0x242424,
+      name: "VINYL",
+      ink: "#e8b866",
+    },
+    {
+      x: 40.0,
+      z: -66.6,
+      w: 9.4,
+      d: 7.4,
+      floors: 5,
+      face: 1,
+      awning: 0x693041,
+      name: "JUKE",
+      ink: "#ffecb9",
+    },
+    {
+      x: 51.7,
+      z: -66.35,
+      w: 11,
+      d: 7.2,
+      floors: 6,
+      face: 1,
+      wall: "#d5bfa7",
+      awning: 0x164b5c,
+      name: "SOUL",
+      ink: "#f7dca4",
+    },
+    {
+      x: 63.4,
+      z: -66.5,
+      w: 10.0,
+      d: 7.4,
+      floors: 4,
+      face: 1,
+      awning: 0x7d1e2e,
+      name: "BLUES",
+      ink: "#f9ddba",
+    },
+    {
+      x: 74,
+      z: -66.35,
+      w: 8.6,
+      d: 7.2,
+      floors: 3,
+      face: 1,
+      wall: "#e7d7c4",
+      awning: 0x315c48,
+      name: "LIVE",
+      ink: "#f3bd65",
+    },
   ];
   for (const spec of opposite) storefront(parent, solids, glow, spec);
   // Short frontage pavement bridges the sidewalk/building setback and remains
   // a registered walkable surface without modifying the original traffic road.
   addGround({ minX: 16, maxX: 79, minZ: -62.75, maxZ: -61.0, y: 0.17, id: "beale-south-frontage" });
-  box(63, 0.10, 1.75, 47.5, 0.12, -61.9, concreteSlab(2), parent);
+  box(63, 0.1, 1.75, 47.5, 0.12, -61.9, concreteSlab(2), parent);
   dressBealeNightlife(parent, glow);
+  dressBealeNeon(parent, glow);
 
   streetTree(16, eastWestZ + 6.35, parent, 0.85);
   streetTree(48, eastWestZ + 6.45, parent, 0.9);
@@ -358,15 +624,39 @@ export function buildDowntown(
   for (let x = 6; x < 80; x += 4.2) box(1.7, 0.02, 0.14, x, 0.075, eastWestZ, yellow, parent);
   box(76, 0.015, 0.08, 42, 0.07, eastWestZ - 3.55, paint, parent);
   box(76, 0.015, 0.08, 42, 0.07, eastWestZ + 3.55, paint, parent);
-  for (let i = 0; i < 9; i++) box(0.7, 0.02, 0.85, 11.2, 0.08, eastWestZ - 3.4 + i * 0.85, paint, parent);
-  for (let i = 0; i < 9; i++) box(0.7, 0.02, 0.85, 48, 0.08, eastWestZ - 3.4 + i * 0.85, paint, parent);
+  for (let i = 0; i < 9; i++)
+    box(0.7, 0.02, 0.85, 11.2, 0.08, eastWestZ - 3.4 + i * 0.85, paint, parent);
+  for (let i = 0; i < 9; i++)
+    box(0.7, 0.02, 0.85, 48, 0.08, eastWestZ - 3.4 + i * 0.85, paint, parent);
 
   box(0.12, 4.2, 0.12, 12.4, 2.1, eastWestZ + 5.1, metal, parent);
   box(1.6, 0.1, 0.1, 13.1, 4.05, eastWestZ + 5.1, metal, parent);
   box(0.28, 0.7, 0.28, 13.7, 3.7, eastWestZ + 5.1, metal, parent);
-  box(0.16, 0.16, 0.04, 13.86, 3.88, eastWestZ + 5.1, new THREE.MeshStandardMaterial({ color: 0xff3b30, emissive: 0xff3b30, emissiveIntensity: 0.7 }), parent);
+  box(
+    0.16,
+    0.16,
+    0.04,
+    13.86,
+    3.88,
+    eastWestZ + 5.1,
+    new THREE.MeshStandardMaterial({ color: 0xff3b30, emissive: 0xff3b30, emissiveIntensity: 0.7 }),
+    parent,
+  );
   box(0.16, 0.16, 0.04, 13.86, 3.68, eastWestZ + 5.1, yellow, parent);
-  box(0.16, 0.16, 0.04, 13.86, 3.48, eastWestZ + 5.1, new THREE.MeshStandardMaterial({ color: 0x39d353, emissive: 0x39d353, emissiveIntensity: 0.85 }), parent);
+  box(
+    0.16,
+    0.16,
+    0.04,
+    13.86,
+    3.48,
+    eastWestZ + 5.1,
+    new THREE.MeshStandardMaterial({
+      color: 0x39d353,
+      emissive: 0x39d353,
+      emissiveIntensity: 0.85,
+    }),
+    parent,
+  );
   const beale = signMat("BEALE", "#f4efe4");
   glow.push(beale);
   const blade = new THREE.Mesh(new THREE.PlaneGeometry(1.35, 0.38), beale);
