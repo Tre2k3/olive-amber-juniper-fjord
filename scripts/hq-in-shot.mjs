@@ -1,0 +1,16 @@
+import { closeBrowser, launchBrowser, preparePage } from "./smoke-lib.mjs";
+const browser = await launchBrowser(true);
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+const errors = []; page.on("pageerror", (e) => errors.push(String(e)));
+await preparePage(page);
+await page.goto("http://127.0.0.1:8080/?qa=1", { waitUntil: "domcontentloaded", timeout: 120000 });
+await page.waitForFunction(() => window.__SACK_V2_INPUT__?.simulate, { timeout: 150000 });
+const enter = page.getByRole("button", { name: /enter memphis/i }); if (await enter.count()) await enter.first().click().catch(() => {});
+const sim = (s) => page.evaluate((v) => window.__SACK_V2_INPUT__.simulate(v), s);
+await page.waitForTimeout(2500);
+await page.evaluate(() => window.__SACK_V2_INPUT__.setShot({ place: "hq", dialogue: "" })); await sim(1.0);
+const st = await page.evaluate(() => ({ x: window.__SACK_V2__.x, z: window.__SACK_V2__.z }));
+for (let i = 0; i < 2; i++) await page.evaluate(() => new Promise((r) => requestAnimationFrame(r)));
+await page.screenshot({ path: `artifacts/after/${process.env.TAG || "hqin-before"}.png` });
+console.log("hq spawn", JSON.stringify(st), "errors", errors.length, errors.slice(0, 1));
+await closeBrowser(browser);

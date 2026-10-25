@@ -2617,6 +2617,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     let destX = player.position.x - lookX * dist + lookZ * side;
     let destZ = player.position.z - lookZ * dist - lookX * side;
     const zone = collisionZone();
+    if (place === "hq") {
+      // The boutique's entrance is an open portal: keep the lens inside the
+      // 16 × 12 m room (walls at x ±8, back z −6, front z +6) so it never
+      // slips out through the doorway and shows the sky past the corner.
+      destX = Math.min(zone.ox + 7.45, Math.max(zone.ox - 7.45, destX));
+      destZ = Math.min(zone.oz + 5.45, Math.max(zone.oz - 5.5, destZ));
+    }
     let pulled = pullCamera(
       player.position.x,
       player.position.z,

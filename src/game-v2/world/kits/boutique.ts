@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { Solid } from "../../core/types";
 import { addGround } from "../ground";
-import { canvasTex, surface } from "./materials";
+import { canvasTex, sharedScan, surface } from "./materials";
 import { flagshipLogo } from "./brand";
 
 /**
@@ -21,10 +21,21 @@ const deepGreen = new THREE.MeshStandardMaterial({ color: 0x132e25, roughness: 0
 const blackFabric = new THREE.MeshStandardMaterial({ color: 0x141719, roughness: 0.92 });
 const grayFabric = new THREE.MeshStandardMaterial({ color: 0x6b7370, roughness: 0.84 });
 const glazed = new THREE.MeshStandardMaterial({ color: 0x192528, metalness: 0.2, roughness: 0.14 });
-const foliage = new THREE.MeshStandardMaterial({ color: 0x296c41, roughness: 0.9, side: THREE.DoubleSide });
+const foliage = new THREE.MeshStandardMaterial({
+  color: 0x296c41,
+  roughness: 0.9,
+  side: THREE.DoubleSide,
+});
 
-function piece(parent: THREE.Object3D, geo: THREE.BufferGeometry, mat: THREE.Material,
-               x: number, y: number, z: number, shadow = true) {
+function piece(
+  parent: THREE.Object3D,
+  geo: THREE.BufferGeometry,
+  mat: THREE.Material,
+  x: number,
+  y: number,
+  z: number,
+  shadow = true,
+) {
   const m = new THREE.Mesh(geo, mat);
   m.position.set(x, y, z);
   m.castShadow = shadow;
@@ -32,8 +43,17 @@ function piece(parent: THREE.Object3D, geo: THREE.BufferGeometry, mat: THREE.Mat
   parent.add(m);
   return m;
 }
-function box(parent: THREE.Object3D, w: number, h: number, d: number,
-             x: number, y: number, z: number, mat: THREE.Material, shadow = true) {
+function box(
+  parent: THREE.Object3D,
+  w: number,
+  h: number,
+  d: number,
+  x: number,
+  y: number,
+  z: number,
+  mat: THREE.Material,
+  shadow = true,
+) {
   return piece(parent, new THREE.BoxGeometry(w, h, d), mat, x, y, z, shadow);
 }
 function collider(solids: Solid[], x: number, z: number, w: number, d: number) {
@@ -44,8 +64,14 @@ function warmStrip(group: THREE.Object3D, w: number, x: number, y: number, z: nu
   box(group, w, 0.032, 0.12, x, y - 0.046, z + 0.08, softGold, false);
 }
 
-function tee(parent: THREE.Object3D, x: number, y: number, z: number,
-             mat: THREE.Material, facing: number) {
+function tee(
+  parent: THREE.Object3D,
+  x: number,
+  y: number,
+  z: number,
+  mat: THREE.Material,
+  facing: number,
+) {
   const shirt = new THREE.Group();
   shirt.position.set(x, y, z);
   shirt.rotation.y = facing;
@@ -88,11 +114,25 @@ function storePlant(parent: THREE.Object3D, x: number, z: number, height = 1.2) 
   const pot = new THREE.MeshStandardMaterial({ color: 0x31251d, roughness: 0.78 });
   piece(parent, new THREE.CylinderGeometry(0.25, 0.19, 0.42, 10), pot, x, 0.25, z);
   const stemMat = new THREE.MeshStandardMaterial({ color: 0x345337, roughness: 0.9 });
-  piece(parent, new THREE.CylinderGeometry(0.025, 0.04, height * 0.78, 7), stemMat, x, height * 0.47, z);
+  piece(
+    parent,
+    new THREE.CylinderGeometry(0.025, 0.04, height * 0.78, 7),
+    stemMat,
+    x,
+    height * 0.47,
+    z,
+  );
   for (let i = 0; i < 7; i++) {
-    const a = i * Math.PI * 2 / 7;
-    const leaf = piece(parent, new THREE.SphereGeometry(0.12, 8, 6), foliage,
-      x + Math.sin(a) * 0.29, 0.65 + i % 3 * 0.23, z + Math.cos(a) * 0.29, false);
+    const a = (i * Math.PI * 2) / 7;
+    const leaf = piece(
+      parent,
+      new THREE.SphereGeometry(0.12, 8, 6),
+      foliage,
+      x + Math.sin(a) * 0.29,
+      0.65 + (i % 3) * 0.23,
+      z + Math.cos(a) * 0.29,
+      false,
+    );
     leaf.scale.set(0.72, 2.25, 0.32);
     leaf.rotation.z = Math.sin(a) * 0.43;
     leaf.rotation.x = Math.cos(a) * 0.5;
@@ -104,14 +144,25 @@ function foldedTable(parent: THREE.Object3D, solids: Solid[], x: number, z: numb
     box(parent, 0.08, 0.69, 0.08, x + sx, 0.38, z - 0.38, brass);
     box(parent, 0.08, 0.69, 0.08, x + sx, 0.38, z + 0.38, brass);
   }
-  for (let row = 0; row < 2; row++) for (let i = 0; i < 3; i++) {
-    const xx = x - 0.59 + i * 0.58;
-    const zz = z - 0.27 + row * 0.52;
-    const fabrics = [green, cream, blackFabric];
-    for (let layer = 0; layer < 3; layer++) {
-      box(parent, 0.43, 0.045, 0.31, xx, 0.86 + layer * 0.05, zz, fabrics[(i + row + layer) % 3]!, false);
+  for (let row = 0; row < 2; row++)
+    for (let i = 0; i < 3; i++) {
+      const xx = x - 0.59 + i * 0.58;
+      const zz = z - 0.27 + row * 0.52;
+      const fabrics = [green, cream, blackFabric];
+      for (let layer = 0; layer < 3; layer++) {
+        box(
+          parent,
+          0.43,
+          0.045,
+          0.31,
+          xx,
+          0.86 + layer * 0.05,
+          zz,
+          fabrics[(i + row + layer) % 3]!,
+          false,
+        );
+      }
     }
-  }
   collider(solids, x, z, w, 0.98);
 }
 function retailCounter(parent: THREE.Object3D, solids: Solid[]) {
@@ -126,7 +177,8 @@ function retailCounter(parent: THREE.Object3D, solids: Solid[]) {
   collider(solids, -4.9, 3.05, 2.65, 0.95);
 }
 function sofa(parent: THREE.Object3D, solids: Solid[]) {
-  const x = 4.0, z = -3.9;
+  const x = 4.0,
+    z = -3.9;
   box(parent, 3.1, 0.44, 0.9, x, 0.43, z, velvet);
   box(parent, 3.1, 0.82, 0.19, x, 0.76, z - 0.4, velvet);
   box(parent, 0.26, 0.65, 0.89, x - 1.42, 0.61, z, velvet);
@@ -153,7 +205,10 @@ function mezzanine(parent: THREE.Object3D) {
 }
 function lighting(parent: THREE.Object3D, glow: THREE.MeshStandardMaterial[]) {
   const mats = new THREE.MeshStandardMaterial({
-    color: 0xffebba, emissive: 0xffc16a, emissiveIntensity: 1.05, roughness: 0.3,
+    color: 0xffebba,
+    emissive: 0xffc16a,
+    emissiveIntensity: 1.05,
+    roughness: 0.3,
   });
   glow.push(mats);
   for (const x of [-5, -2.5, 0, 2.5, 5]) {
@@ -177,32 +232,46 @@ export function buildBoutiqueInterior(
   spawnBlanco: (x: number, z: number) => THREE.Group,
 ) {
   group.position.set(80, 0, 200);
-  const polishedFloor = canvasTex((g, w, h) => {
-    g.fillStyle = "#66615b";
-    g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 280; i++) {
-      const v = 94 + (i * 17) % 36;
-      g.strokeStyle = "rgba(" + (v + 22) + "," + (v + 16) + "," + v + ",0.19)";
-      g.lineWidth = i % 5 === 0 ? 2 : 0.55;
-      g.beginPath();
-      const x = (i * 71) % w;
-      const y = (i * 41) % h;
-      g.moveTo(x, y);
-      g.bezierCurveTo(x + 11, y - 8, x + 20, y + 5, x + 33, y + 7);
-      g.stroke();
-    }
-    g.strokeStyle = "rgba(28,24,18,.35)";
-    g.lineWidth = 2;
-    for (let p = 0; p <= w; p += 128) {
-      g.beginPath(); g.moveTo(p, 0); g.lineTo(p, h); g.stroke();
-    }
-    for (let p = 0; p <= h; p += 128) {
-      g.beginPath(); g.moveTo(0, p); g.lineTo(w, p); g.stroke();
-    }
-  }, 512, 512, true);
+  const polishedFloor = canvasTex(
+    (g, w, h) => {
+      g.fillStyle = "#66615b";
+      g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 280; i++) {
+        const v = 94 + ((i * 17) % 36);
+        g.strokeStyle = "rgba(" + (v + 22) + "," + (v + 16) + "," + v + ",0.19)";
+        g.lineWidth = i % 5 === 0 ? 2 : 0.55;
+        g.beginPath();
+        const x = (i * 71) % w;
+        const y = (i * 41) % h;
+        g.moveTo(x, y);
+        g.bezierCurveTo(x + 11, y - 8, x + 20, y + 5, x + 33, y + 7);
+        g.stroke();
+      }
+      g.strokeStyle = "rgba(28,24,18,.35)";
+      g.lineWidth = 2;
+      for (let p = 0; p <= w; p += 128) {
+        g.beginPath();
+        g.moveTo(p, 0);
+        g.lineTo(p, h);
+        g.stroke();
+      }
+      for (let p = 0; p <= h; p += 128) {
+        g.beginPath();
+        g.moveTo(0, p);
+        g.lineTo(w, p);
+        g.stroke();
+      }
+    },
+    512,
+    512,
+    true,
+  );
   polishedFloor.repeat.set(2.8, 2);
   const floorMat = new THREE.MeshStandardMaterial({
-    map: polishedFloor, roughness: 0.24, metalness: 0.17, envMapIntensity: 0.45,
+    map: polishedFloor,
+    roughness: 0.24,
+    metalness: 0.17,
+    envMapIntensity: 0.45,
   });
   const floor = piece(group, new THREE.PlaneGeometry(16, 12), floorMat, 0, 0.015, 0);
   floor.rotation.x = -Math.PI / 2;
@@ -213,6 +282,48 @@ export function buildBoutiqueInterior(
   for (const x of [-8, 8]) box(group, 0.16, 5.25, 12, x, 2.65, 0, brick);
   for (const x of [-5, 5]) box(group, 6, 5.25, 0.16, x, 2.65, 6, shell);
   box(group, 4, 2.1, 0.16, 0, 4.25, 6, shell);
+  // The entrance portal opens onto nothing (the interior is its own set), so
+  // give it a short vestibule, brass-framed glass doors and the street outside:
+  // an unlit, out-of-focus night street that reads through the doorway.
+  {
+    const vest = 1.4;
+    for (const x of [-2.05, 2.05]) box(group, 0.12, 3.2, vest, x, 1.6, 6 + vest / 2, shell, false);
+    box(group, 4.2, 0.12, vest, 0, 3.22, 6 + vest / 2, shell, false);
+    box(group, 4.2, 0.04, vest, 0, 0.02, 6 + vest / 2, shell, false);
+    const street = new THREE.MeshBasicMaterial({ color: 0x8a8a8a, toneMapped: false });
+    sharedScan("/game-v2/places/hq/street-bokeh.jpg", 1, 1).then(
+      (tex) => {
+        tex.wrapS = THREE.ClampToEdgeWrapping;
+        tex.wrapT = THREE.ClampToEdgeWrapping;
+        street.map = tex;
+        street.color.set(0xb4b4b4);
+        street.needsUpdate = true;
+      },
+      () => {
+        /* keep the dark plate */
+      },
+    );
+    street.color.set(0x14161c);
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 3.15), street);
+    plate.position.set(0, 1.58, 6 + vest - 0.02);
+    plate.rotation.y = Math.PI;
+    plate.name = "hq-doorway-street";
+    group.add(plate);
+    const glass = new THREE.MeshStandardMaterial({
+      color: 0x9fb8c8,
+      roughness: 0.05,
+      metalness: 0.4,
+      transparent: true,
+      opacity: 0.16,
+      depthWrite: false,
+    });
+    for (const x of [-1, 1]) {
+      box(group, 1.86, 3.05, 0.03, x, 1.56, 6.05, glass, false);
+      box(group, 0.07, 3.1, 0.07, x * 1.98, 1.58, 6.05, brass, false);
+      box(group, 0.05, 0.42, 0.05, x * 0.16, 1.2, 6.0, brass, false);
+    }
+    box(group, 4.0, 0.07, 0.07, 0, 3.12, 6.05, brass, false);
+  }
   box(group, 16, 0.13, 12, 0, 5.25, 0, shell);
   for (const x of [-7.83, 7.83]) {
     box(group, 0.11, 5.0, 0.09, x, 2.59, 0, brass);
