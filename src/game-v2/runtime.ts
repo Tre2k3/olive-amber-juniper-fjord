@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GameAudio, type Sfx } from "./audio";
+import { updateProps } from "./world/kits/gltf-props";
 import { enterHaunt, freshStage, hauntLightScale, tickHauntStage } from "./play/haunt-events";
 import { animateHauntDetail, loadHauntProps, updateApparition } from "./world/kits/haunt-detail";
 import {
@@ -2776,6 +2777,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         )
         .slice(0, 4),
     );
+    if (place === "street") updateProps(player.position.x, player.position.z);
     if (alleyRig) {
       const c = alleyRig.userData.centre as { x: number; z: number };
       const near =

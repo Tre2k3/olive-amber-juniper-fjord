@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { paintedScan } from "./kits/materials";
+import { propNear } from "./kits/gltf-props";
 import type { Solid } from "../core/types";
 import { canvasTex } from "./kits/materials";
 
@@ -323,8 +324,40 @@ function pierProps(parent: THREE.Object3D) {
   }
   const cooler = box(parent, 0.7, 0.4, 0.42, -15.2, 0.76, -78.9, blue);
   cooler.name = "river-fishing-cooler";
-  box(parent, 0.78, 0.07, 0.46, -15.2, 1.0, -78.9, golden);
+  const coolerLid = box(parent, 0.78, 0.07, 0.46, -15.2, 1.0, -78.9, golden);
   const baitBox = box(parent, 0.8, 0.23, 0.47, -17.05, 0.67, -78.8, orange);
+  // Board 10 fishing props as generated models; the boxes stay until they arrive.
+  const deck = 0.56;
+  propNear(parent, "/game-v2/places/river/props/cooler.glb", {
+    x: -15.2,
+    y: deck,
+    z: -78.9,
+    height: 0.55,
+    ry: 0.3,
+    hide: [cooler, coolerLid],
+  });
+  propNear(parent, "/game-v2/places/river/props/tackle-box.glb", {
+    x: -17.05,
+    y: deck,
+    z: -78.8,
+    height: 0.32,
+    ry: -0.4,
+    hide: [baitBox],
+  });
+  propNear(parent, "/game-v2/places/river/props/folding-chair.glb", {
+    x: -14.7,
+    y: deck,
+    z: -77.3,
+    height: 0.95,
+    ry: 0.35,
+  });
+  propNear(parent, "/game-v2/places/river/props/folding-chair.glb", {
+    x: -17.3,
+    y: deck,
+    z: -77.5,
+    height: 0.95,
+    ry: -0.3,
+  });
   baitBox.name = "river-tackle-box";
 }
 function baitStore(parent: THREE.Object3D) {
