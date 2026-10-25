@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import type { Solid } from "../../core/types";
 import { addGround } from "../ground";
-import { canvasTex, sharedScan, surface } from "./materials";
+import { canvasTex, paintedScan, sharedScan, surface } from "./materials";
+import { propOnEnter } from "./gltf-props";
 import { flagshipLogo } from "./brand";
 import { neonPanel } from "./beale-neon";
 
@@ -15,6 +16,17 @@ const shell = new THREE.MeshStandardMaterial({ color: 0x191715, roughness: 0.82 
 const velvet = new THREE.MeshStandardMaterial({ color: 0x1b2923, roughness: 0.95 });
 const oak = new THREE.MeshStandardMaterial({ color: 0x634b35, roughness: 0.58 });
 const brass = new THREE.MeshStandardMaterial({ color: 0xc49635, roughness: 0.29, metalness: 0.84 });
+const counterMarble = paintedScan(
+  new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.18, metalness: 0.1 }),
+  "/game-v2/places/hq/black-gold-marble.jpg",
+  1,
+  0.5,
+);
+const counterGlow = new THREE.MeshStandardMaterial({
+  color: 0x1a1206,
+  emissive: 0xffc35a,
+  emissiveIntensity: 2.2,
+});
 const softGold = new THREE.MeshBasicMaterial({ color: 0xffc15c, toneMapped: false });
 const cream = new THREE.MeshStandardMaterial({ color: 0xf6eee0, roughness: 0.88 });
 const green = new THREE.MeshStandardMaterial({ color: 0x236b43, roughness: 0.8 });
@@ -167,8 +179,10 @@ function foldedTable(parent: THREE.Object3D, solids: Solid[], x: number, z: numb
   collider(solids, x, z, w, 0.98);
 }
 function retailCounter(parent: THREE.Object3D, solids: Solid[]) {
-  box(parent, 2.5, 1, 0.74, -4.9, 0.52, 3.05, shell);
-  box(parent, 2.55, 0.085, 0.85, -4.9, 1.08, 3.05, oak);
+  // Interior mockup: black marble with gold veins and a gold glow along the top edge.
+  box(parent, 2.5, 1, 0.74, -4.9, 0.52, 3.05, counterMarble);
+  box(parent, 2.55, 0.085, 0.85, -4.9, 1.08, 3.05, counterMarble);
+  box(parent, 2.56, 0.03, 0.03, -4.9, 1.035, 3.49, counterGlow, false);
   box(parent, 2.45, 0.025, 0.06, -4.9, 0.21, 3.48, softGold, false);
   for (let i = 0; i < 5; i++) {
     box(parent, 0.015, 0.7, 0.05, -5.85 + i * 0.48, 0.62, 3.46, brass, false);
@@ -180,15 +194,24 @@ function retailCounter(parent: THREE.Object3D, solids: Solid[]) {
 function sofa(parent: THREE.Object3D, solids: Solid[]) {
   const x = 4.0,
     z = -3.9;
-  box(parent, 3.1, 0.44, 0.9, x, 0.43, z, velvet);
-  box(parent, 3.1, 0.82, 0.19, x, 0.76, z - 0.4, velvet);
-  box(parent, 0.26, 0.65, 0.89, x - 1.42, 0.61, z, velvet);
-  box(parent, 0.26, 0.65, 0.89, x + 1.42, 0.61, z, velvet);
+  const parts: THREE.Object3D[] = [];
+  const keep = (o: THREE.Object3D) => (parts.push(o), o);
+  keep(box(parent, 3.1, 0.44, 0.9, x, 0.43, z, velvet));
+  keep(box(parent, 3.1, 0.82, 0.19, x, 0.76, z - 0.4, velvet));
+  keep(box(parent, 0.26, 0.65, 0.89, x - 1.42, 0.61, z, velvet));
+  keep(box(parent, 0.26, 0.65, 0.89, x + 1.42, 0.61, z, velvet));
   for (const sx of [-0.8, 0, 0.8]) {
-    box(parent, 0.67, 0.15, 0.55, x + sx, 0.72, z + 0.12, blackFabric);
+    keep(box(parent, 0.67, 0.15, 0.55, x + sx, 0.72, z + 0.12, blackFabric));
   }
   box(parent, 1.15, 0.26, 0.6, x, 0.22, z + 1.38, oak);
   collider(solids, x, z, 3.32, 1.1);
+  propOnEnter("hq", parent, "/game-v2/places/hq/props/lounge-sofa.glb", {
+    x,
+    z: z - 0.05,
+    height: 0.92,
+    ry: 0,
+    hide: parts,
+  });
 }
 function mezzanine(parent: THREE.Object3D) {
   // A partial back mezzanine makes the boutique feel tall, without

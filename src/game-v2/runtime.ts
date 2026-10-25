@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { GameAudio, type Sfx } from "./audio";
-import { updateProps } from "./world/kits/gltf-props";
+import { loadRoomProps, updateProps } from "./world/kits/gltf-props";
 import { enterHaunt, freshStage, hauntLightScale, tickHauntStage } from "./play/haunt-events";
 import { animateHauntDetail, loadHauntProps, updateApparition } from "./world/kits/haunt-detail";
 import {
@@ -1873,6 +1873,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   function updatePlace() {
     world.home.visible = place === "home";
     world.hq.visible = place === "hq";
+    if (place === "hq") loadRoomProps("hq");
     world.exterior.visible = place === "street" || place === "court";
     world.haunt.group.visible = place === "haunt";
     for (const light of world.homeLights) light.visible = place === "home";

@@ -70,3 +70,18 @@ export function updateProps(px: number, pz: number) {
     }
   }
 }
+
+const rooms = new Map<string, (() => void)[]>();
+/** Register a prop that loads the first time the player enters `room` (e.g. "hq"). */
+export function propOnEnter(room: string, parent: THREE.Object3D, url: string, o: PropOptions) {
+  const list = rooms.get(room) ?? [];
+  list.push(() => placeGltf(parent, url, o));
+  rooms.set(room, list);
+}
+/** Call when the player is in `room`; loads its props once, then does nothing. */
+export function loadRoomProps(room: string) {
+  const list = rooms.get(room);
+  if (!list) return;
+  rooms.delete(room);
+  for (const load of list) load();
+}
