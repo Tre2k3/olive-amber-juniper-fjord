@@ -170,6 +170,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Art: `public/game-v2/places/hq/{black-brick,crown-neon,crown-banner}.jpg` (pushed straight to feat/art-pass-3 via the Contents API — sync locally with fetch + ff-only before committing).
 - Capture: `artifacts/after/hq-after-full.png` (QA camera dist 12, height 3.2, lookY 4.4 frames the whole facade).
 
+## 2026-10-25 — HQ interior: doorway void fixed, crown wall
+- main fast-forwarded to dd0e62b (HQ exterior) after its CI went green.
+- BUG (every player saw it on entering HQ): the boutique interior is a standalone set at (80, 200); its 4 m entrance portal (x ±2 at z +6) looked out into empty space, so the entry view showed sky past the doorway. Fix in `kits/boutique.ts`: 1.4 m vestibule (side walls, lintel, floor), brass-framed glass double doors at z 6.05, and an unlit out-of-focus night street plate (`public/game-v2/places/hq/street-bokeh.jpg`, cropped to the street — the raw generation had boutique racks on its edges). Also `runtime.ts` clamps the HQ follow camera inside the room (x ±7.45, z −5.5..+5.45 around the zone origin (80, 200)).
+- Crown wall: the HQ crown neon (`neonPanel`, glow list `[]` so it stays lit day and night indoors) at (0, 4.55, −5.88) over the mezzanine, centred above the canonical logo at (0, 1.95, −5.8). Capture `artifacts/after/hqin-crown-wall.png`.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

@@ -3,6 +3,7 @@ import type { Solid } from "../../core/types";
 import { addGround } from "../ground";
 import { canvasTex, sharedScan, surface } from "./materials";
 import { flagshipLogo } from "./brand";
+import { neonPanel } from "./beale-neon";
 
 /**
  * SackReligious flagship: a purpose-built, walkable 3D retail interior.
@@ -341,6 +342,10 @@ export function buildBoutiqueInterior(
   brand.position.set(0, 1.95, -5.8);
   group.add(brand);
   mezzanine(group);
+  // Interior mockup: a big gold neon crown over the mezzanine, centred above the
+  // canonical logo. Indoors it burns around the clock, so it stays off the
+  // city's day/night glow list.
+  neonPanel(group, [], "/game-v2/places/hq/crown-neon.jpg", 2.6, 1.65, 0, 4.55, -5.88);
 
   // Sales area: gold-edged display bays along both side walls.
   for (const z of [-3.65, -0.8, 2.05]) {
