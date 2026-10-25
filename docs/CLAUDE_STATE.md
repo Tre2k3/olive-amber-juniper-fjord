@@ -150,6 +150,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Board 10 fishing props at the pier end (deck y 0.56): `places/river/props/cooler.glb` (replaces the blue box + lid), `tackle-box.glb` (replaces the orange box), two `folding-chair.glb` facing the river.
 - GLB optimizer in the Higgsfield sandbox (`~/opt.sh`, @gltf-transform/cli@4): resize textures to 512 → weld → simplify 0.3 @ error 0.01 → dedup → prune → quantize (KHR_mesh_quantization; three's GLTFLoader reads it natively). Raw image_to_3d output is 3.7–5.7 MB; optimized 0.4–1.2 MB (horse 5.7 → 1.19 MB, cooler 0.41, chair 0.69, tackle 0.58). Always run it before pushing a prop.
 
+## 2026-10-25 — board-9 hero props in the house
+- Generated + optimized (`~/opt.sh`) and committed to `public/game-v2/places/haunt/props/`: `grandfather-clock.glb` 0.54 MB (Stair Hall, replaces body/face/pendulum primitives), `covered-statue.glb` 0.43 MB ×2 (Portrait Hall, replace the plinth/bust/cap busts), `chandelier.glb` 0.81 MB (Dining Hall, hung with floor y 2.9, replaces the primitive ring), `seance-table.glb` 1.45 MB (replaces the named `haunt-seance-table` disc in `haunt.ts`).
+- `hauntProp()` now takes `placeholder` as an object, an array, or a name looked up at load time, plus a floor height `y`; and it rotates before centring (it used to centre first, so any prop turned off 0° drifted). All house props still load only on first entry (verified: 5 GLBs after entering, 0 errors).
+- Captures: `artifacts/after/haunt-props-sheet.png`. QA camera rule for interiors: put the player against the far wall facing into the room, or the follow camera lands inside the divider walls.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

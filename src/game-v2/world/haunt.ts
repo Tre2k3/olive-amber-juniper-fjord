@@ -765,6 +765,7 @@ function dressRooms(
 
   const table = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.1, 16), dark);
   table.position.set(20, 0.75, 12);
+  table.name = "haunt-seance-table";
   group.add(table);
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2;

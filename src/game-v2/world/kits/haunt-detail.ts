@@ -240,9 +240,22 @@ export function dressHauntDetail(
   wax: M,
 ): { apparition: Apparition; motes: THREE.Points } {
   // ---- Stair Hall (8..16, 0..8): grandfather clock, sconces, runner ----
-  box(group, 0.6, 2.1, 0.42, 8.7, 1.05, 6.6, mats.darkWood);
-  mesh(group, new THREE.CircleGeometry(0.2, 20), mats.bone, 9.01, 1.72, 6.6, Math.PI / 2);
-  cyl(group, 0.05, 0.9, 8.7, 0.95, 6.6, mats.brass);
+  const clockBody = box(group, 0.6, 2.1, 0.42, 8.7, 1.05, 6.6, mats.darkWood);
+  const clockFace = mesh(
+    group,
+    new THREE.CircleGeometry(0.2, 20),
+    mats.bone,
+    9.01,
+    1.72,
+    6.6,
+    Math.PI / 2,
+  );
+  const clockPendulum = cyl(group, 0.05, 0.9, 8.7, 0.95, 6.6, mats.brass);
+  hauntProp(group, "grandfather-clock.glb", 8.72, 6.6, 2.25, Math.PI / 2, [
+    clockBody,
+    clockFace,
+    clockPendulum,
+  ]);
   box(group, 5.6, 0.02, 1.4, 12, 0.095, 4, mats.velvet);
   for (const z of [2.2, 5.8]) candelabra(group, 15.4, 1.3, z, wax);
   cobweb(group, 8.4, 3.9, 0.4, 0.78);
@@ -256,9 +269,10 @@ export function dressHauntDetail(
   }
   frame(group, 1.9, 1.3, 20, 2.2, 7.62, Math.PI, std(0x3a1c2a, 0.9), true);
   for (const x of [17.1, 22.9]) {
-    box(group, 0.4, 1.05, 0.4, x, 0.53, 0.9, std(0x8a8c90, 0.5));
-    mesh(group, new THREE.SphereGeometry(0.2, 12, 10), mats.bone, x, 1.3, 0.9);
-    box(group, 0.5, 0.08, 0.5, x, 1.08, 0.9, mats.bone);
+    const plinth = box(group, 0.4, 1.05, 0.4, x, 0.53, 0.9, std(0x8a8c90, 0.5));
+    const bust = mesh(group, new THREE.SphereGeometry(0.2, 12, 10), mats.bone, x, 1.3, 0.9);
+    const cap = box(group, 0.5, 0.08, 0.5, x, 1.08, 0.9, mats.bone);
+    hauntProp(group, "covered-statue.glb", x, 0.9, 1.75, x < 20 ? 0.4 : -0.4, [plinth, bust, cap]);
   }
   box(group, 1.6, 0.02, 7, 20, 0.095, 4, mats.velvet);
   cobweb(group, 16.5, 3.8, 0.4, 0.78, 1.1);
@@ -372,6 +386,7 @@ export function dressHauntDetail(
     );
   }
   group.add(chand);
+  hauntProp(group, "chandelier.glb", 12, 12.2, 1.1, 0, chand, 2.9);
   box(group, 2.4, 1.0, 0.5, 11.5, 0.5, 15.35, mats.darkWood);
   box(group, 2.5, 0.06, 0.55, 11.5, 1.03, 15.35, mats.wood);
   frame(group, 1.6, 1.1, 14.2, 2.2, 15.62, Math.PI, std(0x24101a, 0.9));
@@ -563,6 +578,7 @@ export function dressHauntDetail(
   motes.name = "haunt-dust";
   group.add(motes);
 
+  hauntProp(group, "seance-table.glb", 20, 12, 0.8, 0, "haunt-seance-table");
   return { apparition: apparition(group), motes };
 }
 
@@ -597,25 +613,24 @@ export function hauntProp(
   z: number,
   height: number,
   ry: number,
-  placeholder?: THREE.Object3D,
+  placeholder?: THREE.Object3D | THREE.Object3D[] | string,
+  y = 0,
 ) {
   propQueue.push(() =>
     new GLTFLoader().load(
       `/game-v2/places/haunt/props/${file}`,
       (gltf) => {
         const model = gltf.scene;
-        const box = new THREE.Box3().setFromObject(model);
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        const s = height / Math.max(size.y, 0.001);
-        model.scale.setScalar(s);
+        const size = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
+        model.scale.setScalar(height / Math.max(size.y, 0.001));
+        // Rotate before measuring, so the centring below accounts for the turn.
+        model.rotation.y = ry;
         const after = new THREE.Box3().setFromObject(model);
         model.position.set(
           x - (after.min.x + after.max.x) / 2,
-          -after.min.y,
+          y - after.min.y,
           z - (after.min.z + after.max.z) / 2,
         );
-        model.rotation.y = ry;
         model.traverse((o) => {
           if ((o as THREE.Mesh).isMesh) {
             const m = o as THREE.Mesh;
@@ -629,7 +644,13 @@ export function hauntProp(
         });
         model.name = `haunt-prop-${file.replace(/\.glb$/, "")}`;
         parent.add(model);
-        if (placeholder) placeholder.visible = false;
+        const hide =
+          typeof placeholder === "string"
+            ? [parent.getObjectByName(placeholder)]
+            : Array.isArray(placeholder)
+              ? placeholder
+              : [placeholder];
+        for (const h of hide) if (h) h.visible = false;
       },
       undefined,
       () => {
