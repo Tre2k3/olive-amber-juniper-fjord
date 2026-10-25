@@ -12,6 +12,7 @@ import {
   bleacherAluminum,
   cedarFence,
 } from "./kits/materials";
+import { dressHqExterior } from "./kits/hq-exterior";
 import {
   crepeMyrtle,
   matureTree,
@@ -922,6 +923,7 @@ export function buildSlice(): SliceWorld {
     box(0.62, 6.05, 0.42, px, 3.15, frontZ + 0.12, darkBrick, exterior);
   }
   box(5.5, 2.85, 0.16, hqX, 3.65, frontZ + 0.08, metal, exterior);
+  dressHqExterior(exterior, glowMats, hqX, frontZ, darkBrick);
   const brand = flagshipLogo(5.1);
   brand.position.set(hqX, 3.7, frontZ + 0.28);
   exterior.add(brand);

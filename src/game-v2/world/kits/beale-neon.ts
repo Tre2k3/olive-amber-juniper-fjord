@@ -13,7 +13,7 @@ const dark = (() => {
   return t;
 })();
 
-function neon(
+export function neonPanel(
   parent: THREE.Object3D,
   glow: THREE.MeshStandardMaterial[],
   file: string,
@@ -35,7 +35,7 @@ function neon(
     depthWrite: false,
     side: THREE.DoubleSide,
   });
-  sharedScan(`/game-v2/places/beale/${file}`, 1, 1).then(
+  sharedScan(file.startsWith("/") ? file : `/game-v2/places/beale/${file}`, 1, 1).then(
     (t) => {
       t.wrapS = THREE.ClampToEdgeWrapping;
       t.wrapT = THREE.ClampToEdgeWrapping;
@@ -50,7 +50,7 @@ function neon(
   sign.position.set(x, y, z);
   sign.rotation.y = ry;
   sign.renderOrder = 2;
-  sign.name = `beale-neon-${file.replace(/\.jpg$/, "")}`;
+  sign.name = `neon-${(file.split("/").pop() ?? file).replace(/\.jpg$/, "")}`;
   parent.add(sign);
   return sign;
 }
@@ -59,12 +59,12 @@ function neon(
 export function dressBealeNeon(parent: THREE.Object3D, glow: THREE.MeshStandardMaterial[]) {
   const g = new THREE.Group();
   g.name = "beale-neon";
-  neon(g, glow, "blues-club.jpg", 4.8, 2.7, 63.4, 4.75, -62.66);
-  neon(g, glow, "live-music.jpg", 4.2, 2.36, 74, 4.6, -62.62);
-  neon(g, glow, "bar-b-q.jpg", 4.0, 2.25, 51.7, 4.7, -62.62);
+  neonPanel(g, glow, "blues-club.jpg", 4.8, 2.7, 63.4, 4.75, -62.66);
+  neonPanel(g, glow, "live-music.jpg", 4.2, 2.36, 74, 4.6, -62.62);
+  neonPanel(g, glow, "bar-b-q.jpg", 4.0, 2.25, 51.7, 4.7, -62.62);
   // Projecting blade signs, read from up and down the street.
-  neon(g, glow, "beale-st.jpg", 1.9, 1.9, 57.3, 5.4, -61.9, Math.PI / 2);
-  neon(g, glow, "memphis-vertical.jpg", 1.25, 3.9, 45.0, 5.6, -61.95, Math.PI / 2);
+  neonPanel(g, glow, "beale-st.jpg", 1.9, 1.9, 57.3, 5.4, -61.9, Math.PI / 2);
+  neonPanel(g, glow, "memphis-vertical.jpg", 1.25, 3.9, 45.0, 5.6, -61.95, Math.PI / 2);
   // Iron brackets for the blades.
   const iron = new THREE.MeshStandardMaterial({ color: 0x22262a, metalness: 0.6, roughness: 0.45 });
   for (const [x, y] of [

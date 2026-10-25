@@ -165,6 +165,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - **No production deploy happened**: the repo isn't connected to Vercel's GitHub integration (no statuses/deployments on main). Deploy path per docs/DEPLOYMENT.md is Vercel `npm run build` (vite + db migrate), embedded in Lovable. `scripts/preflight.mjs` BLOCKS deployed builds unless `DATABASE_URL` (postgres://, Neon) is set and `VITE_AUTH_ENABLED` is not "false". Optional: VITE_STORE_BASE_URL, VITE_PRODUCT_CATALOG_URL, VITE_ALLOWED_PARENT_ORIGIN (Lovable embed parent), VITE_ANALYTICS_ENABLED, VITE_GAME_BUILD_VERSION.
 - New work: branch **`feat/art-pass-3`** off main; merge to main by API fast-forward after its CI is green.
 
+## 2026-10-25 — HQ exterior (HQ night mockup), on feat/art-pass-3
+- `kits/hq-exterior.ts` → `dressHqExterior(exterior, glowMats, hqX, frontZ, darkBrick)`, called right after the logo sign panel in `slice.ts`. Black brick scan onto the existing `darkBrick` (repeat 7×2.6); gold neon crown on the parapet face (y 6.86, frontZ+0.5) via `neonPanel` (now exported from `beale-neon.ts`, takes an absolute URL); black velvet crown banners 0.78×2.3 on all four piers with brass rods; city `planter()` either side of the door; velvet-rope lines (brass stanchions at ±3.3/4.7/6.1/7.5 m from the door, TubeGeometry catenaries) at frontZ+2.0. Decorative, no new collision; the 6.6 m in front of the door stays open. No generated wordmark anywhere — the canonical logo sign is untouched.
+- Art: `public/game-v2/places/hq/{black-brick,crown-neon,crown-banner}.jpg` (pushed straight to feat/art-pass-3 via the Contents API — sync locally with fetch + ff-only before committing).
+- Capture: `artifacts/after/hq-after-full.png` (QA camera dist 12, height 3.2, lookY 4.4 frames the whole facade).
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.
