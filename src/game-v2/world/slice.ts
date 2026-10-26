@@ -1466,6 +1466,65 @@ export function buildSlice(): SliceWorld {
   cornerB.userData.partner = cornerA;
   pedestrians.push(cornerA, cornerB);
   billboards.push(cornerA, cornerB);
+  // Mockup crowds: people where the action is, from the approved pedestrian cast.
+  // Idle groups stand on sidewalks only; walkers keep to walks parallel to roads.
+  const P = characters.pedestrian;
+  const stand = (asset: Spawnable, x: number, z: number) => {
+    const g = spawnCourtActor(asset, x, z, exterior);
+    g.userData.idle = true;
+    pedestrians.push(g);
+    billboards.push(g);
+    return g;
+  };
+  const chat = (a: Spawnable, b: Spawnable, x: number, z: number, dx = 0.85, dz = 0.3) => {
+    const one = stand(a, x, z);
+    const two = stand(b, x + dx, z + dz);
+    one.userData.partner = two;
+    two.userData.partner = one;
+  };
+  // The HQ line along the velvet rope, east of the door.
+  for (const [i, who] of [P.male01, P.female03, P.male04, P.female01].entries())
+    stand(who, hqX + 3.9 + i * 1.15, frontZ + 2.75);
+  chat(P.female02, P.male02, hqX - 6.2, frontZ + 2.9);
+  // Beale: knots of people outside the shops.
+  chat(P.male03, P.female01, 52.2, -61.35);
+  chat(P.female04, P.male01, 64.4, -61.3);
+  chat(P.male02, P.female03, 73.2, -61.4, 0.8, 0.25);
+  stand(P.female02, 58.6, -61.45);
+  // Riverfront: couples at the rail and two more on the promenade.
+  chat(P.female03, P.male04, -30.5, -65.35, 0.75, 0);
+  chat(P.male01, P.female04, 10.5, -65.35, 0.75, 0);
+  pace(
+    P.female01,
+    -34,
+    -63.4,
+    [
+      { x: -40, z: -63.4 },
+      { x: 18, z: -63.4 },
+    ],
+    0.7,
+  );
+  pace(
+    P.male03,
+    14,
+    -64.6,
+    [
+      { x: 22, z: -64.6 },
+      { x: -24, z: -64.6 },
+    ],
+    0.78,
+  );
+  // Home block: a neighbour heading down the sidewalk.
+  pace(
+    P.female04,
+    8,
+    5.9,
+    [
+      { x: -40, z: 5.9 },
+      { x: 40, z: 5.9 },
+    ],
+    0.62,
+  );
 
   buildHomeInterior(home, homeSolids, glowMats);
   const interior = buildHqInterior(hq, hqSolids, glowMats);

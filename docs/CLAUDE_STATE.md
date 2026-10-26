@@ -178,6 +178,12 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 ## 2026-10-25 — HQ counter + lounge
 - Counter (`retailCounter` in `kits/boutique.ts`): body and top in `counterMarble` (black-gold marble scan `places/hq/black-gold-marble.jpg`, base colour WHITE — a dark base colour multiplies the scan to black) plus an emissive gold edge line. Lounge: `lounge-sofa.glb` (0.61 MB, optimized from 3.9) replaces the box sofa via the new room-scoped loader `propOnEnter("hq", …)` / `loadRoomProps("hq")` (runtime calls it while place === "hq"); verified 0 requests at boot, 1 on entering. Captures `artifacts/after/hqin-counter.png`, `hqin-counter-lounge.png`.
 
+## 2026-10-26 — crowds + functional sweep + a software-path regression (feat/art-pass-4)
+- main was fast-forwarded to 3d4af22 (all HQ work) before this branch.
+- Crowds (`slice.ts`, after the corner pair): approved `characters.pedestrian` cast only — HQ queue of four along the velvet rope (hqX+3.9…, frontZ+2.75) plus a chatting pair west of the door; Beale knots outside SOUL/BLUES/LIVE (z ≈ −61.3); riverfront couples at the rail (z −65.35) and two promenade walkers; one home-block walker. Total pedestrians 61 (traffic/game smokes need ≥ 8). Idle groups use `userData.idle` + `partner`; walkers use `pace` on sidewalks parallel to roads.
+- REGRESSION FOUND + FIXED: `setRiverSky` gave the river a per-material env map even on software renderers (the tier had disabled IBL for exactly this cost). Pier frame cost on SwiftShader 5,600 ms → 1,700 ms after gating it (`night || quality.software ? null`). CI never views the pier, so only the fishing QA caught it. Rule: any per-material envMap must respect `quality.software`.
+- `scripts/function-sweep.mjs` (new, reusable): boot/HUD/crowd count, basketball shot counted, bowling lane opens, pier props load on approach, HQ + sofa, haunt 5/5 props, pause open/close, zero page errors — 8/8 PASS. Fishing stage (`activities-qa.mjs` STAGE=fish): ALL PASSED including the cooler sale.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

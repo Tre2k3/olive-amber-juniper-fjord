@@ -2713,7 +2713,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         ? (paintedSky.golden ?? world.skyGolden)
         : (paintedSky.day ?? world.skyDay);
     setRiverSky(
-      night ? null : golden ? (paintedSky.golden ?? null) : (paintedSky.day ?? null),
+      night || quality.software
+        ? null
+        : golden
+          ? (paintedSky.golden ?? null)
+          : (paintedSky.day ?? null),
       golden ? 1.25 : 0.9,
     );
     quality.applyMode(
