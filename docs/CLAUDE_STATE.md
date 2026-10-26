@@ -184,6 +184,13 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - REGRESSION FOUND + FIXED: `setRiverSky` gave the river a per-material env map even on software renderers (the tier had disabled IBL for exactly this cost). Pier frame cost on SwiftShader 5,600 ms → 1,700 ms after gating it (`night || quality.software ? null`). CI never views the pier, so only the fishing QA caught it. Rule: any per-material envMap must respect `quality.software`.
 - `scripts/function-sweep.mjs` (new, reusable): boot/HUD/crowd count, basketball shot counted, bowling lane opens, pier props load on approach, HQ + sofa, haunt 5/5 props, pause open/close, zero page errors — 8/8 PASS. Fishing stage (`activities-qa.mjs` STAGE=fish): ALL PASSED including the cooler sale.
 
+## 2026-10-26 — home-block porch props (feat/art-pass-5)
+- main fast-forwarded to 40cb5f1 (crowds + river software fix) after green CI.
+- Generated + optimized via `art/home-props` (separate art branch — never push art onto the working branch, it cancels CI): `public/game-v2/places/home/props/{mailbox,hanging-fern,rocking-chair}.glb` (0.33 / 1.18 / 0.45 MB).
+- `kits/residence.ts`: every bungalow — mailbox model replaces the primitive (`mailbox()` in `kits/props.ts` now returns its four meshes; old callers unaffected) and a hanging fern at each porch column (y 1.1, z porchZ − 1.02); the hero house also gets a rocker on the porch (y 0.48). All via `propNear`.
+- `kits/gltf-props.ts`: `loadOnce()` caches each GLB per URL and every placement is `scene.clone(true)` (shared geometry/materials) — 12 fern placements cost 1 download (verified).
+- Function sweep 8/8 PASS on this build. Capture `artifacts/after/home-porch-props.png`.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

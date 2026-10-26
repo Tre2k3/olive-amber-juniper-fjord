@@ -20,11 +20,21 @@ export type PropOptions = {
 const loader = new GLTFLoader();
 const pending: { x: number; z: number; r: number; load: () => void }[] = [];
 
+const cache = new Map<string, Promise<THREE.Object3D>>();
+/** One download and parse per file; each placement is a clone sharing geometry and materials. */
+function loadOnce(url: string) {
+  let p = cache.get(url);
+  if (!p) {
+    p = loader.loadAsync(url).then((g) => g.scene);
+    cache.set(url, p);
+  }
+  return p;
+}
+
 export function placeGltf(parent: THREE.Object3D, url: string, o: PropOptions) {
-  loader.load(
-    url,
-    (gltf) => {
-      const model = gltf.scene;
+  loadOnce(url).then(
+    (scene) => {
+      const model = scene.clone(true);
       const size = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
       model.scale.setScalar(o.height / Math.max(size.y, 0.001));
       model.rotation.y = o.ry ?? 0;
@@ -48,7 +58,6 @@ export function placeGltf(parent: THREE.Object3D, url: string, o: PropOptions) {
       parent.add(model);
       for (const h of o.hide ?? []) h.visible = false;
     },
-    undefined,
     () => {
       /* keep the placeholders */
     },
