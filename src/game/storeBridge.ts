@@ -1,3 +1,4 @@
+import { ALLOWED_PARENT_ORIGIN } from "./config";
 /** postMessage bridge: grokgame ↔ 10letters.store / Lovable parent. Never use target "*". */
 
 export const GAME_SOURCE = "grokgame" as const;
@@ -48,8 +49,16 @@ export type Envelope = {
   payload: Record<string, unknown>;
 };
 
-export type GameMessageType = "GG_READY" | "GG_ENTER_HQ" | "GG_EXIT_HQ" | "GG_RUN_COMPLETE" | "GG_ADD_TO_CART" | "GG_UNLOCK" | "GG_REQUEST_CATALOG";
-export type ParentMessageType = "SR_INIT" | "SR_PLAYER" | "SR_CATALOG" | "SR_ACK" | "SR_PAUSE" | "SR_RESUME" | "SR_REWARD";
+export type GameMessageType =
+  | "GG_READY"
+  | "GG_ENTER_HQ"
+  | "GG_EXIT_HQ"
+  | "GG_RUN_COMPLETE"
+  | "GG_ADD_TO_CART"
+  | "GG_UNLOCK"
+  | "GG_REQUEST_CATALOG";
+export type ParentMessageType =
+  "SR_INIT" | "SR_PLAYER" | "SR_CATALOG" | "SR_ACK" | "SR_PAUSE" | "SR_RESUME" | "SR_REWARD";
 
 const DEFAULT_THEME: ParentTheme = {
   black: "#0D0D0D",
@@ -61,13 +70,9 @@ const DEFAULT_THEME: ParentTheme = {
 export function isAllowedOrigin(origin: string) {
   if (!origin) return false;
   if ((STATIC_ALLOWED_ORIGINS as readonly string[]).includes(origin)) return true;
-  try {
-    const url = new URL(origin);
-    if (url.protocol !== "https:") return false;
-    return url.hostname === "lovable.app" || url.hostname.endsWith(".lovable.app");
-  } catch {
-    return false;
-  }
+  // One exact extra origin (a trusted preview) may be configured; never a wildcard,
+  // because any app on a shared host could otherwise pose as the store.
+  return !!ALLOWED_PARENT_ORIGIN && origin === ALLOWED_PARENT_ORIGIN.replace(/\/$/, "");
 }
 
 export function originFromReferrer() {
@@ -83,7 +88,8 @@ export function originFromReferrer() {
 
 export function discoverParentOrigin() {
   if (typeof window === "undefined") return null;
-  const ancestors = (window.location as Location & { ancestorOrigins?: ArrayLike<string> }).ancestorOrigins;
+  const ancestors = (window.location as Location & { ancestorOrigins?: ArrayLike<string> })
+    .ancestorOrigins;
   if (ancestors) {
     for (let i = 0; i < ancestors.length; i++) {
       const origin = ancestors[i];
@@ -110,10 +116,21 @@ function envelope(type: GameMessageType, payload: Record<string, unknown>): Enve
 }
 
 export type BridgeHandlers = {
-  onInit: (payload: { origin: string; gameId?: string; currency?: string; theme?: Partial<ParentTheme> }) => void;
+  onInit: (payload: {
+    origin: string;
+    gameId?: string;
+    currency?: string;
+    theme?: Partial<ParentTheme>;
+  }) => void;
   onPlayer: (player: StorePlayer) => void;
   onCatalog: (products: LiveProduct[]) => void;
-  onAck: (ack: { forType: string; ok: boolean; error?: string; granted?: number; sackBucks?: number }) => void;
+  onAck: (ack: {
+    forType: string;
+    ok: boolean;
+    error?: string;
+    granted?: number;
+    sackBucks?: number;
+  }) => void;
   onPause: () => void;
   onResume: () => void;
   onReward: (payload: Record<string, unknown>) => void;
@@ -129,6 +146,8 @@ export class StoreBridge {
     this.stop();
     const onMessage = (event: MessageEvent) => {
       if (!isAllowedOrigin(event.origin)) return;
+      // Only the window that embeds us may speak for the store (an allowed origin alone isn't enough).
+      if (window.parent === window || event.source !== window.parent) return;
       if (!isEnvelope(event.data)) return;
       if (!this.parentOrigin) this.parentOrigin = event.origin;
       else if (event.origin !== this.parentOrigin) return;
@@ -157,7 +176,11 @@ export class StoreBridge {
         return;
       }
       if (type === "SR_CATALOG") {
-        const raw = Array.isArray(payload.items) ? payload.items : Array.isArray(payload.products) ? payload.products : [];
+        const raw = Array.isArray(payload.items)
+          ? payload.items
+          : Array.isArray(payload.products)
+            ? payload.products
+            : [];
         handlers.onCatalog(raw.map(normalizeLiveProduct).filter((p): p is LiveProduct => !!p));
         return;
       }
@@ -235,10 +258,14 @@ function normalizeLiveProduct(raw: unknown): LiveProduct | null {
   const id = typeof p.id === "string" ? p.id : "";
   const name = typeof p.name === "string" ? p.name : "";
   if (!id || !name) return null;
-  const sizes = Array.isArray(p.sizes) ? p.sizes.filter((s): s is string => typeof s === "string" && s.length > 0) : [];
-  const image = typeof p.image === "string" ? p.image : typeof p.imageUrl === "string" ? p.imageUrl : "";
+  const sizes = Array.isArray(p.sizes)
+    ? p.sizes.filter((s): s is string => typeof s === "string" && s.length > 0)
+    : [];
+  const image =
+    typeof p.image === "string" ? p.image : typeof p.imageUrl === "string" ? p.imageUrl : "";
   const imageUrl = typeof p.imageUrl === "string" ? p.imageUrl : image;
-  const storeUrl = typeof p.storeUrl === "string" ? p.storeUrl : typeof p.url === "string" ? p.url : undefined;
+  const storeUrl =
+    typeof p.storeUrl === "string" ? p.storeUrl : typeof p.url === "string" ? p.url : undefined;
   return {
     id,
     name,

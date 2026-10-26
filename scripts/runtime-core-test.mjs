@@ -469,3 +469,32 @@ console.log('PASS: separate defensive assignments, rebound pursuit and non-telep
   assert.match(cityMission(city, true, true), /Memphis is yours/, 'the finale closes the block');
   console.log('PASS: the block is an ordered six-step chain ending at K Blanco');
 }
+
+// ---- in-game shop (store bridge rules from the owner's handoff) ----
+{
+  const shop = await load('../src/game-v2/store/shop.ts');
+  assert.equal(shop.BRIDGE_CATALOG.length, 24, 'the fallback catalog is the store bridge catalog');
+  const blue = shop.BRIDGE_CATALOG.find((i) => i.id === 'jersey-blue');
+  const nco = shop.BRIDGE_CATALOG.find((i) => i.id === 'jersey-nco');
+  assert.ok(blue && nco && blue.price === 165 && nco.price === 165, 'Blue and NCO jerseys are each $165');
+  assert.ok(!shop.BRIDGE_CATALOG.some((i) => i.id.startsWith('sr-')), 'no invented catalog IDs');
+  const items = shop.parseCatalog([
+    { id: 'jersey-blue', name: 'Sackreligious Blue Jersey', price: 165, sizes: ['M', 'L'], image: '/images/blue.png' },
+    { id: 'bad', name: '', price: 10 },
+    { id: 'nan', name: 'x', price: 'free' },
+  ]);
+  assert.equal(items.length, 1, 'malformed catalog rows are dropped, never guessed');
+  assert.equal(items[0].image, 'https://10letters.store/images/blue.png', 'relative images resolve against the store origin');
+  assert.equal(shop.validateSelection(items[0], { id: 'jersey-blue', size: null, qty: 1 }), 'Pick a size.', 'a size is required');
+  assert.match(shop.validateSelection(items[0], { id: 'jersey-blue', size: 'XS', qty: 1 }), /size isn't offered/, 'no silent fallback to another size');
+  assert.match(shop.validateSelection(items[0], { id: 'jersey-blue', size: 'L', qty: 11 }), /1 to 10/, 'quantity bounded 1–10');
+  assert.equal(shop.validateSelection(items[0], { id: 'jersey-blue', size: 'L', qty: 1 }), null);
+  assert.deepEqual(shop.addToKartPayload({ id: 'jersey-blue', size: 'L', qty: 1 }), { productId: 'jersey-blue', size: 'L', qty: 1 }, 'the game sends no price');
+  const pending = { id: 'jersey-blue', size: 'L', qty: 1, state: 'pending' };
+  assert.equal(shop.applyAck(pending, { forType: 'GG_RUN_COMPLETE', ok: true }).state, 'pending', 'other acks do not resolve a kart add');
+  assert.equal(shop.applyAck(pending, { forType: 'GG_ADD_TO_CART', ok: false, error: 'nope' }).state, 'failed');
+  assert.equal(shop.applyAck(pending, { forType: 'GG_ADD_TO_CART', ok: true }).state, 'added', 'only ok:true means added');
+  const mail = shop.contactToPurchase(items[0], 'L', 2);
+  assert.ok(mail.startsWith('mailto:SackReligiousKlothingKompany@gmail.com?') && decodeURIComponent(mail).includes('Size: L') && decodeURIComponent(mail).includes('Quantity: 2'));
+  console.log('PASS: in-game shop follows the store bridge rules (real IDs, real sizes, ack-only adds, no prices from the game)');
+}
