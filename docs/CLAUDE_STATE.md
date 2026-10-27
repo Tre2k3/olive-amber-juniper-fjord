@@ -199,6 +199,14 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - NEXT (game): wire shop.ts + StoreBridge into game-v2 — GG_READY after the listener; SR_CATALOG → shop panel at the HQ counter (sizes, qty, Add to Kart → wait for SR_ACK); "Visit the real store" → GG_ENTER_HQ {zone:"headquarters", path:"/headquarters"} once per deliberate entrance; `?spawn=hq-door` → sidewalk south of the HQ door facing the street; honour SR_PAUSE/SR_RESUME; standalone → real catalog + "Shop on 10letters.store" + contact draft. E2E test with a mock parent on another origin via VITE_ALLOWED_PARENT_ORIGIN.
 - NEXT (website, needs repo access + Trey's payment decisions): persist the kart; server-validated catalog/ID mapping; hosted payment checkout (recommend Stripe Checkout) with webhook-verified paid orders; order notifications; a validated `GG_CHECKOUT` handler in Arcade.tsx; allowlist the game's production origin once deployed.
 
+## 2026-10-27 — store asset handoff (Store_Assets_and_Associations.zip)
+- Guide + 6 parts (333 MB, 104 media files). Three ID namespaces kept separate on purpose: admin UUIDs, storefront short IDs (t1…), game fallback IDs (tee-og-logo…). Join admin↔game only via admin `slug` where assigned.
+- Game fallback catalog (24): IDs and prices match `src/game-v2/store/shop.ts` exactly. It supplies real sizes: S/M/L/XL/2XL for apparel, "One Size" for accessories (now in BRIDGE_CATALOG).
+- Real photos assigned in admin for only 5 of the 24: tee-og-logo, tee-amerika, tee-limited-graphik, jersey-blue, jersey-nco (front + back each; Blue and NCO distinct — verified visually). Shrunk to 512px WebP (14–30 KB) at `public/game-v2/store/products/<id>-{front,back}.webp`; `image` set only for those five, `backImage(id)` for the backs. 19 items still have no photo — do not borrow or invent.
+- `jersey-basketball` is a DRAFT in admin but listed in the store's game catalog → marked `available:false` in the game; the site should drop it from its game catalog or publish it.
+- The store's own Amerika and Limited Graphik product photos have a fake transparency checkerboard baked in (RGB) — they need real transparent PNGs on the site.
+- Audio in the packs: ownership/licensing unconfirmed per the guide — don't reuse.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

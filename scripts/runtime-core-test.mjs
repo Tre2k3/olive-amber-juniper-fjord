@@ -478,6 +478,12 @@ console.log('PASS: separate defensive assignments, rebound pursuit and non-telep
   const nco = shop.BRIDGE_CATALOG.find((i) => i.id === 'jersey-nco');
   assert.ok(blue && nco && blue.price === 165 && nco.price === 165, 'Blue and NCO jerseys are each $165');
   assert.ok(!shop.BRIDGE_CATALOG.some((i) => i.id.startsWith('sr-')), 'no invented catalog IDs');
+  assert.equal(shop.BRIDGE_CATALOG.find((i) => i.id === 'jersey-basketball').available, false, 'the admin draft basketball jersey is not offered');
+  assert.deepEqual(blue.sizes, ['S', 'M', 'L', 'XL', '2XL'], 'apparel sizes come from the store catalog');
+  assert.deepEqual(shop.BRIDGE_CATALOG.find((i) => i.id === 'acc-socks').sizes, ['One Size'], 'accessories are one size');
+  assert.ok(blue.image && nco.image && blue.image !== nco.image, 'Blue and NCO jerseys each have their own artwork');
+  assert.equal(shop.BRIDGE_CATALOG.filter((i) => i.image).length, 5, 'only the five photographed items carry images — none invented');
+  assert.equal(shop.BRIDGE_CATALOG.find((i) => i.id === 'tee-pretty-girls').image, null, 'no photo is borrowed for an unphotographed item');
   const items = shop.parseCatalog([
     { id: 'jersey-blue', name: 'Sackreligious Blue Jersey', price: 165, sizes: ['M', 'L'], image: '/images/blue.png' },
     { id: 'bad', name: '', price: 10 },

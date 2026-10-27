@@ -31,6 +31,14 @@ export type ShopItem = {
  * owner's handoff. Used only until the store sends SR_CATALOG. Sizes are left
  * empty on purpose: without the store, nothing can be added to a kart.
  */
+const PHOTOS = new Set([
+  "tee-og-logo",
+  "tee-amerika",
+  "tee-limited-graphik",
+  "jersey-blue",
+  "jersey-nco",
+]);
+
 export const BRIDGE_CATALOG: ShopItem[] = (
   [
     ["tee-og-logo", "OG Logo Tee", 45, "tees"],
@@ -62,11 +70,19 @@ export const BRIDGE_CATALOG: ShopItem[] = (
   id,
   name,
   price,
-  sizes: [],
-  image: null,
+  // Sizes from the store's own game catalog (asset handoff, 2026-10-26).
+  sizes: zone === "accessories" ? ["One Size"] : ["S", "M", "L", "XL", "2XL"],
+  // Real product photos the store's admin assigns to this item (5 of 24 so far); none are invented.
+  image: PHOTOS.has(id) ? `/game-v2/store/products/${id}-front.webp` : null,
   zone,
-  available: true,
+  // The Authentic Basketball Jersey is still a DRAFT in the store's admin, so the game won't offer it.
+  available: id !== "jersey-basketball",
 }));
+
+/** Back views for the items that have them (the same five photographed items). */
+export function backImage(id: string): string | null {
+  return PHOTOS.has(id) ? `/game-v2/store/products/${id}-back.webp` : null;
+}
 
 /** Validate a store catalog item; anything malformed is dropped, never guessed. */
 export function parseCatalog(raw: unknown, storeOrigin = STORE_ORIGIN): ShopItem[] {
