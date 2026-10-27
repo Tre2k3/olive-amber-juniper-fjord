@@ -1,0 +1,37 @@
+<!-- Stand-in for 10letters.store/arcade (parent side of the store bridge) for scripts/store-bridge-e2e.mjs.
+     Run: serve this folder on http://127.0.0.1:8090 (python3 -m http.server 8090 --bind 127.0.0.1),
+     start the game with VITE_ALLOWED_PARENT_ORIGIN=http://127.0.0.1:8090 (e.g. in .env.local, never committed),
+     then node scripts/store-bridge-e2e.mjs. -->
+<!doctype html><html><body style="margin:0;background:#111">
+<iframe id="g" src="http://127.0.0.1:8080/?qa=1" style="width:1280px;height:760px;border:0"></iframe>
+<script>
+  // Stand-in for 10letters.store/arcade: the parent side of the store bridge.
+  window.__log = []; window.__kart = []; window.__entered = 0; window.__ready = false;
+  const GAME = "http://127.0.0.1:8080";
+  const frame = document.getElementById("g");
+  const send = (type, payload) => frame.contentWindow.postMessage({ source: "sackreligious", version: 1, type, payload }, GAME);
+  const catalog = [
+    { id: "jersey-blue", name: "Sackreligious Blue Jersey", price: 165, sizes: ["S","M","L","XL","2XL"], image: "/images/blue.png", zone: "jerseys", available: true },
+    { id: "tee-og-logo", name: "OG Logo Tee", price: 45, sizes: ["S","M","L","XL","2XL"], image: "/images/og.png", zone: "tees", available: true },
+  ];
+  window.__raw = [];
+  window.addEventListener("message", (e) => { window.__raw.push(e.origin + " " + (e.data && e.data.type));
+    if (e.origin !== GAME || e.source !== frame.contentWindow) return;
+    const m = e.data; if (!m || m.source !== "grokgame" || m.version !== 1) return;
+    window.__log.push(m.type);
+    if (m.type === "GG_READY") {
+      window.__ready = true;
+      send("SR_INIT", { gameId: "sackreligious-memphis", currency: "Sack Bucks" });
+      send("SR_PLAYER", { signedIn: false, sackBucks: 0 });
+      send("SR_CATALOG", { items: catalog, products: catalog });
+      send("SR_ACK", { forType: "GG_READY", ok: true });
+    }
+    if (m.type === "GG_ADD_TO_CART") {
+      const p = m.payload || {}; const item = catalog.find((i) => i.id === p.productId);
+      const ok = !!item && item.sizes.includes(p.size) && Number.isInteger(p.qty) && p.qty >= 1 && p.qty <= 10;
+      if (ok) window.__kart.push({ ...p, priceFromStore: item.price, gameSentPrice: "price" in p });
+      send("SR_ACK", { forType: "GG_ADD_TO_CART", ok, error: ok ? undefined : "rejected by store" });
+    }
+    if (m.type === "GG_ENTER_HQ") window.__entered += 1;
+  });
+</script></body></html>

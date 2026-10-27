@@ -207,6 +207,13 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - The store's own Amerika and Limited Graphik product photos have a fake transparency checkerboard baked in (RGB) — they need real transparent PNGs on the site.
 - Audio in the packs: ownership/licensing unconfirmed per the guide — don't reuse.
 
+## 2026-10-27 — IN-GAME SHOP COMPLETE (game side)
+- `src/game-v2/store/link.ts` (singleton store link: StoreBridge start → GG_READY; SR_CATALOG → `parseCatalog`; SR_ACK → `applyAck`; `addToKart` validates and waits for the ack; `enterStore` → GG_ENTER_HQ once per tap, or opens 10letters.store/store standalone) + `src/game-v2/ui/ShopPanel.tsx` (catalog list, real photos front/back, sizes, qty 1–10, Add to Kart when embedded, "Shop on 10letters.store" + "Contact to Purchase" standalone; data-testids `shop-*`; pointer-events-auto).
+- Runtime: `SHOP_COUNTER` local (−4.9, 4.15) in HQ ("E  Shop the $ackReligious store", ~8 m from K Blanco); `shopOpen` blocks keys like Veli's window, Escape/`press("ShopClose")` closes; HUD `state.shopOpen`; `storeLink.start` after the keydown listener with SR_PAUSE/SR_RESUME → togglePause; `?spawn=hq-door` → street at (hqOut.x, hqOut.z+1.1) facing the street, query param removed via history.replaceState.
+- BUG FIXED (pre-existing): `src/game/config.ts` read env through `import.meta` via a variable, so Vite never injected ANY VITE_* value (store URL, catalog URL, VITE_ALLOWED_PARENT_ORIGIN were always defaults). Now references `import.meta.env` directly with a typeof guard for node.
+- Tests: `scripts/store-bridge-e2e.mjs` (stand-in store `scripts/fixtures/mock-store.html` on :8090; 8/8 PASS — Blue Jersey L×1 reached the parent kart at the store's $165 with no price from the game; GG_ENTER_HQ once), `scripts/store-standalone-e2e.mjs` (9/9 PASS — 23 items, draft hidden, link-out + mailto, NCO real photo, spawn=hq-door at (24, −7.9) outside the trigger). function-sweep 8/8.
+- Gotchas: background processes die between tool calls (start the stand-in in the same call); never kill by a pattern that appears in your own command line — free a port via `ss -ltnp` PIDs.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

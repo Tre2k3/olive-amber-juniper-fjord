@@ -1,12 +1,15 @@
 /** Client-safe game configuration. Never put secrets here. */
 
+// Vite only injects environment values into modules that literally reference
+// `import.meta.env`; reaching it through a variable (as before) left every
+// VITE_* setting undefined, so the defaults always won. Outside Vite (node
+// tests) import.meta.env doesn't exist, hence the typeof guard.
+const VITE_ENV: Record<string, string | undefined> =
+  typeof import.meta.env !== "undefined" ? (import.meta.env as Record<string, string | undefined>) : {};
+
 function env(name: string): string | undefined {
-  try {
-    const meta = import.meta as ImportMeta & { env?: Record<string, string | undefined> };
-    return meta.env?.[name];
-  } catch {
-    return undefined;
-  }
+  const value = VITE_ENV[name];
+  return typeof value === "string" && value !== "" ? value : undefined;
 }
 
 function bool(name: string, fallback: boolean): boolean {

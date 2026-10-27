@@ -1,3 +1,4 @@
+import { ShopPanel } from "./ShopPanel";
 import { useState, type PointerEvent } from "react";
 import type { HudState } from "../core/types";
 import { characters } from "../assets/characters";
@@ -90,6 +91,7 @@ export function Hud({
       {state.dialogue && (
         <Dialogue line={state.dialogue} brother={state.foodCourt?.activeBrother} />
       )}
+      {state.shopOpen && <ShopPanel onClose={() => action("ShopClose")} />}
       {state.paused && <PauseMenu muted={!!state.muted} action={action} />}
       {!state.paused && (
         <button

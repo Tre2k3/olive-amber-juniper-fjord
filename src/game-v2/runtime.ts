@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GameAudio, type Sfx } from "./audio";
 import { loadRoomProps, updateProps } from "./world/kits/gltf-props";
+import { storeLink } from "./store/link";
 import { enterHaunt, freshStage, hauntLightScale, tickHauntStage } from "./play/haunt-events";
 import { animateHauntDetail, loadHauntProps, updateApparition } from "./world/kits/haunt-detail";
 import {
@@ -255,6 +256,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   /** Direction from the pier into open river water (toward the old bobber spot). */
   const PIER_WATER = { x: -0.92, z: -0.4 };
   let paused = false;
+  /** The HQ counter shop (real 10letters.store catalog). */
+  let shopOpen = false;
+  const SHOP_COUNTER = { x: -4.9, z: 4.15 };
   let lastCountdownTick = -1;
   const audio = new GameAudio();
   // Cast beside the deck so the line and float remain visible in open water.
@@ -600,10 +604,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   const onKey = (e: KeyboardEvent, down: boolean) => {
     const code = e.code || e.key;
     if (veli.open && e.target instanceof HTMLSelectElement) return;
-    if ((veli.open || foodCourt.open) && code !== "KeyE") {
+    if ((veli.open || foodCourt.open || shopOpen) && code !== "KeyE") {
       if (down && code === "Escape") {
         veli.open = false;
         foodCourt.open = null;
+        shopOpen = false;
         e.preventDefault();
         push(hud());
       }
@@ -694,6 +699,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     }
   };
   window.addEventListener("keydown", kd);
+  // Embedded in 10letters.store's /arcade page: listen first, then GG_READY; the store may pause/resume us.
+  storeLink.start({ onPause: () => togglePause(true), onResume: () => togglePause(false) });
   const wake = () => {
     audio.unlock();
     audio.setMusicEnabled(true);
@@ -887,11 +894,32 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       });
     }
   };
+  // Back from the real store (?spawn=hq-door, once): on the sidewalk south of the
+  // HQ door, facing the street, outside the entrance trigger. Normal visits skip this.
+  try {
+    const qs = new URLSearchParams(window.location.search);
+    if (qs.get("spawn") === "hq-door") {
+      place = "street";
+      player.position.x = world.hqOut.x;
+      player.position.z = world.hqOut.z + 1.1;
+      camYaw = 0;
+      qs.delete("spawn");
+      const rest = qs.toString();
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash,
+      );
+    }
+  } catch {
+    /* a blocked history API must not stop the game */
+  }
   frame = requestAnimationFrame(loop);
   push(hud());
 
   function hud(): HudState {
     return {
+      shopOpen,
       place,
       dollars,
       respect,
@@ -958,7 +986,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   }
 
   function promptFor() {
-    if (veli.open || foodCourt.open) return "";
+    if (veli.open || foodCourt.open || shopOpen) return "";
     if (foodCourt.left > 0) return "Your food is coming from the window.";
     const vendor = nearFoodVendor();
     if (place === "street" && vendor)
@@ -972,6 +1000,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     if (place === "street" && near(world.hqDoor, 1.6)) return "E  Enter $ackReligious";
     if (place === "home" && nearLocal(world.homeIn, 1.3, 0, 200)) return "E  Leave home";
     if (place === "hq" && nearLocal(world.hqIn, 1.4, 80, 200)) return "E  Leave HQ";
+    if (place === "hq" && nearLocal(SHOP_COUNTER, 1.6, 80, 200))
+      return "E  Shop the $ackReligious store";
     if (place === "hq" && nearLocal(world.kAnchor, 2.2, 80, 200))
       return delivered ? "E  Talk to K Blanco" : "E  Talk to K Blanco";
     if (place === "home" && nearLocal(world.wardrobe, 1.35, 0, 200)) return "E  Change fit";
@@ -1569,6 +1599,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     }
     if (place === "home" && nearLocal(world.homeIn, 1.3, 0, 200)) {
       leaveInterior("home");
+      return;
+    }
+    if (place === "hq" && nearLocal(SHOP_COUNTER, 1.6, 80, 200)) {
+      shopOpen = true;
+      push(hud());
       return;
     }
     if (place === "hq" && nearLocal(world.kAnchor, 2.2, 80, 200)) {
@@ -3097,6 +3132,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       charging = next;
     },
     press(code: string) {
+      if (code === "ShopClose") {
+        shopOpen = false;
+        push(hud());
+        return;
+      }
       if (code === "Pause") {
         togglePause(true);
         return;
