@@ -253,6 +253,12 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - `scripts/build-ped-assets.py`: removes specks (largest connected shape), builds walk.png from each front view (lifts one lower leg — pixel technique, nothing redrawn), writes bounds lines. NEVER run prettier on `assets/character-bounds.ts` or `assets/characters.ts` — they aren't prettier-formatted and it rewrites ~1,100 lines.
 - Crowds: HQ line/pair, Beale knots, riverfront couple now mix in the new cast; three new walkers (grandpa + church lady on the home block, nurse downtown). 18 distinct people, 65 pedestrians.
 
+## 2026-10-28 — no duplicate people + the 901 Catch Kitchen cook (Trey's asks)
+- RULE: nobody appears twice. `slice.ts` builds a one-of-each cast list right after `const ped = characters.pedestrian`; every pedestrian spawn calls `claim(asset)` (requested person if free, else the next free one, else skip): the eight early home-block spawns, benchMate, `pace` (districts walkers too), the crowd `stand/chat` helpers, the corner pair (only if both free). Crowd block moved ahead of `buildDistricts` so hotspots claim first. `world.claimPedestrian` is exposed; courtside fans in runtime claim LAST (currently none left — more characters would bring them back).
+- Ten more pedestrians (male08–13, female08–11): cornrows_tank_man, orange_sundress_woman, jersey_teen_boy, floral_grandma, suit_briefcase_man, locs_leather_woman, mechanic_coverall_man, headwrap_grocery_woman, camo_hoodie_man, sunday_suit_elder. 24 pedestrian looks total → 24 street pedestrians (was 65 with repeats).
+- 901 Catch Kitchen cook: `public/game-v2/vendors/food-court/catch-vendor.png` (512², framed to brother-1's alpha box 259×460+147+26), placed like the brothers at the window, gentle sway while serving. Trey asked for "a beautiful black woman serving the fish".
+- Tests: `scripts/cast-unique-e2e.mjs` (24/24 unique); function-sweep boot now requires ≥18 pedestrians AND all different (28, true).
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

@@ -51,6 +51,12 @@ export function buildFoodCourt(parent: THREE.Object3D) {
       actor.rotation.y=Math.PI;actor.position.set(i===0?.67:-.67,.8+(487-256)*1.9/460,-2.42);
       actor.name=`brother-wingz-${i+1}`;group.add(actor);vendors.push(actor);
     }
+    // 901 Catch Kitchen: the fish cook at the window, framed exactly like the brothers.
+    if (id === "catch901") {
+      const tex=loader.load("/game-v2/vendors/food-court/catch-vendor.png");tex.colorSpace=THREE.SRGBColorSpace;
+      const actor=new THREE.Mesh(new THREE.PlaneGeometry(512*1.9/460,512*1.9/460),new THREE.MeshBasicMaterial({map:tex,transparent:true,alphaTest:.25,toneMapped:false}));
+      actor.rotation.y=Math.PI;actor.position.set(0,.8+(487-256)*1.9/460,-2.42);actor.name="catch901-vendor";group.add(actor);vendors.push(actor);
+    }
     const tray=new THREE.Group();tray.name=`${id}-order-tray`;tray.visible=false;group.add(tray);
     const parcel=new THREE.Mesh(new THREE.BoxGeometry(.35,.12,.25),new THREE.MeshBasicMaterial({color:0xeae5dd,toneMapped:false}));tray.add(parcel);
     const lid=new THREE.Mesh(new THREE.BoxGeometry(.37,.02,.27),new THREE.MeshBasicMaterial({color:0xeae5dd,toneMapped:false}));lid.position.y=.07;tray.add(lid);
@@ -76,6 +82,11 @@ export function animateFoodCourt(trucks:Record<FoodVendor,THREE.Group>, serving:
         (actor.material as THREE.MeshBasicMaterial).map=textures[i]![current]!;return current;
       });
       truck.userData.frames=frames;
+    }
+    if(id === "catch901") {
+      // A gentle sway while she plates your order; still otherwise.
+      const cook=(truck.userData.vendors as THREE.Mesh[])[0];
+      if(cook) cook.position.y=.8+(487-256)*1.9/460+(isServing?Math.sin(progress*7)*.025:0);
     }
     // The carton exists in the held artwork until the empty-hand retract key.
     // Only then transfer the matching 3D carton; never draw two food boxes.

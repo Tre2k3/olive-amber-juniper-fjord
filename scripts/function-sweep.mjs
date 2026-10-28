@@ -30,9 +30,11 @@ const step = async (name, fn) => {
   }
 };
 await step("boot: world, HUD, crowds", async () => {
-  const n = await I(() => window.__SACK_V2_INPUT__.peds().length);
+  const ids = await I(() => window.__SACK_V2_INPUT__.peds().map((p) => p.id));
+  const n = ids.length;
+  const unique = new Set(ids).size === n;
   const hud = await page.locator("text=SACKDOLLARS").count();
-  return [n >= 50 && hud > 0, `${n} pedestrians`];
+  return [n >= 18 && unique && hud > 0, `${n} pedestrians, all different: ${unique}`];
 });
 await step("basketball: a timed shot fires and is counted", async () => {
   await I(() =>

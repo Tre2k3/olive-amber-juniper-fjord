@@ -56,6 +56,8 @@ export type Board = {
 
 export type SliceWorld = {
   scene: THREE.Scene;
+  /** One-of-each cast: claim a pedestrian look; null when everyone is already placed. */
+  claimPedestrian: (asset: Spawnable) => Spawnable | null;
   solids: Record<"street" | "home" | "hq" | "haunt", Solid[]>;
   exterior: THREE.Group;
   home: THREE.Group;
@@ -594,6 +596,21 @@ export function buildSlice(): SliceWorld {
   }
 
   const ped = characters.pedestrian;
+  // Every pedestrian appears once: a spawn claims the person it asks for, or the
+  // next unused one; when everyone is already out walking, the spawn is skipped.
+  const castUsed = new Set<string>();
+  const pedPool = Object.values(characters.pedestrian) as Spawnable[];
+  const claim = (asset: Spawnable): Spawnable | null => {
+    if (!pedPool.includes(asset)) return asset;
+    if (!castUsed.has(asset.id)) {
+      castUsed.add(asset.id);
+      return asset;
+    }
+    const free = pedPool.find((p) => !castUsed.has(p.id));
+    if (!free) return null;
+    castUsed.add(free.id);
+    return free;
+  };
   function route(
     pts: { x: number; z: number }[],
     towardEnd: boolean,
@@ -603,7 +620,7 @@ export function buildSlice(): SliceWorld {
     return { pts, i: towardEnd ? 1 : 0, dir: towardEnd ? 1 : -1, speed, phase, wait: 0 };
   }
   // Three people walking the north sidewalk. Everyone else is posted up.
-  const walkerA = spawnCourtActor(ped.male01, -14, 6.38, exterior);
+  const walkerA = spawnCourtActor(claim(ped.male01)!, -14, 6.38, exterior);
   walkerA.userData.route = route(
     [
       { x: -20, z: 6.38 },
@@ -613,7 +630,7 @@ export function buildSlice(): SliceWorld {
     1.15,
     0,
   );
-  const walkerB = spawnCourtActor(ped.female02, -8, 6.38, exterior);
+  const walkerB = spawnCourtActor(claim(ped.female02)!, -8, 6.38, exterior);
   walkerB.userData.route = route(
     [
       { x: -16, z: 6.38 },
@@ -623,7 +640,7 @@ export function buildSlice(): SliceWorld {
     1.05,
     0.45,
   );
-  const walkerC = spawnCourtActor(ped.female04, -2, 6.38, exterior);
+  const walkerC = spawnCourtActor(claim(ped.female04)!, -2, 6.38, exterior);
   walkerC.userData.route = route(
     [
       { x: -10, z: 6.38 },
@@ -633,14 +650,14 @@ export function buildSlice(): SliceWorld {
     1.1,
     0.2,
   );
-  const talkA = spawnCourtActor(ped.female01, 2.4, 6.55, exterior);
+  const talkA = spawnCourtActor(claim(ped.female01)!, 2.4, 6.55, exterior);
   talkA.userData.idle = true;
-  const talkB = spawnCourtActor(ped.male02, 3.85, 6.55, exterior);
+  const talkB = spawnCourtActor(claim(ped.male02)!, 3.85, 6.55, exterior);
   talkB.userData.idle = true;
   pair(talkA, talkB);
-  const neighbor = spawnCourtActor(ped.male03, -29.2, 6.55, exterior);
+  const neighbor = spawnCourtActor(claim(ped.male03)!, -29.2, 6.55, exterior);
   neighbor.userData.idle = true;
-  const driveway = spawnCourtActor(ped.male04, -27.5, 6.55, exterior);
+  const driveway = spawnCourtActor(claim(ped.male04)!, -27.5, 6.55, exterior);
   driveway.userData.idle = true;
   pair(neighbor, driveway);
   const porch = spawnCourtActor(characters.mamaDee, -20.5, 7.72, exterior);
@@ -651,7 +668,7 @@ export function buildSlice(): SliceWorld {
   hqIdle.userData.look = { x: 62, z: 6.7 };
   const unc = spawnCourtActor(characters.uncJ, -6.2, -6.55, exterior);
   unc.userData.idle = true;
-  const uncFriend = spawnCourtActor(ped.female03, -4.45, -6.4, exterior);
+  const uncFriend = spawnCourtActor(claim(ped.female03)!, -4.45, -6.4, exterior);
   uncFriend.userData.idle = true;
   pair(unc, uncFriend);
   const strike = spawnCourtActor(characters.strike, 62.4, -16.2, exterior);
@@ -1062,7 +1079,7 @@ export function buildSlice(): SliceWorld {
     exterior,
   );
   const benchMate = spawnCourtActor(
-    characters.pedestrian.female04,
+    claim(characters.pedestrian.female04)!,
     courtX + 1.85,
     courtZ + 4.7,
     exterior,
@@ -1383,94 +1400,21 @@ export function buildSlice(): SliceWorld {
     pts: { x: number; z: number }[],
     speed: number,
   ) => {
-    const g = spawnCourtActor(asset, x, z, exterior);
+    const person = claim(asset);
+    if (!person) return;
+    const g = spawnCourtActor(person, x, z, exterior);
     g.userData.route = { pts, i: 1, dir: 1, speed, phase: x };
     g.userData.heading = Math.atan2(pts[1]!.x - pts[0]!.x, pts[1]!.z - pts[0]!.z);
     pedestrians.push(g);
     billboards.push(g);
   };
-  const districts = buildDistricts(exterior, streetSolids, glowMats, lamps, pace);
-  const cast = [
-    characters.pedestrian.male01,
-    characters.pedestrian.female01,
-    characters.pedestrian.male02,
-    characters.pedestrian.female02,
-    characters.pedestrian.male03,
-    characters.pedestrian.female03,
-    characters.pedestrian.male04,
-    characters.pedestrian.female04,
-  ];
-  const beats: {
-    who: number;
-    x: number;
-    z: number;
-    a: number;
-    b: number;
-    za: number;
-    zb: number;
-    speed: number;
-  }[] = [
-    { who: 0, x: 22, z: -48.4, a: 18, b: 70, za: -48.4, zb: -48.4, speed: 0.82 },
-    { who: 1, x: 40, z: -48.85, a: 20, b: 72, za: -48.85, zb: -48.85, speed: 0.74 },
-    { who: 2, x: 58, z: -48.35, a: 24, b: 74, za: -48.35, zb: -48.35, speed: 0.9 },
-    { who: 3, x: 70, z: -48.8, a: 22, b: 74, za: -48.8, zb: -48.8, speed: 0.7 },
-    { who: 4, x: 20, z: -59.9, a: 16, b: 74, za: -59.9, zb: -59.9, speed: 0.86 },
-    { who: 5, x: 32, z: -60.45, a: 18, b: 72, za: -60.45, zb: -60.45, speed: 0.78 },
-    { who: 6, x: 46, z: -59.85, a: 20, b: 74, za: -59.85, zb: -59.85, speed: 0.96 },
-    { who: 7, x: 58, z: -60.4, a: 18, b: 70, za: -60.4, zb: -60.4, speed: 0.72 },
-    { who: 0, x: 68, z: -59.95, a: 22, b: 74, za: -59.95, zb: -59.95, speed: 0.88 },
-    { who: 1, x: 47.4, z: -54, a: 47.4, b: 47.4, za: -48.7, zb: -60.1, speed: 0.7 },
-    { who: 2, x: 49.1, z: -57, a: 49.1, b: 49.1, za: -60.1, zb: -48.6, speed: 0.66 },
-    { who: 4, x: 98, z: 6.45, a: 90, b: 124, za: 6.45, zb: 6.45, speed: 0.86 },
-    { who: 5, x: 112, z: 6.15, a: 92, b: 126, za: 6.15, zb: 6.15, speed: 0.94 },
-    { who: 6, x: 108, z: -6.4, a: 98, b: 128, za: -6.4, zb: -6.4, speed: 0.8 },
-  ];
-  for (const beat of beats) {
-    pace(
-      cast[beat.who]!,
-      beat.x,
-      beat.z,
-      [
-        { x: beat.a, z: beat.za },
-        { x: beat.b, z: beat.zb },
-      ],
-      beat.speed,
-    );
-  }
-  // New routes stay on existing walks; crossings retain the traffic-yield check.
-  for (const [who, x, z, a, b, za, zb] of [
-    [3, -23, 6.35, -46, -18, 6.35, 6.35],
-    [5, -5, -6.35, -10, 20, -6.35, -6.35],
-    [6, 22, 6.35, 16, 42, 6.35, 6.35],
-    [7, -20.6, -49, -20.6, -20.6, -42, -59],
-    [4, -28, -62.8, -36, -22, -62.8, -62.8],
-    [1, -2, -62.8, -6, 6, -62.8, -62.8],
-    [2, 84, -10.2, 79, 100, -10.2, -10.2],
-    [7, 80, 21, 79, 82, 21, 21],
-  ])
-    pace(
-      cast[who!]!,
-      x!,
-      z!,
-      [
-        { x: a!, z: za! },
-        { x: b!, z: zb! },
-      ],
-      0.65 + (who! % 4) * 0.1,
-    );
-  const cornerA = spawnCourtActor(characters.pedestrian.female04, 40.4, -48.2, exterior);
-  const cornerB = spawnCourtActor(characters.pedestrian.male03, 41.3, -48.55, exterior);
-  cornerA.userData.idle = true;
-  cornerB.userData.idle = true;
-  cornerA.userData.partner = cornerB;
-  cornerB.userData.partner = cornerA;
-  pedestrians.push(cornerA, cornerB);
-  billboards.push(cornerA, cornerB);
   // Mockup crowds: people where the action is, from the approved pedestrian cast.
   // Idle groups stand on sidewalks only; walkers keep to walks parallel to roads.
   const P = characters.pedestrian;
   const stand = (asset: Spawnable, x: number, z: number) => {
-    const g = spawnCourtActor(asset, x, z, exterior);
+    const person = claim(asset);
+    if (!person) return null;
+    const g = spawnCourtActor(person, x, z, exterior);
     g.userData.idle = true;
     pedestrians.push(g);
     billboards.push(g);
@@ -1479,8 +1423,10 @@ export function buildSlice(): SliceWorld {
   const chat = (a: Spawnable, b: Spawnable, x: number, z: number, dx = 0.85, dz = 0.3) => {
     const one = stand(a, x, z);
     const two = stand(b, x + dx, z + dz);
-    one.userData.partner = two;
-    two.userData.partner = one;
+    if (one && two) {
+      one.userData.partner = two;
+      two.userData.partner = one;
+    }
   };
   // The HQ line along the velvet rope, east of the door.
   for (const [i, who] of [P.male06, P.female06, P.male04, P.female01, P.male05].entries())
@@ -1556,6 +1502,89 @@ export function buildSlice(): SliceWorld {
     ],
     0.62,
   );
+  const districts = buildDistricts(exterior, streetSolids, glowMats, lamps, pace);
+  const cast = [
+    characters.pedestrian.male01,
+    characters.pedestrian.female01,
+    characters.pedestrian.male02,
+    characters.pedestrian.female02,
+    characters.pedestrian.male03,
+    characters.pedestrian.female03,
+    characters.pedestrian.male04,
+    characters.pedestrian.female04,
+  ];
+  const beats: {
+    who: number;
+    x: number;
+    z: number;
+    a: number;
+    b: number;
+    za: number;
+    zb: number;
+    speed: number;
+  }[] = [
+    { who: 0, x: 22, z: -48.4, a: 18, b: 70, za: -48.4, zb: -48.4, speed: 0.82 },
+    { who: 1, x: 40, z: -48.85, a: 20, b: 72, za: -48.85, zb: -48.85, speed: 0.74 },
+    { who: 2, x: 58, z: -48.35, a: 24, b: 74, za: -48.35, zb: -48.35, speed: 0.9 },
+    { who: 3, x: 70, z: -48.8, a: 22, b: 74, za: -48.8, zb: -48.8, speed: 0.7 },
+    { who: 4, x: 20, z: -59.9, a: 16, b: 74, za: -59.9, zb: -59.9, speed: 0.86 },
+    { who: 5, x: 32, z: -60.45, a: 18, b: 72, za: -60.45, zb: -60.45, speed: 0.78 },
+    { who: 6, x: 46, z: -59.85, a: 20, b: 74, za: -59.85, zb: -59.85, speed: 0.96 },
+    { who: 7, x: 58, z: -60.4, a: 18, b: 70, za: -60.4, zb: -60.4, speed: 0.72 },
+    { who: 0, x: 68, z: -59.95, a: 22, b: 74, za: -59.95, zb: -59.95, speed: 0.88 },
+    { who: 1, x: 47.4, z: -54, a: 47.4, b: 47.4, za: -48.7, zb: -60.1, speed: 0.7 },
+    { who: 2, x: 49.1, z: -57, a: 49.1, b: 49.1, za: -60.1, zb: -48.6, speed: 0.66 },
+    { who: 4, x: 98, z: 6.45, a: 90, b: 124, za: 6.45, zb: 6.45, speed: 0.86 },
+    { who: 5, x: 112, z: 6.15, a: 92, b: 126, za: 6.15, zb: 6.15, speed: 0.94 },
+    { who: 6, x: 108, z: -6.4, a: 98, b: 128, za: -6.4, zb: -6.4, speed: 0.8 },
+  ];
+  for (const beat of beats) {
+    pace(
+      cast[beat.who]!,
+      beat.x,
+      beat.z,
+      [
+        { x: beat.a, z: beat.za },
+        { x: beat.b, z: beat.zb },
+      ],
+      beat.speed,
+    );
+  }
+  // New routes stay on existing walks; crossings retain the traffic-yield check.
+  for (const [who, x, z, a, b, za, zb] of [
+    [3, -23, 6.35, -46, -18, 6.35, 6.35],
+    [5, -5, -6.35, -10, 20, -6.35, -6.35],
+    [6, 22, 6.35, 16, 42, 6.35, 6.35],
+    [7, -20.6, -49, -20.6, -20.6, -42, -59],
+    [4, -28, -62.8, -36, -22, -62.8, -62.8],
+    [1, -2, -62.8, -6, 6, -62.8, -62.8],
+    [2, 84, -10.2, 79, 100, -10.2, -10.2],
+    [7, 80, 21, 79, 82, 21, 21],
+  ])
+    pace(
+      cast[who!]!,
+      x!,
+      z!,
+      [
+        { x: a!, z: za! },
+        { x: b!, z: zb! },
+      ],
+      0.65 + (who! % 4) * 0.1,
+    );
+  {
+    const a = claim(characters.pedestrian.female04);
+    const b = a ? claim(characters.pedestrian.male03) : null;
+    if (a && b) {
+      const cornerA = spawnCourtActor(a, 40.4, -48.2, exterior);
+      const cornerB = spawnCourtActor(b, 41.3, -48.55, exterior);
+      cornerA.userData.idle = true;
+      cornerB.userData.idle = true;
+      cornerA.userData.partner = cornerB;
+      cornerB.userData.partner = cornerA;
+      pedestrians.push(cornerA, cornerB);
+      billboards.push(cornerA, cornerB);
+    }
+  }
 
   buildHomeInterior(home, homeSolids, glowMats);
   const interior = buildHqInterior(hq, hqSolids, glowMats);
@@ -1567,6 +1596,7 @@ export function buildSlice(): SliceWorld {
 
   return {
     scene,
+    claimPedestrian: claim,
     solids: { street: streetSolids, home: homeSolids, hq: hqSolids, haunt: hauntSolids },
     exterior,
     home,

@@ -44,10 +44,11 @@ def bounds(path, im):
 
 if __name__ == "__main__":
     lines = []
-    for name in NEW_PEDS:
+    names = sys.argv[2:] or NEW_PEDS
+    for name in names:
         for v in ["front", "back", "left", "right"]:
             im = clean(f"{ROOT}/{name}/{v}.png"); lines.append(bounds(f"{name}/{v}.png", im))
         w = walk_from_front(Image.open(f"{ROOT}/{name}/front.png").convert("RGBA"))
         w.save(f"{ROOT}/{name}/walk.png", optimize=True); lines.append(bounds(f"{name}/walk.png", w))
     open(sys.argv[1] if len(sys.argv) > 1 else "/tmp/ped-bounds.ts", "w").write("\n".join(lines) + "\n")
-    print("built", len(NEW_PEDS), "characters,", len(lines), "bounds entries")
+    print("built", len(names), "characters,", len(lines), "bounds entries")

@@ -112,6 +112,16 @@ export const characters = {
     female06: { id: "ped-braids-teen-girl", height: 1.63, views: { ...turnaround("pedestrians/braids_teen_girl"), walk: cut("/game-v2/characters/pedestrians/braids_teen_girl/walk.png") } },
     male07: { id: "ped-flatcap-grandpa", height: 1.74, views: { ...turnaround("pedestrians/flatcap_grandpa"), walk: cut("/game-v2/characters/pedestrians/flatcap_grandpa/walk.png") } },
     female07: { id: "ped-scrubs-nurse", height: 1.7, views: { ...turnaround("pedestrians/scrubs_nurse"), walk: cut("/game-v2/characters/pedestrians/scrubs_nurse/walk.png") } },
+    male08: { id: "ped-cornrows-tank-man", height: 1.8, views: { ...turnaround("pedestrians/cornrows_tank_man"), walk: cut("/game-v2/characters/pedestrians/cornrows_tank_man/walk.png") } },
+    female08: { id: "ped-orange-sundress-woman", height: 1.68, views: { ...turnaround("pedestrians/orange_sundress_woman"), walk: cut("/game-v2/characters/pedestrians/orange_sundress_woman/walk.png") } },
+    male09: { id: "ped-jersey-teen-boy", height: 1.85, views: { ...turnaround("pedestrians/jersey_teen_boy"), walk: cut("/game-v2/characters/pedestrians/jersey_teen_boy/walk.png") } },
+    female09: { id: "ped-floral-grandma", height: 1.58, views: { ...turnaround("pedestrians/floral_grandma"), walk: cut("/game-v2/characters/pedestrians/floral_grandma/walk.png") } },
+    male10: { id: "ped-suit-briefcase-man", height: 1.82, views: { ...turnaround("pedestrians/suit_briefcase_man"), walk: cut("/game-v2/characters/pedestrians/suit_briefcase_man/walk.png") } },
+    female10: { id: "ped-locs-leather-woman", height: 1.7, views: { ...turnaround("pedestrians/locs_leather_woman"), walk: cut("/game-v2/characters/pedestrians/locs_leather_woman/walk.png") } },
+    male11: { id: "ped-mechanic-coverall-man", height: 1.78, views: { ...turnaround("pedestrians/mechanic_coverall_man"), walk: cut("/game-v2/characters/pedestrians/mechanic_coverall_man/walk.png") } },
+    female11: { id: "ped-headwrap-grocery-woman", height: 1.67, views: { ...turnaround("pedestrians/headwrap_grocery_woman"), walk: cut("/game-v2/characters/pedestrians/headwrap_grocery_woman/walk.png") } },
+    male12: { id: "ped-camo-hoodie-man", height: 1.76, views: { ...turnaround("pedestrians/camo_hoodie_man"), walk: cut("/game-v2/characters/pedestrians/camo_hoodie_man/walk.png") } },
+    male13: { id: "ped-sunday-suit-elder", height: 1.73, views: { ...turnaround("pedestrians/sunday_suit_elder"), walk: cut("/game-v2/characters/pedestrians/sunday_suit_elder/walk.png") } },
   },
 } as const satisfies Record<string, CharacterAsset | Record<string, CharacterAsset>>;
 

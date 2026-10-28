@@ -456,7 +456,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     [characters.pedestrian.male01, 58.5, -12.3],
     [characters.pedestrian.female01, 73.5, -12.4],
   ] as const) {
-    const fan = spawnCourtActor(asset, x, z, world.exterior);
+    // Fans are people too: no one appears twice, so the court only gets the unplaced.
+    const person = world.claimPedestrian(asset);
+    if (!person) continue;
+    const fan = spawnCourtActor(person, x, z, world.exterior);
     fan.name = "901-court-fan";
     fan.userData.heading = Math.atan2(66 - x, -22 - z);
     fan.userData.idle = true;
