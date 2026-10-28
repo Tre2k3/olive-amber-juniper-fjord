@@ -234,6 +234,13 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Tests: core test (deadzone, edges, mappings, readPad with a mock navigator); `scripts/gamepad-e2e.mjs` mocks `navigator.getGamepads` via addInitScript — 7/7 PASS (12.5 m in 1 s at full tilt; A opens shop, B closes, B doesn't pause, Start toggles pause).
 - Not yet: D-pad/A navigation INSIDE the shop panel and pause menu (they still need touch/mouse to pick items).
 
+## 2026-10-28 — Benji walk cycle (keeps his exact look) + camera flip guards
+- ROOT CAUSE of "no leg animation": `characters.benji.views` never declared a `walk` view, so the old stride loader never ran for ANY facing. (The unused `benji/walk.png` is a different, outlined style — don't use it.)
+- Generated stride frames (gpt_image_2_5 from his sprite) went off-model (slimmer, different face, logo lost) — Trey: "these new animations need to maintain his appearance." REJECTED; never ship regenerated Benji art.
+- `scripts/build-benji-strides.py` builds 8 frames FROM HIS OWN approved sprites (pixels only moved): front/back lift one leg (compress below mid-thigh, foot +14 px); sides shear lower legs ±15 px at the hip. Output `public/game-v2/characters/benji/stride/{back-l,back-r,front-l,front-r,left-a,left-b,right-a,right-b}.png` (same 138×336 canvas → reuses each face's geometry). Runtime `strideFrames` + four-beat cycle per 1.6 m: stand, stride A, stand, stride B. Procedural bounce reduced to 0.035 m / sway 0.025 rad. 85 approved PNGs still byte-identical.
+- Camera flip fix: (1) destination jump > 8 m → snap (no gliding through walls into Benji); (2) after the wall pull, if the lens is < 1 m from the LOOK TARGET (Benji + look·ahead) or in front of it → reset to the destination. `cameraState()` QA accessor added. `scripts/camera-orientation-e2e.mjs`: natural play 18/18 upright. (Right after QA `setShot` teleports a few frames can still read flipped in `playerScreen` — QA-hook placement/stale matrices, not gameplay.)
+- function-sweep 8/8.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

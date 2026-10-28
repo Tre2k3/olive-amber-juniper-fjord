@@ -72,7 +72,7 @@ import { tickRace, RACE_LENGTH, rivalPose } from "./play/racing";
 import { buildRaceCircuit, animateHauntAtmosphere } from "./world/activities";
 import { animateRiverfront, setRiverSky } from "./world/riverfront-production";
 import { animateHauntLibrary } from "./world/kits/haunt-library";
-import { characters, frameSize, type Cutout } from "./assets/characters";
+import { characters, frameSize } from "./assets/characters";
 import {
   characterMaterial,
   footMarker,
@@ -344,12 +344,26 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       if (face === facing) applyBenji(face);
     });
   }
-  const strideTex: Partial<Record<Facing, THREE.Texture>> = {};
-  const frontStride = (characters.benji.views as { walk?: Cutout }).walk;
-  if (frontStride) {
-    loader.load(frontStride.src, (tex) => {
-      solidCutout(tex);
-      strideTex.front = tex;
+  // Walk cycle built from Benji's OWN sprite pixels (scripts/build-benji-strides.py):
+  // each view has two stride frames (one foot lifted / legs swung), so his look
+  // never changes. Frames share the standing canvas, so geometry stays put.
+  const strideFrames: Partial<
+    Record<Facing, [THREE.Texture | undefined, THREE.Texture | undefined]>
+  > = {};
+  const STRIDE_FILES: Record<Facing, [string, string]> = {
+    back: ["back-l", "back-r"],
+    front: ["front-l", "front-r"],
+    left: ["left-a", "left-b"],
+    right: ["right-a", "right-b"],
+  };
+  for (const face of Object.keys(STRIDE_FILES) as Facing[]) {
+    const pair: [THREE.Texture | undefined, THREE.Texture | undefined] = [undefined, undefined];
+    strideFrames[face] = pair;
+    STRIDE_FILES[face].forEach((name, i) => {
+      loader.load(`/game-v2/characters/benji/stride/${name}.png?v=1`, (tex) => {
+        solidCutout(tex);
+        pair[i] = tex;
+      });
     });
   }
   let glideX = 0;
@@ -2346,17 +2360,19 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return;
     const mat = avatar.material as THREE.MeshBasicMaterial;
     const speed = Math.hypot(glideX, glideZ);
-    const stepping = speed > 0.28 && (travel / 1.9) % 1 >= 0.5;
-    const stride = stepping ? strideTex[face] : undefined;
-    const pose = stride ? `${face}-walk` : face;
+    // Four-beat cycle per ~1.6 m: stand, stride A, stand, stride B.
+    const beat = speed > 0.28 ? Math.floor(travel / 0.8) % 4 : 0;
+    const pair = strideFrames[face];
+    const stride = beat === 1 ? pair?.[0] : beat === 3 ? pair?.[1] : undefined;
+    const pose = stride ? `${face}-stride-${beat}` : face;
     if (avatar.userData.pose === pose && mat.map) return;
     const tex = stride ?? textures[face];
     if (!tex) return;
-    if (avatar.userData.box !== pose) {
-      const size = frameSize(characters.benji, stride ? "walk" : face);
+    if (avatar.userData.box !== face) {
+      const size = frameSize(characters.benji, face);
       avatar.geometry.dispose();
       avatar.geometry = solePlane(size.w, size.h, size.footPad, size.pxH, size.centerPx, size.pxW);
-      avatar.userData.box = pose;
+      avatar.userData.box = face;
     }
     mat.map = tex;
     mat.needsUpdate = true;
@@ -2500,8 +2516,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       if (sp > 0.28 && !courtMatch) {
         const phase = (travel / 0.95) * Math.PI;
         const amt = Math.min(1, sp / 7);
-        avatar.position.y = Math.abs(Math.sin(phase)) * 0.065 * amt;
-        avatar.rotation.z = Math.sin(phase) * 0.05 * amt;
+        avatar.position.y = Math.abs(Math.sin(phase)) * 0.035 * amt;
+        avatar.rotation.z = Math.sin(phase) * 0.025 * amt;
       } else avatar.position.y *= 0.75;
     }
     seatOnGround(avatar);
@@ -2838,6 +2854,12 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     destX = pulled.x;
     destZ = pulled.z;
     const destY = player.position.y + height;
+    // Big jumps (entering/leaving a building, spawns) snap instead of gliding:
+    // a long glide crosses walls, the wall check below then pulls the lens into
+    // Benji and the look-at flips the whole view.
+    if (Math.hypot(destX - camera.position.x, destZ - camera.position.z) > 8) {
+      camera.position.set(destX, destY, destZ);
+    }
     const follow = 1 - Math.exp(-6.5 * dt);
     camera.position.x += (destX - camera.position.x) * follow;
     camera.position.y += (destY - camera.position.y) * follow;
@@ -2855,6 +2877,17 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     camera.position.x = safe.x;
     camera.position.z = safe.z;
     const ahead = talking ? 0.28 : 0.72;
+    // Never let the lens sit over (or in front of) the point it looks at: a near-
+    // vertical look-at flips the whole view. Measure against the look target,
+    // which sits `ahead` of Benji, and keep the camera behind it.
+    {
+      const tx = player.position.x + lookX * ahead;
+      const tz = player.position.z + lookZ * ahead;
+      const hx = camera.position.x - tx;
+      const hz = camera.position.z - tz;
+      if (Math.hypot(hx, hz) < 1.0 || hx * lookX + hz * lookZ > 0)
+        camera.position.set(destX, destY, destZ);
+    }
     const lookY =
       player.position.y +
       (camLookY ?? (talking ? 1.12 : place === "haunt" ? 1.34 : inside ? 1.18 : 1.22));
@@ -3634,6 +3667,17 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
           opacity: mat?.opacity ?? 1,
         };
       });
+    },
+    /** QA: where the lens is relative to Benji (read-only). */
+    cameraState() {
+      const r = (v: number) => Math.round(v * 100) / 100;
+      return {
+        cam: { x: r(camera.position.x), y: r(camera.position.y), z: r(camera.position.z) },
+        player: { x: r(player.position.x), y: r(player.position.y), z: r(player.position.z) },
+        yaw: r(camYaw),
+        up: { x: r(camera.up.x), y: r(camera.up.y), z: r(camera.up.z) },
+        place,
+      };
     },
     peds() {
       return world.pedestrians.map((ped) => ({
