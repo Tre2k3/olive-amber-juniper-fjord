@@ -259,6 +259,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - 901 Catch Kitchen cook: `public/game-v2/vendors/food-court/catch-vendor.png` (512², framed to brother-1's alpha box 259×460+147+26), placed like the brothers at the window, gentle sway while serving. Trey asked for "a beautiful black woman serving the fish".
 - Tests: `scripts/cast-unique-e2e.mjs` (24/24 unique); function-sweep boot now requires ≥18 pedestrians AND all different (28, true).
 
+## 2026-10-28 — HQ collision fix (Trey: "it lets me get inside the HQ almost, without pressing E")
+- Cause: the HQ's three street solids left the doorway (x ±0.85) open 1.9 m deep (z hqZ+3.6 → front), so walking at the door — or sliding along the front wall from a corner — carried Benji 1.54 m inside and the follow camera went in with him. The exterior kit's planters and velvet-rope runs had no solids.
+- Fix (`slice.ts`, after the HQ solids): door-recess solid {hqX±0.85, hqZ+3.6..hqZ+5.5}; planter solids 0.9×0.9 at (hqX±2.1, frontZ+0.95); rope-run solids z frontZ+1.85..2.15 for x hqX±3.3..7.5 — planters/ropes `cameraBlock:false`. The door trigger (hqDoor z hqZ+6.35, radius 1.6) is still reached: Benji stops ~0.5 m from it.
+- `scripts/hq-collision-e2e.mjs`: 9 approaches (door, planters, rope, east/west/back walls, both corners) keep player AND camera outside; E at the door still enters → 10/10.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.
