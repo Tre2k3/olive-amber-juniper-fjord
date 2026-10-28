@@ -228,6 +228,12 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Dynamic resolution (real GPUs only; not software tier, not ?qa=1): 2 s windows, avg dt > 24 ms → renderScale −0.15 (min 0.6), two windows < 15 ms → +0.1; applied in `resize()` ratio.
 - Watch item: one capture right after boot at golden showed an upside-down frame; not reproducible in a follow-up probe (new/old camera, golden/day all upright).
 
+## 2026-10-28 — controller support (Trey: "it needs gamepad controls")
+- `src/game-v2/core/gamepad.ts`: Gamepad API, standard layout. Left stick → `padX/padY` added to the same analog `sx/sy` as keys + touch stick (so walking, racing, fishing get it free); > 0.85 tilt runs. Right stick X → camYaw (2.4 rad/s) and counts as manual orbit. Buttons replay as keyboard keys through `onKey` (synthetic event with code/key/target/repeat/preventDefault): A→KeyE, X→Space (hold/release = charge/shoot), LB/RB→Q/R, RT→ShiftLeft, Start→Escape, D-pad→arrows. During a 2v2 match `PAD_COURT_KEYS`: Y→F pass, LB→C cross, RB→V dunk, LT→L layup. B (button 1) is back-only: sends Escape only when shop/order window/pause is open.
+- HUD hint switches to controller wording when `state.gamepad`. Browsers expose a pad only after its first button press.
+- Tests: core test (deadzone, edges, mappings, readPad with a mock navigator); `scripts/gamepad-e2e.mjs` mocks `navigator.getGamepads` via addInitScript — 7/7 PASS (12.5 m in 1 s at full tilt; A opens shop, B closes, B doesn't pause, Start toggles pause).
+- Not yet: D-pad/A navigation INSIDE the shop panel and pause menu (they still need touch/mouse to pick items).
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

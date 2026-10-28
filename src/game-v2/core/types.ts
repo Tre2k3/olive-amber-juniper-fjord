@@ -19,6 +19,8 @@ import type { FrameBox } from "../play/city";
 export type HudState = {
   /** The HQ counter shop panel is open. */
   shopOpen?: boolean;
+  /** A controller is connected (HUD shows controller hints). */
+  gamepad?: boolean;
   place: Place;
   dollars: number;
   respect: number;

@@ -190,10 +190,14 @@ export function Hud({
         {state.activity === "race"
           ? "W gas · S brake · A/D steer · Space drift · E exit"
           : state.basketball
-            ? "WASD move · Space shot · B camera · F pass · C cross · V dunk · L layup · E steal · Esc exit"
+            ? state.gamepad
+              ? "Left stick move · X shoot · Y pass · LB cross · RB dunk · LT layup · A steal · Start exit"
+              : "WASD move · Space shot · B camera · F pass · C cross · V dunk · L layup · E steal · Esc exit"
             : state.place === "court"
               ? "WASD move · Space shot · B camera · E interact"
-              : "Arrows / WASD move · Q/R orbit · drag or swipe camera · E interact · Space shoot · Shift run"}
+              : state.gamepad
+                ? "Left stick move · Right stick camera · A interact · X hold to shoot · RT run · B back · Start menu"
+                : "Arrows / WASD move · Q/R orbit · drag or swipe camera · E interact · Space shoot · Shift run"}
       </div>
     </div>
   );

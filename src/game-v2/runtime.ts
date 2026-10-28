@@ -2,6 +2,13 @@ import * as THREE from "three";
 import { GameAudio, type Sfx } from "./audio";
 import { loadRoomProps, updateProps } from "./world/kits/gltf-props";
 import { storeLink } from "./store/link";
+import {
+  buttonEdges,
+  PAD_BACK_BUTTON,
+  PAD_BUTTON_KEYS,
+  PAD_COURT_KEYS,
+  readPad,
+} from "./core/gamepad";
 import { enterHaunt, freshStage, hauntLightScale, tickHauntStage } from "./play/haunt-events";
 import { animateHauntDetail, loadHauntProps, updateApparition } from "./world/kits/haunt-detail";
 import {
@@ -362,6 +369,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   let interactQueued = false;
   let touchX = 0;
   let touchY = 0;
+  /** Controller left stick (analog, same role as the touch stick) and last button state. */
+  let padX = 0;
+  let padY = 0;
+  let padPrev: boolean[] = [];
+  let padConnected = false;
   let night = false;
   let golden = false;
   const cycleLight = () => {
@@ -928,6 +940,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   function hud(): HudState {
     return {
       shopOpen,
+      gamepad: padConnected,
       place,
       dollars,
       respect,
@@ -1095,18 +1108,80 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         } else fastWindows = 0;
       }
     }
+    // Controller: sticks feed the analog inputs; buttons replay as keyboard keys.
+    {
+      const pad = readPad();
+      padConnected = !!pad;
+      if (pad) {
+        padX = pad.moveX;
+        padY = pad.moveY;
+        if (pad.lookX !== 0) {
+          camYaw += pad.lookX * 2.4 * dt;
+          lastOrbitAt = performance.now() / 1000;
+        }
+        for (const edge of buttonEdges(
+          padPrev,
+          pad.pressed,
+          courtMatch ? PAD_COURT_KEYS : PAD_BUTTON_KEYS,
+        )) {
+          onKey(
+            {
+              code: edge.code,
+              key: edge.code,
+              target: null,
+              repeat: false,
+              preventDefault() {},
+            } as unknown as KeyboardEvent,
+            edge.down,
+          );
+        }
+        const back = !!pad.pressed[PAD_BACK_BUTTON];
+        if (
+          back &&
+          !padPrev[PAD_BACK_BUTTON] &&
+          (shopOpen || veli.open || foodCourt.open || paused)
+        ) {
+          onKey(
+            {
+              code: "Escape",
+              key: "Escape",
+              target: null,
+              repeat: false,
+              preventDefault() {},
+            } as unknown as KeyboardEvent,
+            true,
+          );
+          onKey(
+            {
+              code: "Escape",
+              key: "Escape",
+              target: null,
+              repeat: false,
+              preventDefault() {},
+            } as unknown as KeyboardEvent,
+            false,
+          );
+        }
+        padPrev = pad.pressed;
+      } else {
+        padX = padY = 0;
+        padPrev = [];
+      }
+    }
     const cameraTurn = (keys.has("KeyR") ? 1 : 0) - (keys.has("KeyQ") ? 1 : 0);
     camYaw += cameraTurn * 1.75 * dt;
     if (cameraTurn !== 0) lastOrbitAt = performance.now() / 1000;
     const steer =
       (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) -
       (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) +
-      touchX;
+      touchX +
+      padX;
     const sx = steer;
     const sy =
       (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) -
       (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0) +
-      touchY;
+      touchY +
+      padY;
     const len = Math.hypot(sx, sy);
     if (city.race) {
       stepRace(dt, sx, sy, hold, interact);
@@ -1140,7 +1215,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     // full-tilt touch stick runs (phones have no Shift key).
     const walkSpeed = 7.4;
     const sprintSpeed = 12.4;
-    const touchRun = Math.hypot(touchX, touchY) > 0.85;
+    const touchRun = Math.hypot(touchX, touchY) > 0.85 || Math.hypot(padX, padY) > 0.85;
     let speed = 0;
     if (wantsMove) {
       speed =

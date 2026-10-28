@@ -504,3 +504,22 @@ console.log('PASS: separate defensive assignments, rebound pursuit and non-telep
   assert.ok(mail.startsWith('mailto:SackReligiousKlothingKompany@gmail.com?') && decodeURIComponent(mail).includes('Size: L') && decodeURIComponent(mail).includes('Quantity: 2'));
   console.log('PASS: in-game shop follows the store bridge rules (real IDs, real sizes, ack-only adds, no prices from the game)');
 }
+
+// ---- controller (Gamepad API) ----
+{
+  const gp = await load('../src/game-v2/core/gamepad.ts');
+  assert.equal(gp.deadzone(0.1), 0, 'small stick drift is ignored');
+  assert.ok(Math.abs(gp.deadzone(1) - 1) < 1e-9 && Math.abs(gp.deadzone(-1) + 1) < 1e-9, 'full tilt is ±1');
+  assert.equal(gp.deadzone(Number.NaN), 0, 'bad axis values are ignored');
+  const press = gp.buttonEdges([], [true]);
+  assert.deepEqual(press, [{ code: 'KeyE', down: true }], 'A presses E (interact)');
+  assert.deepEqual(gp.buttonEdges([true], []), [{ code: 'KeyE', down: false }], 'releasing A releases E');
+  const shoot = gp.buttonEdges([], [false, false, true]);
+  assert.deepEqual(shoot, [{ code: 'Space', down: true }], 'X holds Space to charge a shot');
+  assert.equal(gp.PAD_COURT_KEYS[4], 'KeyC', 'LB is crossover in a match');
+  assert.equal(gp.PAD_BUTTON_KEYS[4], 'KeyQ', 'LB orbits the camera outside a match');
+  assert.equal(gp.PAD_BUTTON_KEYS[gp.PAD_BACK_BUTTON], undefined, 'B is handled as back-only, never a raw key');
+  const pad = gp.readPad({ getGamepads: () => [null, { connected: true, id: 'Test Pad', axes: [1, -1, 0.1, 0], buttons: [{ pressed: true, value: 1 }] }] });
+  assert.ok(pad && Math.abs(pad.moveX - 1) < 1e-9 && Math.abs(pad.moveY - 1) < 1e-9 && pad.lookX === 0 && pad.pressed[0] === true, 'stick up is forward; right stick drift ignored');
+  console.log('PASS: controller maps sticks to movement and buttons to the game\'s keys');
+}
