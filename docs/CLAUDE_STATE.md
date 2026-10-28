@@ -241,6 +241,12 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Camera flip fix: (1) destination jump > 8 m → snap (no gliding through walls into Benji); (2) after the wall pull, if the lens is < 1 m from the LOOK TARGET (Benji + look·ahead) or in front of it → reset to the destination. `cameraState()` QA accessor added. `scripts/camera-orientation-e2e.mjs`: natural play 18/18 upright. (Right after QA `setShot` teleports a few frames can still read flipped in `playerScreen` — QA-hook placement/stale matrices, not gameplay.)
 - function-sweep 8/8.
 
+## 2026-10-28 — court tempo, between-the-legs, controller menus
+- `core/basketball-match.ts`: AI athletes 3.1/3.8 → 4.9/5.6 m/s (the user's athlete already follows Benji's 7.4/12.4); dribble cadence ×1.5 (cos(t·10.5)). New action `"legs"` (between the legs): `match.betweenLegs`, feedback "BETWEEN THE LEGS", ball dips to 0.6× bounce and passes 0.2 m behind the front leg. Manual C / LB stays a crossover.
+- `runtime.ts`: auto between-the-legs when dribbling in a live match at > 5 m/s and heading turns > 1.2 rad vs 0.25 s ago (cooldown 0.8 s; `lastCutHeading/cutSample/cutCooldown`).
+- Controller in menus: while `[data-testid=shop-panel|pause-menu]` exists, D-pad moves DOM focus over enabled buttons/links (focusVisible), A clicks the focused one, B backs out, only Start passes through as a key. gamepad-e2e 8/8 (focus landed on shop-item-tee-pretty-girls).
+- Next: new pedestrian characters (turnaround sheets in the existing sprite style; walk frames via the same pixel technique), then switch the store's /arcade to https://play.10letters.store (Lovable), then Trey's security cleanup.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

@@ -66,6 +66,18 @@ out(
   (await page.locator('[data-testid="shop-panel"]').count()) === 1,
   "A at the HQ counter opens the shop",
 );
+// D-pad down highlights items in the shop; A selects the highlighted one.
+await tap(13);
+await tap(13);
+const focused = await I(() => document.activeElement?.getAttribute("data-testid") || "");
+await tap(0);
+await page.waitForTimeout(300);
+const stillOpen = await page.locator('[data-testid="shop-panel"]').count();
+out(
+  focused.startsWith("shop-item-") && stillOpen === 1,
+  "D-pad moves the highlight inside the shop and A selects",
+  focused,
+);
 await tap(1);
 await page.waitForTimeout(400);
 out((await page.locator('[data-testid="shop-panel"]').count()) === 0, "B closes the shop");

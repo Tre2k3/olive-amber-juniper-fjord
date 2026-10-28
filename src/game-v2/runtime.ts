@@ -419,6 +419,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   let camYaw = Math.PI / 2;
   /** Last manual camera orbit (seconds); auto-follow waits after the player steers the camera. */
   let lastOrbitAt = -10;
+  /** Basketball auto dribble move: heading sampled every 0.25 s while dribbling. */
+  let lastCutHeading: number | null = null;
+  let cutSample = 0;
+  let cutCooldown = 0;
   /** Dynamic resolution on real GPUs: 0.6–1 × the device pixel ratio. */
   let renderScale = 1;
   let frameAcc = 0;
@@ -1133,10 +1137,32 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
           camYaw += pad.lookX * 2.4 * dt;
           lastOrbitAt = performance.now() / 1000;
         }
+        // Menus (shop, pause): D-pad moves a highlight between buttons, A presses it.
+        const menu = document.querySelector<HTMLElement>(
+          '[data-testid="shop-panel"], [data-testid="pause-menu"]',
+        );
+        if (menu) {
+          const items = [...menu.querySelectorAll<HTMLElement>("button:not([disabled]), a[href]")];
+          const at = items.indexOf(document.activeElement as HTMLElement);
+          const pressedNow = (n: number) => !!pad.pressed[n] && !padPrev[n];
+          let next = at;
+          if (pressedNow(13) || pressedNow(15))
+            next = at < 0 ? 0 : Math.min(items.length - 1, at + 1);
+          if (pressedNow(12) || pressedNow(14)) next = at < 0 ? 0 : Math.max(0, at - 1);
+          if (next !== at && items[next])
+            (items[next] as HTMLElement & { focus(o?: object): void }).focus({
+              focusVisible: true,
+            });
+          if (pressedNow(0) && at >= 0) items[at]!.click();
+        }
         for (const edge of buttonEdges(
           padPrev,
           pad.pressed,
-          courtMatch ? PAD_COURT_KEYS : PAD_BUTTON_KEYS,
+          courtMatch
+            ? PAD_COURT_KEYS
+            : document.querySelector('[data-testid="shop-panel"], [data-testid="pause-menu"]')
+              ? { 9: "Escape" }
+              : PAD_BUTTON_KEYS,
         )) {
           onKey(
             {
@@ -1248,6 +1274,36 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const follow = 1 - Math.exp(-(wantsMove ? 14 : 12) * dt);
     glideX += (wishX - glideX) * follow;
     glideZ += (wishZ - glideZ) * follow;
+    // Basketball: a hard cut at running speed with the ball triggers a
+    // between-the-legs move on its own (C / LB still does a crossover).
+    if (
+      courtMatch &&
+      courtMatch.phase === "live" &&
+      courtMatch.owner === 0 &&
+      courtMatch.actionLeft <= 0
+    ) {
+      cutCooldown = Math.max(0, cutCooldown - dt);
+      const sp = Math.hypot(glideX, glideZ);
+      const heading = Math.atan2(glideX, glideZ);
+      if (sp > 5 && cutCooldown <= 0 && lastCutHeading !== null) {
+        const turn = Math.abs(
+          Math.atan2(Math.sin(heading - lastCutHeading), Math.cos(heading - lastCutHeading)),
+        );
+        if (turn > 1.2) {
+          courtAction(courtMatch, "legs", world.hoops);
+          cutCooldown = 0.8;
+        }
+      }
+      if (sp > 1) {
+        cutSample -= dt;
+        if (cutSample <= 0) {
+          lastCutHeading = heading;
+          cutSample = 0.25;
+        }
+      }
+    } else {
+      lastCutHeading = null;
+    }
     // Mario-style follow: running outdoors, the camera eases in behind Benji's
     // direction of travel — never when he runs toward the lens, and never
     // while the player is steering the camera themselves.
