@@ -429,6 +429,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   let cutCooldown = 0;
   /** Dynamic resolution on real GPUs: 0.6–1 × the device pixel ratio. */
   let renderScale = 1;
+  /** Shadow refresh counter for the every-other-frame stage. */
+  let shadowTick = 0;
   let frameAcc = 0;
   let frameCount = 0;
   let fastWindows = 0;
@@ -856,6 +858,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
 
   // ?perf=1: on-screen frame readout for real hardware (fps, worst frame, draw
   // calls incl. shadow + post passes, triangles, render scale, GPU name).
+  /** Bloom is off on the software tier; the quality ladder only restores it if it was allowed. */
+  const bloomAllowed = bloom.enabled;
   const perfOverlay =
     new URLSearchParams(window.location.search).get("perf") === "1"
       ? (() => {
@@ -902,12 +906,18 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const rawMs = now - last;
     const dt = Math.min(0.033, (now - last) / 1000);
     last = now;
+    // Stage 1 of the quality ladder (real GPUs): once resolution has dropped,
+    // refresh shadows every other frame — the sun is fixed, so it barely shows.
+    if (!quality.software && !qaMode) {
+      renderer.shadowMap.autoUpdate = renderScale >= 1;
+      if (!renderer.shadowMap.autoUpdate) renderer.shadowMap.needsUpdate = (shadowTick++ & 1) === 0;
+    }
     if (perfOverlay) {
       perfAcc += rawMs;
       perfFrames++;
       perfWorst = Math.max(perfWorst, rawMs);
       if (perfAcc >= 500) {
-        perfOverlay.textContent = `${Math.round((1000 * perfFrames) / perfAcc)} fps · avg ${(perfAcc / perfFrames).toFixed(1)} ms · worst ${perfWorst.toFixed(0)} ms · draws ${renderer.info.render.calls} · ${Math.round(renderer.info.render.triangles / 1000)}k tris · res ${Math.round(renderScale * 100)}% · ${gpuName}`;
+        perfOverlay.textContent = `${Math.round((1000 * perfFrames) / perfAcc)} fps · avg ${(perfAcc / perfFrames).toFixed(1)} ms · worst ${perfWorst.toFixed(0)} ms · draws ${renderer.info.render.calls} · ${Math.round(renderer.info.render.triangles / 1000)}k tris · res ${Math.round(renderScale * 100)}%${renderer.shadowMap.autoUpdate ? "" : " · shadows ½"}${bloomAllowed && !bloom.enabled ? " · no glow" : ""} · ${gpuName}`;
         perfAcc = 0;
         perfFrames = 0;
         perfWorst = 0;
@@ -1183,8 +1193,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
           renderScale = Math.max(0.6, renderScale - 0.15);
           fastWindows = 0;
           resize();
+        } else if (avg > 0.024 && bloomAllowed && bloom.enabled) {
+          // Stage 2: at minimum resolution and still slow — drop the glow pass.
+          bloom.enabled = false;
+          fastWindows = 0;
         } else if (avg < 0.015) {
-          if (++fastWindows >= 2 && renderScale < 1) {
+          if (bloomAllowed && !bloom.enabled) {
+            bloom.enabled = true;
+            fastWindows = 0;
+          } else if (++fastWindows >= 2 && renderScale < 1) {
             renderScale = Math.min(1, renderScale + 0.1);
             fastWindows = 0;
             resize();
