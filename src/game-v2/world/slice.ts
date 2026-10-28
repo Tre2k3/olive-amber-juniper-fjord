@@ -58,6 +58,8 @@ export type SliceWorld = {
   scene: THREE.Scene;
   /** One-of-each cast: claim a pedestrian look; null when everyone is already placed. */
   claimPedestrian: (asset: Spawnable) => Spawnable | null;
+  /** The six courtside fans, reserved before anyone else is placed. */
+  courtFanCast: Spawnable[];
   solids: Record<"street" | "home" | "hq" | "haunt", Solid[]>;
   exterior: THREE.Group;
   home: THREE.Group;
@@ -611,6 +613,16 @@ export function buildSlice(): SliceWorld {
     castUsed.add(free.id);
     return free;
   };
+  // Courtside fans claim first: a match always has its six spectators (CI
+  // contract), and they're still people nobody else is playing.
+  const courtFanCast = [
+    ped.female02,
+    ped.male04,
+    ped.female03,
+    ped.male02,
+    ped.male01,
+    ped.female01,
+  ].map((a) => claim(a)!);
   function route(
     pts: { x: number; z: number }[],
     towardEnd: boolean,
@@ -1620,6 +1632,7 @@ export function buildSlice(): SliceWorld {
   return {
     scene,
     claimPedestrian: claim,
+    courtFanCast,
     solids: { street: streetSolids, home: homeSolids, hq: hqSolids, haunt: hauntSolids },
     exterior,
     home,

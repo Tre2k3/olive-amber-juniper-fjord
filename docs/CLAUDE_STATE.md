@@ -277,6 +277,12 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Fix: resolve the whole overlap in one frame (70% Benji / 30% them, capped 0.17 m) with 1e-3 tolerance. New home-block walkers moved to the curb side (z 4.95 / 5.05) off the test lane. runtime-reliability-smoke: all PASS locally (run it in the background — it exceeds 5 min).
 - SHIPPING RULE: one push, then wait for CI to finish before pushing again (each push cancels the in-progress run; six pushes in a row meant nothing merged). CI logs: GitHub redirects to a blob host blocked in this sandbox — fetch via the Higgsfield sandbox.
 
+## 2026-10-28 — fans contract, 12 more people, material-merge experiment (reverted)
+- CI step 16 (basketball-polish-smoke) requires `basketballState().spectators === 6` (and jerseys 4). With one-of-each casting the fans (claimed last) got 0. Fix: `courtFanCast` — six fans claim FIRST in slice.ts (right after `claim`), exposed on the world; runtime fans use `world.courtFanCast[i]`. `scripts/court-fans-e2e.mjs` checks 6 fans + 4 jerseys + unique streets.
+- Twelve more pedestrians (female12–17, male14–19): silver_locs_reader, glasses_backpack_student, puffs_little_girl (1.32 m), bald_beard_runner, lavender_tracksuit_woman, guayabera_elder, headphones_teen, green_wrap_dress_woman, dreads_flannel_man, pixie_blonde_woman, red_windbreaker_man, pink_church_grandma. 36 looks → 30 street pedestrians + 6 fans, nobody twice (sweep: 34 incl. named).
+- Tried identical-material sharing in the batcher: visible meshes unchanged (~3,930; the rest is transparent or dynamic) → reverted (risk without gain). Shadow casters now ~2,310 (were ~5,950), geometries 2,373 (were 6,365). Shader programs 140 = precompile building every variant at load (intended).
+- basketball-polish-smoke launches Playwright's own Chromium (not smoke-lib) → can't run in this sandbox; reproduce its assertions via QA hooks instead.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

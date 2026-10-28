@@ -13,7 +13,10 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
  */
 export const batchReasons: Record<string, number> = {};
 const why = (k: string) => (batchReasons[k] = (batchReasons[k] ?? 0) + 1);
-export function batchStatic(root: THREE.Object3D, cell = 40): { before: number; after: number } {
+export function batchStatic(
+  root: THREE.Object3D,
+  cell = 40,
+): { before: number; after: number } {
   root.updateMatrixWorld(true);
   // A merged mesh stays under its original parent, so named groups (looked up,
   // shown/hidden, moved) keep working. Only the mesh itself being named, or any

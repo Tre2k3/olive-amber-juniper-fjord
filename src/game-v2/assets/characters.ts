@@ -122,6 +122,18 @@ export const characters = {
     female11: { id: "ped-headwrap-grocery-woman", height: 1.67, views: { ...turnaround("pedestrians/headwrap_grocery_woman"), walk: cut("/game-v2/characters/pedestrians/headwrap_grocery_woman/walk.png") } },
     male12: { id: "ped-camo-hoodie-man", height: 1.76, views: { ...turnaround("pedestrians/camo_hoodie_man"), walk: cut("/game-v2/characters/pedestrians/camo_hoodie_man/walk.png") } },
     male13: { id: "ped-sunday-suit-elder", height: 1.73, views: { ...turnaround("pedestrians/sunday_suit_elder"), walk: cut("/game-v2/characters/pedestrians/sunday_suit_elder/walk.png") } },
+    female12: { id: "ped-silver-locs-reader", height: 1.66, views: { ...turnaround("pedestrians/silver_locs_reader"), walk: cut("/game-v2/characters/pedestrians/silver_locs_reader/walk.png") } },
+    male14: { id: "ped-glasses-backpack-student", height: 1.76, views: { ...turnaround("pedestrians/glasses_backpack_student"), walk: cut("/game-v2/characters/pedestrians/glasses_backpack_student/walk.png") } },
+    female13: { id: "ped-puffs-little-girl", height: 1.32, views: { ...turnaround("pedestrians/puffs_little_girl"), walk: cut("/game-v2/characters/pedestrians/puffs_little_girl/walk.png") } },
+    male15: { id: "ped-bald-beard-runner", height: 1.88, views: { ...turnaround("pedestrians/bald_beard_runner"), walk: cut("/game-v2/characters/pedestrians/bald_beard_runner/walk.png") } },
+    female14: { id: "ped-lavender-tracksuit-woman", height: 1.68, views: { ...turnaround("pedestrians/lavender_tracksuit_woman"), walk: cut("/game-v2/characters/pedestrians/lavender_tracksuit_woman/walk.png") } },
+    male16: { id: "ped-guayabera-elder", height: 1.72, views: { ...turnaround("pedestrians/guayabera_elder"), walk: cut("/game-v2/characters/pedestrians/guayabera_elder/walk.png") } },
+    male17: { id: "ped-headphones-teen", height: 1.74, views: { ...turnaround("pedestrians/headphones_teen"), walk: cut("/game-v2/characters/pedestrians/headphones_teen/walk.png") } },
+    female15: { id: "ped-green-wrap-dress-woman", height: 1.67, views: { ...turnaround("pedestrians/green_wrap_dress_woman"), walk: cut("/game-v2/characters/pedestrians/green_wrap_dress_woman/walk.png") } },
+    male18: { id: "ped-dreads-flannel-man", height: 1.8, views: { ...turnaround("pedestrians/dreads_flannel_man"), walk: cut("/game-v2/characters/pedestrians/dreads_flannel_man/walk.png") } },
+    female16: { id: "ped-pixie-blonde-woman", height: 1.69, views: { ...turnaround("pedestrians/pixie_blonde_woman"), walk: cut("/game-v2/characters/pedestrians/pixie_blonde_woman/walk.png") } },
+    male19: { id: "ped-red-windbreaker-man", height: 1.79, views: { ...turnaround("pedestrians/red_windbreaker_man"), walk: cut("/game-v2/characters/pedestrians/red_windbreaker_man/walk.png") } },
+    female17: { id: "ped-pink-church-grandma", height: 1.57, views: { ...turnaround("pedestrians/pink_church_grandma"), walk: cut("/game-v2/characters/pedestrians/pink_church_grandma/walk.png") } },
   },
 } as const satisfies Record<string, CharacterAsset | Record<string, CharacterAsset>>;
 
