@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { batchReasons, batchStatic } from "./core/static-batch";
 import { GameAudio, type Sfx } from "./audio";
 import { loadRoomProps, updateProps } from "./world/kits/gltf-props";
 import { storeLink } from "./store/link";
@@ -106,6 +107,9 @@ let activeStop: (() => void) | null = null;
 export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => void): () => void {
   activeStop?.();
   const world = buildSlice();
+  // Static batching: never-moving meshes merged per material per 40 m cell
+  // (~8,400 meshes / draw calls was the main cause of the sluggish feel).
+  const batched = [world.exterior, world.home, world.hq].map((g) => batchStatic(g));
   const circuit = buildRaceCircuit(world.scene);
   const veliTruck = buildVeliTruck(world.exterior);
   const veli = freshVeli();
@@ -850,10 +854,66 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   }
   let renderOff = false;
 
+  // ?perf=1: on-screen frame readout for real hardware (fps, worst frame, draw
+  // calls incl. shadow + post passes, triangles, render scale, GPU name).
+  const perfOverlay =
+    new URLSearchParams(window.location.search).get("perf") === "1"
+      ? (() => {
+          const d = document.createElement("div");
+          d.dataset.testid = "perf-overlay";
+          d.style.cssText =
+            "position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:99;font:12px/1.4 ui-monospace,monospace;color:#f4efe4;background:#000b;padding:4px 10px;border-radius:6px;pointer-events:none;white-space:nowrap";
+          document.body.appendChild(d);
+          return d;
+        })()
+      : null;
+  const gpuName = (() => {
+    try {
+      const gl = renderer.getContext();
+      const ext = gl.getExtension("WEBGL_debug_renderer_info");
+      return ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : "GPU hidden by browser";
+    } catch {
+      return "GPU unknown";
+    }
+  })();
+  let perfAcc = 0;
+  let perfFrames = 0;
+  let perfWorst = 0;
+  if (perfOverlay) renderer.info.autoReset = false;
   const loop = (now: number) => {
+    // Build every material's shader now, interiors included, while the game loads,
+    // so walking into a new area never stalls while shaders compile.
+    {
+      const rooms = [
+        world.home,
+        world.hq,
+        (world as unknown as { haunt?: THREE.Object3D }).haunt,
+      ].filter((g): g is THREE.Object3D => !!g);
+      const was = rooms.map((g) => g.visible);
+      for (const g of rooms) g.visible = true;
+      try {
+        renderer.compile(world.scene, camera);
+      } catch {
+        /* best effort: shaders still compile lazily */
+      }
+      rooms.forEach((g, i) => (g.visible = was[i]!));
+    }
     frame = requestAnimationFrame(loop);
+    const rawMs = now - last;
     const dt = Math.min(0.033, (now - last) / 1000);
     last = now;
+    if (perfOverlay) {
+      perfAcc += rawMs;
+      perfFrames++;
+      perfWorst = Math.max(perfWorst, rawMs);
+      if (perfAcc >= 500) {
+        perfOverlay.textContent = `${Math.round((1000 * perfFrames) / perfAcc)} fps · avg ${(perfAcc / perfFrames).toFixed(1)} ms · worst ${perfWorst.toFixed(0)} ms · draws ${renderer.info.render.calls} · ${Math.round(renderer.info.render.triangles / 1000)}k tris · res ${Math.round(renderScale * 100)}% · ${gpuName}`;
+        perfAcc = 0;
+        perfFrames = 0;
+        perfWorst = 0;
+      }
+      renderer.info.reset();
+    }
     resize();
     if (captureFrozen) {
       composer.render();
@@ -3726,6 +3786,33 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
           opacity: mat?.opacity ?? 1,
         };
       });
+    },
+    /** QA: per-frame cost drivers (read-only). */
+    perfStats() {
+      const t0 = performance.now();
+      for (let i = 0; i < 20; i++) step(1 / 60, false, false);
+      const stepMs = (performance.now() - t0) / 20;
+      let meshes = 0;
+      let casters = 0;
+      world.scene.traverse((o: THREE.Object3D) => {
+        if ((o as THREE.Mesh).isMesh && o.visible) {
+          meshes++;
+          if (o.castShadow) casters++;
+        }
+      });
+      return {
+        calls: renderer.info.render.calls,
+        triangles: renderer.info.render.triangles,
+        geometries: renderer.info.memory.geometries,
+        textures: renderer.info.memory.textures,
+        programs: renderer.info.programs?.length ?? 0,
+        meshes,
+        casters,
+        stepMs: Math.round(stepMs * 100) / 100,
+        batched,
+        batchReasons,
+        far: camera.far,
+      };
     },
     /** QA: where the lens is relative to Benji (read-only). */
     cameraState() {

@@ -264,6 +264,14 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Fix (`slice.ts`, after the HQ solids): door-recess solid {hqX±0.85, hqZ+3.6..hqZ+5.5}; planter solids 0.9×0.9 at (hqX±2.1, frontZ+0.95); rope-run solids z frontZ+1.85..2.15 for x hqX±3.3..7.5 — planters/ropes `cameraBlock:false`. The door trigger (hqDoor z hqZ+6.35, radius 1.6) is still reached: Benji stops ~0.5 m from it.
 - `scripts/hq-collision-e2e.mjs`: 9 approaches (door, planters, rope, east/west/back walls, both corners) keep player AND camera outside; E at the door still enters → 10/10.
 
+## 2026-10-28 — performance pass (Trey: "still plays slow and sluggish")
+- Measured (`scripts/perf-probe.mjs`, `perfStats()` QA accessor): ~8,400 visible meshes, ~5,950 shadow casters, 6,300+ geometries → thousands of draw calls/frame (most drawn twice for shadows). CPU profile (`scripts/cpu-profile.mjs`): ~61% draw-call overhead (drawElements/uniformMatrix4fv/bindVertexArray), ~34% shader compile on first view of an area.
+- `core/static-batch.ts` `batchStatic(root)`, run on world.exterior/home/hq right after `buildSlice()`: merges never-moving meshes per (parent, material, uv/no-uv, 40 m cell, cast/receive, renderOrder) into one mesh under the same parent; geometry normalised to non-indexed Float32 pos/normal(/uv). Skips: named meshes, any ancestor with userData (people/cars/props), transparent, multi-material, instanced/skinned, morphs. NOTE: Box/Cylinder geometries carry draw groups — must NOT be treated as disqualifying. Result: exterior 6,645→2,350, HQ 425→188, scene 8,300→3,924. `batchReasons` counts skip reasons (exposed in perfStats).
+- Shader precompile: `renderer.compile(world.scene, camera)` once before the loop starts, with home/hq/haunt temporarily visible.
+- `?perf=1` overlay (`data-testid=perf-overlay`): fps, avg/worst ms, draw calls (info.autoReset=false, reset per frame → includes shadow+post passes), triangles, render scale, GPU name. Sandbox: 2,539 draws, 172k tris. `scripts/perf-overlay-e2e.mjs`.
+- Minor leak seen: ~1 geometry + few textures per ~0.3 s of simulated time — not yet traced.
+- Visual check after batching (HQ golden, home day, Beale night): intact. function-sweep 8/8.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.
