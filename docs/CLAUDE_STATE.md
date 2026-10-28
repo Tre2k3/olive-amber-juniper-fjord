@@ -247,6 +247,12 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Controller in menus: while `[data-testid=shop-panel|pause-menu]` exists, D-pad moves DOM focus over enabled buttons/links (focusVisible), A clicks the focused one, B backs out, only Start passes through as a key. gamepad-e2e 8/8 (focus landed on shop-item-tee-pretty-girls).
 - Next: new pedestrian characters (turnaround sheets in the existing sprite style; walk frames via the same pixel technique), then switch the store's /arcade to https://play.10letters.store (Lovable), then Trey's security cleanup.
 
+## 2026-10-28 — six new pedestrians (more variety)
+- Generated as ONE turnaround sheet per character (front | left | back | right, 16:9) with gpt_image_2_5, style reference = denim_girl front (live URL import), so each person stays consistent across views. Backgrounds removed by edge flood-fill (outlines protect white clothing); columns split, trimmed, scaled to 318 px on a 337-px canvas (bottom pad 8). Pushed via `art/new-peds`.
+- New: church_hat_lady (female05, 1.66), red_shirt_uncle (male05, 1.80), braids_teen_girl (female06, 1.63), puffer_vest_man (male06, 1.79), flatcap_grandpa (male07, 1.74), scrubs_nurse (female07, 1.70).
+- `scripts/build-ped-assets.py`: removes specks (largest connected shape), builds walk.png from each front view (lifts one lower leg — pixel technique, nothing redrawn), writes bounds lines. NEVER run prettier on `assets/character-bounds.ts` or `assets/characters.ts` — they aren't prettier-formatted and it rewrites ~1,100 lines.
+- Crowds: HQ line/pair, Beale knots, riverfront couple now mix in the new cast; three new walkers (grandpa + church lady on the home block, nurse downtown). 18 distinct people, 65 pedestrians.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

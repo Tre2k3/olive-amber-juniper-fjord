@@ -1483,16 +1483,16 @@ export function buildSlice(): SliceWorld {
     two.userData.partner = one;
   };
   // The HQ line along the velvet rope, east of the door.
-  for (const [i, who] of [P.male01, P.female03, P.male04, P.female01].entries())
+  for (const [i, who] of [P.male06, P.female06, P.male04, P.female01, P.male05].entries())
     stand(who, hqX + 3.9 + i * 1.15, frontZ + 2.75);
-  chat(P.female02, P.male02, hqX - 6.2, frontZ + 2.9);
+  chat(P.female07, P.male02, hqX - 6.2, frontZ + 2.9);
   // Beale: knots of people outside the shops.
-  chat(P.male03, P.female01, 52.2, -61.35);
+  chat(P.male05, P.female06, 52.2, -61.35);
   chat(P.female04, P.male01, 64.4, -61.3);
   chat(P.male02, P.female03, 73.2, -61.4, 0.8, 0.25);
-  stand(P.female02, 58.6, -61.45);
+  stand(P.male06, 58.6, -61.45);
   // Riverfront: couples at the rail and two more on the promenade.
-  chat(P.female03, P.male04, -30.5, -65.35, 0.75, 0);
+  chat(P.female05, P.male07, -30.5, -65.35, 0.75, 0);
   chat(P.male01, P.female04, 10.5, -65.35, 0.75, 0);
   pace(
     P.female01,
@@ -1513,6 +1513,37 @@ export function buildSlice(): SliceWorld {
       { x: -24, z: -64.6 },
     ],
     0.78,
+  );
+  // New cast out walking: grandpa and the church lady on the home block, the nurse heading home downtown.
+  pace(
+    P.male07,
+    -18,
+    5.4,
+    [
+      { x: -42, z: 5.4 },
+      { x: 36, z: 5.4 },
+    ],
+    0.5,
+  );
+  pace(
+    P.female05,
+    20,
+    6.2,
+    [
+      { x: 40, z: 6.2 },
+      { x: -38, z: 6.2 },
+    ],
+    0.48,
+  );
+  pace(
+    P.female07,
+    30,
+    -60.6,
+    [
+      { x: 18, z: -60.6 },
+      { x: 80, z: -60.6 },
+    ],
+    0.7,
   );
   // Home block: a neighbour heading down the sidewalk.
   pace(
