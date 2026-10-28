@@ -214,6 +214,13 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Tests: `scripts/store-bridge-e2e.mjs` (stand-in store `scripts/fixtures/mock-store.html` on :8090; 8/8 PASS — Blue Jersey L×1 reached the parent kart at the store's $165 with no price from the game; GG_ENTER_HQ once), `scripts/store-standalone-e2e.mjs` (9/9 PASS — 23 items, draft hidden, link-out + mailto, NCO real photo, spawn=hq-door at (24, −7.9) outside the trigger). function-sweep 8/8.
 - Gotchas: background processes die between tool calls (start the stand-in in the same call); never kill by a pattern that appears in your own command line — free a port via `ss -ltnp` PIDs.
 
+## 2026-10-28 — LIVE IN PRODUCTION: https://play.10letters.store
+- Vercel project `sackreligious-memphis` (prj_I65cawjfBQpaJSA3fjS61XIqElZt), team trey-hamptons-projects (team_BdUO13PkowT7RaOlTK3mFKEl, Hobby), linked to Tre2k3/olive-amber-juniper-fjord, production branch `main` → every merge to main auto-deploys. Framework detected: tanstack-start, region iad1.
+- Env: Neon via Vercel Storage (DATABASE_URL + PG*/POSTGRES_* sensitive vars, prod+preview); `VITE_AUTH_ENABLED=true`; `VITE_GROK_EXTENSIONS=0` (stops `scripts/grok-pwa-shared.mjs` injecting https://grok.com/grok-app-builder/extensions.js into every page — a third-party script inside the game page). First build applied migration 0001_auth.sql.
+- Domain: play.10letters.store added + verified; DNS at Namecheap (registrar-servers.com): CNAME `play` → 8291321aa65b192d.vercel-dns-017.com (misconfigured:false, http-01 accepted). Live fetch: 200, HSTS, new bundle, no grok script, og:image https://play.10letters.store/og.jpg.
+- Vercel MCP: needs team consent (authorize_team_access link, one-time) and the Vercel GitHub link must be valid (repo_not_found / 401 → owner reconnects GitHub at vercel.com/new). Write calls may need the owner's approval prompt.
+- Store side: 10letters.store already trusts https://play.10letters.store (Arcade.tsx trusted-origin list); /arcade still loads Grok until the website side switches its GAME_URL constant.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.
