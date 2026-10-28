@@ -221,6 +221,13 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Vercel MCP: needs team consent (authorize_team_access link, one-time) and the Vercel GitHub link must be valid (repo_not_found / 401 → owner reconnects GitHub at vercel.com/new). Write calls may need the owner's approval prompt.
 - Store side: 10letters.store already trusts https://play.10letters.store (Arcade.tsx trusted-origin list); /arcade still loads Grok until the website side switches its GAME_URL constant.
 
+## 2026-10-28 — playtest feel pass (Trey: "slow and sluggish… think of a Mario game")
+- Speeds 6.4/10.2 → 7.4/12.4 m/s; touch stick > 0.85 tilt runs (phones had no sprint).
+- Street/court follow camera: FOV 42→56, distance 3.4→5.9 (× framing scale), height 1.32→2.55, lookY 1.02→1.22. Interiors unchanged. Mario-style auto-follow: outdoors, speed > 1.5, |heading − camYaw| < 1.3 rad, no manual orbit for 1.2 s (`lastOrbitAt`, set by drag and Q/R) → camYaw eases toward travel direction (rate 1.1/s × speed factor).
+- Step motion after billboarding: |sin| bounce 0.065 m + roll sway 0.05 rad per stride (travel/0.95 m), off in court matches. Benji only has a FRONT stride frame — back/side walk frames would need new Benji art (owner approval).
+- Dynamic resolution (real GPUs only; not software tier, not ?qa=1): 2 s windows, avg dt > 24 ms → renderScale −0.15 (min 0.6), two windows < 15 ms → +0.1; applied in `resize()` ratio.
+- Watch item: one capture right after boot at golden showed an upside-down frame; not reproducible in a follow-up probe (new/old camera, golden/day all upright).
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

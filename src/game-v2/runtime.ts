@@ -391,6 +391,13 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   /** Latest dominant axis so a tie on a diagonal does not flicker. */
   let faceAxis: "side" | "depth" = "depth";
   let camYaw = Math.PI / 2;
+  /** Last manual camera orbit (seconds); auto-follow waits after the player steers the camera. */
+  let lastOrbitAt = -10;
+  /** Dynamic resolution on real GPUs: 0.6–1 × the device pixel ratio. */
+  let renderScale = 1;
+  let frameAcc = 0;
+  let frameCount = 0;
+  let fastWindows = 0;
   let outsideYaw = camYaw;
   let camDist: number | null = null;
   let camHeight: number | null = null;
@@ -730,6 +737,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   const orbitMove = (e: PointerEvent) => {
     if (orbitPointer !== e.pointerId) return;
     camYaw += (e.clientX - lastOrbitX) * 0.008;
+    lastOrbitAt = performance.now() / 1000;
     lastOrbitX = e.clientX;
     e.preventDefault();
   };
@@ -772,7 +780,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   const resize = () => {
     const w = Math.max(1, canvas.clientWidth || window.innerWidth);
     const h = Math.max(1, canvas.clientHeight || window.innerHeight);
-    const ratio = Math.min(window.devicePixelRatio || 1, 1.75);
+    const ratio = Math.round(Math.min(window.devicePixelRatio || 1, 1.75) * renderScale * 20) / 20;
     if (w === renderWidth && h === renderHeight && ratio === renderRatio) return;
     renderWidth = w;
     renderHeight = h;
@@ -1061,10 +1069,35 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     }
   }
 
+  const qaMode = new URLSearchParams(window.location.search).get("qa") === "1";
   function step(dt: number, hold: boolean, interact: boolean) {
     applyNight();
+    // Dynamic resolution on real GPUs: drop render resolution fast when frames run
+    // slow (avg over 2 s > 24 ms ≈ under 42 fps), creep back after sustained headroom.
+    // The software fallback and ?qa=1 test runs stay fixed so CI is deterministic.
+    if (!quality.software && !qaMode) {
+      frameAcc += dt;
+      frameCount++;
+      if (frameAcc >= 2) {
+        const avg = frameAcc / frameCount;
+        frameAcc = 0;
+        frameCount = 0;
+        if (avg > 0.024 && renderScale > 0.6) {
+          renderScale = Math.max(0.6, renderScale - 0.15);
+          fastWindows = 0;
+          resize();
+        } else if (avg < 0.015) {
+          if (++fastWindows >= 2 && renderScale < 1) {
+            renderScale = Math.min(1, renderScale + 0.1);
+            fastWindows = 0;
+            resize();
+          }
+        } else fastWindows = 0;
+      }
+    }
     const cameraTurn = (keys.has("KeyR") ? 1 : 0) - (keys.has("KeyQ") ? 1 : 0);
     camYaw += cameraTurn * 1.75 * dt;
+    if (cameraTurn !== 0) lastOrbitAt = performance.now() / 1000;
     const steer =
       (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) -
       (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) +
@@ -1103,12 +1136,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       else if (ay > ax * 1.15) faceAxis = "depth";
       facing = faceAxis === "side" ? (sx > 0 ? "right" : "left") : sy > 0 ? "back" : "front";
     }
-    const walkSpeed = 6.4;
-    const sprintSpeed = 10.2;
+    // Playtest (Oct 28): movement felt slow — faster walk/run, and a nearly
+    // full-tilt touch stick runs (phones have no Shift key).
+    const walkSpeed = 7.4;
+    const sprintSpeed = 12.4;
+    const touchRun = Math.hypot(touchX, touchY) > 0.85;
     let speed = 0;
     if (wantsMove) {
       speed =
-        (keys.has("ShiftLeft") || keys.has("ShiftRight") ? sprintSpeed : walkSpeed) *
+        (keys.has("ShiftLeft") || keys.has("ShiftRight") || touchRun ? sprintSpeed : walkSpeed) *
         Math.min(1, len);
       if (city.fit === "night") speed *= 1.12;
       if (city.boost > 0) speed *= 1.22;
@@ -1123,6 +1159,23 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const follow = 1 - Math.exp(-(wantsMove ? 14 : 12) * dt);
     glideX += (wishX - glideX) * follow;
     glideZ += (wishZ - glideZ) * follow;
+    // Mario-style follow: running outdoors, the camera eases in behind Benji's
+    // direction of travel — never when he runs toward the lens, and never
+    // while the player is steering the camera themselves.
+    if (
+      (place === "street" || place === "court") &&
+      camDist === null &&
+      !courtMatch &&
+      !city.race &&
+      !city.bowl
+    ) {
+      const sp = Math.hypot(glideX, glideZ);
+      if (sp > 1.5 && performance.now() / 1000 - lastOrbitAt > 1.2) {
+        let diff = Math.atan2(glideX, glideZ) - camYaw;
+        diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+        if (Math.abs(diff) < 1.3) camYaw += diff * (1 - Math.exp(-1.1 * dt)) * Math.min(1, sp / 7);
+      }
+    }
     if (!wantsMove && Math.hypot(glideX, glideZ) < 0.06) {
       glideX = 0;
       glideZ = 0;
@@ -2365,6 +2418,17 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     avatar.rotation.x = 0;
     avatar.rotation.y = yawTo(avatar, camera.position);
     avatar.rotation.z = 0;
+    // Step motion: a bounce and a slight sway each stride, so walking reads even
+    // from behind (Benji's sheet only has a front-facing stride frame).
+    {
+      const sp = Math.hypot(glideX, glideZ);
+      if (sp > 0.28 && !courtMatch) {
+        const phase = (travel / 0.95) * Math.PI;
+        const amt = Math.min(1, sp / 7);
+        avatar.position.y = Math.abs(Math.sin(phase)) * 0.065 * amt;
+        avatar.rotation.z = Math.sin(phase) * 0.05 * amt;
+      } else avatar.position.y *= 0.75;
+    }
     seatOnGround(avatar);
     avatar.position.y += courtMatch?.players[0]?.jump ?? 0;
     const rim = courtMatch ? matchRim(courtMatch, world.hoops) : world.hoop;
@@ -2635,7 +2699,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const inside = place === "home" || place === "hq" || place === "haunt";
     const framing = cameraFraming(
       camera.aspect,
-      place === "hq" || place === "haunt" ? 54 : place === "home" ? 49 : 42,
+      place === "hq" || place === "haunt" ? 54 : place === "home" ? 49 : 56,
       inside,
     );
     const desiredFov = framing.fov;
@@ -2647,8 +2711,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const talking = place === "hq" && dialogue.startsWith("K Blanco");
     const dist =
       camDist ??
-      (talking ? 2.9 : place === "haunt" ? 3.2 : inside ? 3.05 : 3.4) * framing.distanceScale;
-    const height = camHeight ?? (talking ? 1.42 : place === "haunt" ? 1.72 : inside ? 1.5 : 1.32);
+      (talking ? 2.9 : place === "haunt" ? 3.2 : inside ? 3.05 : 5.9) * framing.distanceScale;
+    const height = camHeight ?? (talking ? 1.42 : place === "haunt" ? 1.72 : inside ? 1.5 : 2.55);
     const side = talking ? 1.35 : 0;
     let destX = player.position.x - lookX * dist + lookZ * side;
     let destZ = player.position.z - lookZ * dist - lookX * side;
@@ -2718,7 +2782,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const ahead = talking ? 0.28 : 0.72;
     const lookY =
       player.position.y +
-      (camLookY ?? (talking ? 1.12 : place === "haunt" ? 1.34 : inside ? 1.18 : 1.02));
+      (camLookY ?? (talking ? 1.12 : place === "haunt" ? 1.34 : inside ? 1.18 : 1.22));
     camera.lookAt(player.position.x + lookX * ahead, lookY, player.position.z + lookZ * ahead);
   }
 
