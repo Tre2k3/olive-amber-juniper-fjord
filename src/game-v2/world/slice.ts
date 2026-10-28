@@ -1018,11 +1018,23 @@ export function buildSlice(): SliceWorld {
   streetSolids.push({ minX: hqX - 0.85, maxX: hqX + 0.85, minZ: hqZ + 3.6, maxZ: hqZ + 5.5 });
   // Door planters and the velvet-rope runs are solid but low: they don't pull the camera.
   for (const px of [hqX - 2.1, hqX + 2.1])
-    streetSolids.push({ minX: px - 0.45, maxX: px + 0.45, minZ: frontZ + 0.5, maxZ: frontZ + 1.4, cameraBlock: false });
+    streetSolids.push({
+      minX: px - 0.45,
+      maxX: px + 0.45,
+      minZ: frontZ + 0.5,
+      maxZ: frontZ + 1.4,
+      cameraBlock: false,
+    });
   for (const side of [-1, 1]) {
     const a = hqX + side * 3.3;
     const b = hqX + side * 7.5;
-    streetSolids.push({ minX: Math.min(a, b) - 0.12, maxX: Math.max(a, b) + 0.12, minZ: frontZ + 1.85, maxZ: frontZ + 2.15, cameraBlock: false });
+    streetSolids.push({
+      minX: Math.min(a, b) - 0.12,
+      maxX: Math.max(a, b) + 0.12,
+      minZ: frontZ + 1.85,
+      maxZ: frontZ + 2.15,
+      cameraBlock: false,
+    });
   }
   box(14, 0.08, 6.5, hqX, 0.05, hqZ + 8.2, concrete, exterior);
 

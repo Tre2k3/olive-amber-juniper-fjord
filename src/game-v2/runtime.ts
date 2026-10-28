@@ -1154,12 +1154,15 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       const dz = player.position.z - ped.position.z;
       const d = Math.hypot(dx, dz);
       const min = 0.58;
-      if (d >= min || d < 0.001) continue;
-      const push = Math.min(0.12, (min - d) * 0.65);
-      player.position.x += (dx / d) * push;
-      player.position.z += (dz / d) * push;
-      ped.position.x -= (dx / d) * push * 0.45;
-      ped.position.z -= (dz / d) * push * 0.45;
+      // Resolve the whole overlap in one frame (70% Benji, 30% them), with a small
+      // tolerance: a partial push approaches but never reaches zero, which left
+      // Benji creeping (visible jitter next to people; failed the focus-loss stop).
+      if (d >= min - 1e-3 || d < 0.001) continue;
+      const overlap = Math.min(0.17, min - d);
+      player.position.x += (dx / d) * overlap * 0.7;
+      player.position.z += (dz / d) * overlap * 0.7;
+      ped.position.x -= (dx / d) * overlap * 0.3;
+      ped.position.z -= (dz / d) * overlap * 0.3;
     }
   }
 

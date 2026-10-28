@@ -272,6 +272,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Minor leak seen: ~1 geometry + few textures per ~0.3 s of simulated time — not yet traced.
 - Visual check after batching (HQ golden, home day, Beale night): intact. function-sweep 8/8.
 
+## 2026-10-28 — CI fix: body separation creep
+- CI step 12 (runtime-reliability-smoke) failed "Touch movement must stop after focus loss": Benji drifted 1.7e-5 m/frame after blur. Cause: `separateBodies()` pushed 65% of a person-overlap per frame → asymptotic creep forever (also visible jitter). A full-tilt touch stick now runs, so the test run ended overlapping the driveway ped (-27.5, 6.55).
+- Fix: resolve the whole overlap in one frame (70% Benji / 30% them, capped 0.17 m) with 1e-3 tolerance. New home-block walkers moved to the curb side (z 4.95 / 5.05) off the test lane. runtime-reliability-smoke: all PASS locally (run it in the background — it exceeds 5 min).
+- SHIPPING RULE: one push, then wait for CI to finish before pushing again (each push cancels the in-progress run; six pushes in a row meant nothing merged). CI logs: GitHub redirects to a blob host blocked in this sandbox — fetch via the Higgsfield sandbox.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.
