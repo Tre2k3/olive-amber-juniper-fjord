@@ -1,4 +1,5 @@
-"""Finish generated pedestrian turnarounds for the game.
+"""Finish generated pedestrian turnarounds for the game. (Afterwards convert the
+folder to WebP — the game loads new cast members as .webp via turnaround(folder, "webp").)
 
 For each folder in NEW_PEDS: drop stray specks (keep the largest opaque shape),
 build walk.png from the character's own front view (lift one lower leg, the same

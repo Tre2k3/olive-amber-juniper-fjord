@@ -283,6 +283,12 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Tried identical-material sharing in the batcher: visible meshes unchanged (~3,930; the rest is transparent or dynamic) → reverted (risk without gain). Shadow casters now ~2,310 (were ~5,950), geometries 2,373 (were 6,365). Shader programs 140 = precompile building every variant at load (intended).
 - basketball-polish-smoke launches Playwright's own Chromium (not smoke-lib) → can't run in this sandbox; reproduce its assertions via QA hooks instead.
 
+## 2026-10-29 — Trey playtest round 3 (live was still 5d0ad68 when he played; 6a724d0 merged after)
+- Load: production startup downloaded 337 files / 36.8 MB (281 PNG = 21.8 MB). Measure with `npm run preview` + `scripts/load-probe.mjs` IN THE SAME COMMAND (server dies when the command ends; set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH). Converted to WebP: all 28 generated pedestrians (5.9→1.4 MB; `turnaround(folder, "webp")`), Veli menu + court chain-link (new .webp beside the PNG; code points at .webp). ~8.4 MB saved. Approved 85 PNGs untouched. TODO: trace which startup path loads a jersey action bank (black-fresh) — banks are meant to load on setKit.
+- Waddle: removed the side-to-side sway (bounce 0.02 m only) — stride frames carry the walk.
+- Free-play shooting now animates: stand-in match object → courtAnimation.update (charge → shoot frames 0/1; `freeShotLeft` 0.45 s → follow-through 2/3). QA hook `avatarPose()`. `scripts/free-shot-e2e.mjs` 4/4.
+- Controller glyphs: Hud `padify()` + PromptLabel map E→A, Space→X, Shift+E→RT + A, G→Y, B→R3, Esc→B, WASD→Left stick in prompts, dialogue and the race hint. Pad map adds Y→KeyG, R3→KeyB.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

@@ -439,6 +439,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   let camHeight: number | null = null;
   let camLookY: number | null = null;
   let charge = 0;
+  /** Free-play shot follow-through (s): Benji holds the release pose after the ball leaves. */
+  let freeShotLeft = 0;
   let shotCameraLeft = 0;
   let shotCameraActive = false;
   let basketballCameraMode: BasketballCameraMode = "behind";
@@ -2270,6 +2272,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         flightTouchedRim = false;
         audio.play("release");
         ballHeld = false;
+        freeShotLeft = 0.45;
         shotCameraLeft = 3;
         taken += 1;
         charge = 0;
@@ -2654,8 +2657,8 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       if (sp > 0.28 && !courtMatch) {
         const phase = (travel / 0.95) * Math.PI;
         const amt = Math.min(1, sp / 7);
-        avatar.position.y = Math.abs(Math.sin(phase)) * 0.035 * amt;
-        avatar.rotation.z = Math.sin(phase) * 0.025 * amt;
+        avatar.position.y = Math.abs(Math.sin(phase)) * 0.02 * amt;
+        // No side-to-side sway: with real stride frames it read as a waddle.
       } else avatar.position.y *= 0.75;
     }
     seatOnGround(avatar);
@@ -2669,8 +2672,33 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       attackX * viewX + attackZ * viewZ <
       -0.55 * Math.hypot(attackX, attackZ) * Math.hypot(viewX, viewZ);
     courtAnimation.setKit(teamJerseys ? COURT_KITS[courtKitIndex % 3]! : null);
+    // Free shootaround uses the same shooting frames as a match (gather → set while
+    // charging, release → follow-through), via a minimal stand-in for the match state.
+    freeShotLeft = Math.max(0, freeShotLeft - dt);
+    const freeShot =
+      !courtMatch && ((ballHeld && charge > 0) || freeShotLeft > 0)
+        ? ({
+            phase: "live",
+            layup: -1,
+            dunk: -1,
+            owner: charge > 0 ? 0 : -1,
+            charge,
+            shooter: freeShotLeft > 0 ? 0 : -1,
+            actionLeft: freeShotLeft,
+            players: [
+              {
+                action: "shoot",
+                x: player.position.x,
+                z: player.position.z,
+                heading: 0,
+                jump: 0,
+                dribbleHand: 1,
+              },
+            ],
+          } as unknown as CourtMatch)
+        : null;
     const animated = courtAnimation.update(
-      courtMatch,
+      courtMatch ?? freeShot,
       rim.x >= player.position.x ? 1 : -1,
       yawTo(avatar, camera.position),
       rear,
@@ -3832,6 +3860,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
         batchReasons,
         far: camera.far,
       };
+    },
+    /** QA: Benji's current animation (court/shooting frames) and whether the plain sprite shows. */
+    avatarPose() {
+      return { ...courtAnimation.state(), spriteVisible: avatar.visible };
     },
     /** QA: where the lens is relative to Benji (read-only). */
     cameraState() {

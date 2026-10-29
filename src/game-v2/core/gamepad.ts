@@ -7,6 +7,8 @@
 export const PAD_BUTTON_KEYS: Readonly<Record<number, string>> = {
   0: "KeyE", // A / Cross — interact
   2: "Space", // X / Square — hold to charge, release to shoot
+  3: "KeyG", // Y / Triangle — the G action outside a match
+  11: "KeyB", // R3 (click right stick) — court camera
   4: "KeyQ", // LB / L1 — orbit camera
   5: "KeyR", // RB / R1 — orbit camera
   7: "ShiftLeft", // RT / R2 — run

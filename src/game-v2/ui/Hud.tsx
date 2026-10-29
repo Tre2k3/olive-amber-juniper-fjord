@@ -89,7 +89,10 @@ export function Hud({
       )}
       {state.log && <Log state={state} />}
       {state.dialogue && (
-        <Dialogue line={state.dialogue} brother={state.foodCourt?.activeBrother} />
+        <Dialogue
+          line={padify(state.dialogue, state.gamepad)}
+          brother={state.foodCourt?.activeBrother}
+        />
       )}
       {state.shopOpen && <ShopPanel onClose={() => action("ShopClose")} />}
       {state.paused && <PauseMenu muted={!!state.muted} action={action} />}
@@ -133,7 +136,7 @@ export function Hud({
           data-testid="interaction-prompt"
           className={`absolute left-3 right-3 top-[12.5rem] rounded-full border border-[#e0b33a] bg-[#0d0d0df2] px-4 py-2 text-center text-sm sm:right-auto ${state.basketball ? "sm:top-32 sm:left-3 sm:translate-x-0" : "sm:bottom-8 sm:top-auto sm:left-1/2 sm:-translate-x-1/2"}`}
         >
-          <PromptLabel text={state.prompt} />
+          <PromptLabel text={state.prompt} pad={state.gamepad} />
         </div>
       )}
       {state.place === "court" && (
@@ -188,7 +191,9 @@ export function Hud({
       </div>
       <div className="absolute bottom-3 right-4 hidden text-[11px] tracking-wide text-[#f4efe4aa] sm:block">
         {state.activity === "race"
-          ? "W gas · S brake · A/D steer · Space drift · E exit"
+          ? state.gamepad
+            ? "Left stick steer · up gas · down brake · X drift · A exit"
+            : "W gas · S brake · A/D steer · Space drift · E exit"
           : state.basketball
             ? state.gamepad
               ? "Left stick move · X shoot · Y pass · LB cross · RB dunk · LT layup · A steal · Start exit"
@@ -393,7 +398,7 @@ function VeliMenu({ action }: { action: (code: string) => void }) {
       <h2 className="text-2xl text-[#e0b33a]">Veli’s Wings</h2>
       <p>Yungveli · fresh wings at the window</p>
       <img
-        src="/game-v2/vendors/veli/menu-original.png"
+        src="/game-v2/vendors/veli/menu-original.webp"
         alt="Original Veli's Wings logo and menu"
         className="mx-auto my-3 w-40 sm:w-56"
       />
@@ -681,15 +686,36 @@ function Objective({ state }: { state: HudState }) {
 }
 
 /** "[E]  Talk to K Blanco": the key in a box, the action beside it. */
-function PromptLabel({ text }: { text: string }) {
+/** Keyboard key → controller button, shown when a gamepad is connected. */
+const PAD_GLYPH: Record<string, string> = {
+  E: "A",
+  Space: "X",
+  "Shift+E": "RT + A",
+  G: "Y",
+  B: "R3",
+  Esc: "B",
+  Shift: "RT",
+};
+/** Swap key names inside free text (messages, hints) for controller buttons. */
+export function padify(text: string, pad?: boolean): string {
+  if (!pad) return text;
+  return text
+    .replace(/\bShift\+E\b/g, "RT + A")
+    .replace(/\bSpace\b/g, "X")
+    .replace(/\bEsc\b/g, "B")
+    .replace(/\bWASD\b/g, "Left stick")
+    .replace(/(^|[\s([])E(?=[\s)\]]|$)/g, "$1A");
+}
+
+function PromptLabel({ text, pad }: { text: string; pad?: boolean }) {
   const m = text.match(/^(E|Space|Shift\+E|G|B)\s{2}(.*)$/);
-  if (!m) return <>{text}</>;
+  if (!m) return <>{padify(text, pad)}</>;
   return (
     <span className="inline-flex items-center gap-2">
       <span className="rounded border border-[#f4efe466] bg-[#1a1a1f] px-2 py-0.5 text-xs font-semibold">
-        {m[1]}
+        {pad ? (PAD_GLYPH[m[1]!] ?? m[1]) : m[1]}
       </span>
-      <span>{m[2]}</span>
+      <span>{padify(m[2]!, pad)}</span>
     </span>
   );
 }

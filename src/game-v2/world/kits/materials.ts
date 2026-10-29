@@ -361,7 +361,7 @@ export function bleacherAluminum() {
 
 /** Real chain-link mesh with alpha, laid over the drawn one once it loads. */
 export function paintedChainLink(fallback: THREE.MeshStandardMaterial) {
-  sharedScan("/game-v2/places/court/chainlink.png", 10, 1.3).then(
+  sharedScan("/game-v2/places/court/chainlink.webp", 10, 1.3).then(
     (t) => {
       fallback.map = t;
       fallback.color.set(0xffffff);

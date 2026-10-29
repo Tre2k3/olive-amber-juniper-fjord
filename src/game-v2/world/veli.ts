@@ -32,7 +32,7 @@ export function buildVeliTruck(parent: THREE.Object3D) {
     const hub=new THREE.Mesh(new THREE.CylinderGeometry(.21,.21,.26,12),steel);hub.rotation.z=Math.PI/2;hub.position.copy(wheel.position);group.add(hub);
   }
   const loader=new THREE.TextureLoader();
-  const menu=loader.load(root+"menu-original.png"); menu.colorSpace=THREE.SRGBColorSpace;
+  const menu=loader.load(root+"menu-original.webp"); menu.colorSpace=THREE.SRGBColorSpace;
   // Original portrait menu includes the actual logo; no redesigned brand art.
   const menuMat=new THREE.MeshBasicMaterial({map:menu,toneMapped:false});
   const board=new THREE.Mesh(new THREE.PlaneGeometry(1.12,1.68),menuMat); board.name="veli-original-menu";board.rotation.y=Math.PI;board.position.set(-2.05,1.52,-3.68);group.add(board);
