@@ -6,7 +6,9 @@ page.on("response", async (r) => {
   try {
     const b = await r.body();
     files.push({ url: r.url(), bytes: b.length });
-  } catch {}
+  } catch {
+    // body unavailable (redirect or aborted request)
+  }
 });
 await preparePage(page);
 const t0 = Date.now();
