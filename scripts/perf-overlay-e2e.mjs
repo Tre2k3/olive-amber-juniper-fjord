@@ -32,5 +32,14 @@ out(
   "?perf=1 shows fps, draw calls, triangles and render scale",
   text,
 );
+const box = await page.evaluate(() => {
+  const r = document.querySelector('[data-testid="perf-overlay"]')?.getBoundingClientRect();
+  return r ? { w: Math.round(r.width), h: Math.round(r.height) } : null;
+});
+out(
+  !!box && box.h < 60,
+  "the readout is one line at the top, not a screen-wide band",
+  JSON.stringify(box),
+);
 out(errors.length === 0, "no page errors", errors.slice(0, 1).join(" | "));
 await closeBrowser(browser);

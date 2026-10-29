@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { classifyRenderer } from "./gpu-tier";
 
 /**
  * Rendering quality that costs no assets:
@@ -57,7 +58,10 @@ export function createRenderQuality(
   const rendererName = String(
     dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER),
   );
-  const software = /swiftshader|llvmpipe|softpipe|software/i.test(rendererName);
+  const kind = classifyRenderer(rendererName);
+  // The light tier (no MSAA, 1024 shadows, no IBL/bloom/reflections) runs on software
+  // renderers AND integrated GPUs — Trey's Intel UHD ran the full tier at 6 fps.
+  const software = kind.software || kind.integrated;
   const samples = software ? 0 : isWebGL2 ? (coarse ? 2 : 4) : 0;
 
   // ---- environment maps from a gradient sky, one per mode ----
@@ -124,6 +128,10 @@ export function createRenderQuality(
   return {
     samples,
     software,
+    /** True CPU rendering (CI): the adaptive ladder stays off there so tests are deterministic. */
+    cpuRenderer: kind.software,
+    /** Integrated GPU: cap pixel ratio at 1. */
+    lowPower: kind.integrated,
     rendererName,
     gradeShader: GradeShader,
     renderTarget(width: number, height: number) {

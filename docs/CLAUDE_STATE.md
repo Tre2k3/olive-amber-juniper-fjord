@@ -289,6 +289,13 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Free-play shooting now animates: stand-in match object → courtAnimation.update (charge → shoot frames 0/1; `freeShotLeft` 0.45 s → follow-through 2/3). QA hook `avatarPose()`. `scripts/free-shot-e2e.mjs` 4/4.
 - Controller glyphs: Hud `padify()` + PromptLabel map E→A, Space→X, Shift+E→RT + A, G→Y, B→R3, Esc→B, WASD→Left stick in prompts, dialogue and the race hint. Pad map adds Y→KeyG, R3→KeyB.
 
+## 2026-10-29 — Trey's ?perf=1: Intel UHD at 6 fps → light tier for integrated GPUs
+- Readout: `6 fps · avg 179 ms · worst 233 ms · draws 1745 · 496k tris · res 70% · shadows ½ · ANGLE (Intel, Intel(R) UHD Graphics (0x000046B3) Direct3D11…)`.
+- The dark centred band in his screenshot was the ?perf=1 overlay itself (stretched to 1234×730 at #000b) — fixed (`bottom:auto;height:auto;width:max-content`); perf-overlay-e2e asserts height < 60.
+- `core/gpu-tier.ts` `classifyRenderer(name)`: software (SwiftShader/llvmpipe) vs integrated (Intel except Arc; Mali/Adreno/PowerVR/VideoCore; not Apple). Kept dependency-free so runtime-core-test can import it (it can't load three).
+- render-quality: light tier (`software` flag: no MSAA, 1024 shadows, no IBL/bloom/reflections — the CI-tested path) now applies to software OR integrated. New `quality.cpuRenderer` (true CPU only) gates the adaptive ladder, so integrated GPUs keep it; `quality.lowPower` caps pixel ratio at 1. Overlay prints "light mode".
+- Core tests 30 (adds GPU tier detection incl. Trey's exact string).
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

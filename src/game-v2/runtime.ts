@@ -820,7 +820,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
   const resize = () => {
     const w = Math.max(1, canvas.clientWidth || window.innerWidth);
     const h = Math.max(1, canvas.clientHeight || window.innerHeight);
-    const ratio = Math.round(Math.min(window.devicePixelRatio || 1, 1.75) * renderScale * 20) / 20;
+    const ratio =
+      Math.round(
+        Math.min(window.devicePixelRatio || 1, quality.lowPower ? 1 : 1.75) * renderScale * 20,
+      ) / 20;
     if (w === renderWidth && h === renderHeight && ratio === renderRatio) return;
     renderWidth = w;
     renderHeight = h;
@@ -867,7 +870,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
           const d = document.createElement("div");
           d.dataset.testid = "perf-overlay";
           d.style.cssText =
-            "position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:99;font:12px/1.4 ui-monospace,monospace;color:#f4efe4;background:#000b;padding:4px 10px;border-radius:6px;pointer-events:none;white-space:nowrap";
+            "position:fixed;top:8px;left:50%;bottom:auto;height:auto;width:max-content;max-width:96vw;transform:translateX(-50%);z-index:99;font:12px/1.4 ui-monospace,monospace;color:#f4efe4;background:#000b;padding:4px 10px;border-radius:6px;pointer-events:none;white-space:nowrap";
           document.body.appendChild(d);
           return d;
         })()
@@ -909,7 +912,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     last = now;
     // Stage 1 of the quality ladder (real GPUs): once resolution has dropped,
     // refresh shadows every other frame — the sun is fixed, so it barely shows.
-    if (!quality.software && !qaMode) {
+    if (!quality.cpuRenderer && !qaMode) {
       renderer.shadowMap.autoUpdate = renderScale >= 1;
       if (!renderer.shadowMap.autoUpdate) renderer.shadowMap.needsUpdate = (shadowTick++ & 1) === 0;
     }
@@ -918,7 +921,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       perfFrames++;
       perfWorst = Math.max(perfWorst, rawMs);
       if (perfAcc >= 500) {
-        perfOverlay.textContent = `${Math.round((1000 * perfFrames) / perfAcc)} fps · avg ${(perfAcc / perfFrames).toFixed(1)} ms · worst ${perfWorst.toFixed(0)} ms · draws ${renderer.info.render.calls} · ${Math.round(renderer.info.render.triangles / 1000)}k tris · res ${Math.round(renderScale * 100)}%${renderer.shadowMap.autoUpdate ? "" : " · shadows ½"}${bloomAllowed && !bloom.enabled ? " · no glow" : ""} · ${gpuName}`;
+        perfOverlay.textContent = `${Math.round((1000 * perfFrames) / perfAcc)} fps · avg ${(perfAcc / perfFrames).toFixed(1)} ms · worst ${perfWorst.toFixed(0)} ms · draws ${renderer.info.render.calls} · ${Math.round(renderer.info.render.triangles / 1000)}k tris · res ${Math.round(renderScale * 100)}%${renderer.shadowMap.autoUpdate ? "" : " · shadows ½"}${bloomAllowed && !bloom.enabled ? " · no glow" : ""} · ${quality.lowPower ? "light mode · " : ""}${gpuName}`;
         perfAcc = 0;
         perfFrames = 0;
         perfWorst = 0;
@@ -1183,7 +1186,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     // Dynamic resolution on real GPUs: drop render resolution fast when frames run
     // slow (avg over 2 s > 24 ms ≈ under 42 fps), creep back after sustained headroom.
     // The software fallback and ?qa=1 test runs stay fixed so CI is deterministic.
-    if (!quality.software && !qaMode) {
+    if (!quality.cpuRenderer && !qaMode) {
       frameAcc += dt;
       frameCount++;
       if (frameAcc >= 2) {

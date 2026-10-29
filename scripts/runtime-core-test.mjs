@@ -523,3 +523,17 @@ console.log('PASS: separate defensive assignments, rebound pursuit and non-telep
   assert.ok(pad && Math.abs(pad.moveX - 1) < 1e-9 && Math.abs(pad.moveY - 1) < 1e-9 && pad.lookX === 0 && pad.pressed[0] === true, 'stick up is forward; right stick drift ignored');
   console.log('PASS: controller maps sticks to movement and buttons to the game\'s keys');
 }
+
+// ---- GPU tier detection (integrated GPUs get the light tier) ----
+{
+  const rq = await load('../src/game-v2/core/gpu-tier.ts');
+  const k = (n) => rq.classifyRenderer(n);
+  assert.deepEqual(k('ANGLE (Intel, Intel(R) UHD Graphics (0x000046B3) Direct3D11 vs_5_0 ps_5_0, D3D11)'), { software: false, integrated: true }, "Trey's Intel UHD is integrated");
+  assert.deepEqual(k('ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11)'), { software: false, integrated: true }, 'Iris Xe is integrated');
+  assert.deepEqual(k('ANGLE (Intel, Intel(R) Arc(TM) A770 Graphics Direct3D11)'), { software: false, integrated: false }, 'Intel Arc is a discrete card');
+  assert.deepEqual(k('ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11)'), { software: false, integrated: false }, 'GeForce is discrete');
+  assert.deepEqual(k('Apple M2'), { software: false, integrated: false }, 'Apple M-series runs the full tier');
+  assert.deepEqual(k('Mali-G78'), { software: false, integrated: true }, 'phone GPUs get the light tier');
+  assert.deepEqual(k('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)))'), { software: true, integrated: false }, 'SwiftShader is software');
+  console.log('PASS: integrated GPUs (Intel UHD/Iris, phones) get the light tier; discrete and Apple GPUs keep the full tier');
+}
