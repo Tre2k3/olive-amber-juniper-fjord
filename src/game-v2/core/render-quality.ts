@@ -59,6 +59,14 @@ export function createRenderQuality(
     dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER),
   );
   const kind = classifyRenderer(rendererName);
+  // ?tier=low forces the integrated-GPU path (for testing light mode on any machine).
+  if (
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("tier") === "low"
+  ) {
+    kind.integrated = true;
+    kind.software = false;
+  }
   // The light tier (no MSAA, 1024 shadows, no IBL/bloom/reflections) runs on software
   // renderers AND integrated GPUs — Trey's Intel UHD ran the full tier at 6 fps.
   const software = kind.software || kind.integrated;

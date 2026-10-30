@@ -310,6 +310,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Light mode (integrated GPUs): camera.far 220 → 170.
 - Court props: reference shots generated (bleacher bb078923…, scoreboard ccf039b5…, ball rack 649f3711…) but `generate_3d` failed: Higgsfield workspace OUT OF CREDITS. All remaining concept-art work (court props, 901 Lanes exterior, car meet, food-truck zone, park/901 Day) is gated on a top-up.
 
+## 2026-10-30 — light mode round 2 (Trey: 5 fps, 1812 draws, 439k tris, res 70%, shadows ½, light mode)
+- Diagnosis: light mode (no MSAA/bloom/IBL) barely helped → CPU-bound on draw calls (ANGLE D3D11 on Intel UHD). Fixes (lowPower only; CI software tier untouched): shadowMap disabled + sun.castShadow=false; billboards culled > 110 m and cars > 150 m via `userData.farCulled` (never un-hides game-hidden objects); resolution floor 0.5; camera.far 170 (earlier commit).
+- `?tier=low` forces the integrated path for testing (render-quality). function-sweep accepts URL_EXTRA ("&tier=low"): 8/8 in light mode.
+- Trey pasted a password into chat — told him it's exposed; not stored.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

@@ -9,7 +9,10 @@ page.on("request", (r) => {
   if (m) glb.add(m[1]);
 });
 await preparePage(page);
-await page.goto("http://127.0.0.1:8080/?qa=1", { waitUntil: "domcontentloaded", timeout: 120000 });
+await page.goto("http://127.0.0.1:8080/?qa=1" + (process.env.URL_EXTRA || ""), {
+  waitUntil: "domcontentloaded",
+  timeout: 120000,
+});
 await page.waitForFunction(() => window.__SACK_V2_INPUT__?.simulate, { timeout: 150000 });
 const enter = page.getByRole("button", { name: /enter memphis/i });
 if (await enter.count())

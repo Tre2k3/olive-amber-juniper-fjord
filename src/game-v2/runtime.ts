@@ -159,6 +159,10 @@ export function startSackV2(
   if (quality.lowPower) {
     camera.far = 170;
     camera.updateProjectionMatrix();
+    // Trey's Intel UHD still ran 5 fps at 1,812 draws in light mode: the limit is
+    // draw calls on the CPU, not pixels. No shadow pass at all on integrated GPUs.
+    renderer.shadowMap.enabled = false;
+    world.sun.castShadow = false;
   }
   // Software renderers: cheaper shadow filtering and native pixel ratio keep frames interactive.
   if (quality.software) {
@@ -1220,8 +1224,8 @@ export function startSackV2(
         const avg = frameAcc / frameCount;
         frameAcc = 0;
         frameCount = 0;
-        if (avg > 0.024 && renderScale > 0.6) {
-          renderScale = Math.max(0.6, renderScale - 0.15);
+        if (avg > 0.024 && renderScale > (quality.lowPower ? 0.5 : 0.6)) {
+          renderScale = Math.max(quality.lowPower ? 0.5 : 0.6, renderScale - 0.15);
           fastWindows = 0;
           resize();
         } else if (avg > 0.024 && bloomAllowed && bloom.enabled) {
@@ -2370,6 +2374,16 @@ export function startSackV2(
   function updateTraffic(dt: number) {
     const junction = { x: 8, z: 0 };
     for (const car of cars) {
+      if (quality.lowPower) {
+        const far = car.mesh.position.distanceToSquared(player.position) > 150 * 150;
+        if (far && car.mesh.visible) {
+          car.mesh.visible = false;
+          car.mesh.userData.farCulled = true;
+        } else if (!far && car.mesh.userData.farCulled) {
+          car.mesh.visible = true;
+          car.mesh.userData.farCulled = false;
+        }
+      }
       const lane = lanes[car.lane]!;
       let blocked = false;
       if (lane.id === "cross") {
@@ -2794,6 +2808,19 @@ export function startSackV2(
 
     avatar.scale.set(presentScale(player), presentScale(player), 1);
     for (const board of world.billboards) {
+      if (quality.lowPower) {
+        // Light mode: people beyond 110 m stop drawing (remembering what we hid,
+        // so anything the game hid for its own reasons stays hidden).
+        const far = board.position.distanceToSquared(player.position) > 110 * 110;
+        if (far && board.visible) {
+          board.visible = false;
+          board.userData.farCulled = true;
+        } else if (!far && board.userData.farCulled) {
+          board.visible = true;
+          board.userData.farCulled = false;
+        }
+        if (far) continue;
+      }
       plantFeet(board);
       const mark = board.getObjectByName("foot-debug");
       if (mark) mark.visible = debug;
