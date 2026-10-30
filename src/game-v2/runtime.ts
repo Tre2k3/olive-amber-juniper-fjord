@@ -472,6 +472,8 @@ export function startSackV2(
   let camYaw = Math.PI / 2;
   /** Last manual camera orbit (seconds); auto-follow waits after the player steers the camera. */
   let lastOrbitAt = -10;
+  /** Seconds left in which the follow camera snaps to position (startup). */
+  let settleLeft = 2;
   /** Basketball auto dribble move: heading sampled every 0.25 s while dribbling. */
   let lastCutHeading: number | null = null;
   let cutSample = 0;
@@ -3120,6 +3122,12 @@ export function startSackV2(
     destX = pulled.x;
     destZ = pulled.z;
     const destY = player.position.y + height;
+    // Startup (and any frame on a very slow machine): the lens must never roll.
+    // Reset "up" every frame, and for the first two seconds snap instead of gliding —
+    // Trey's Intel UHD at 4 fps showed the world sideways while the camera settled.
+    camera.up.set(0, 1, 0);
+    settleLeft = Math.max(0, settleLeft - dt);
+    if (settleLeft > 0) camera.position.set(destX, destY, destZ);
     // Big jumps (entering/leaving a building, spawns) snap instead of gliding:
     // a long glide crosses walls, the wall check below then pulls the lens into
     // Benji and the look-at flips the whole view.

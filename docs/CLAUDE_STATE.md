@@ -315,6 +315,10 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - `?tier=low` forces the integrated path for testing (render-quality). function-sweep accepts URL_EXTRA ("&tier=low"): 8/8 in light mode.
 - Trey pasted a password into chat — told him it's exposed; not stored.
 
+## 2026-10-30 — startup camera roll on slow machines (Trey, Intel UHD 4 fps)
+- Screenshot: world rolled ~90° in the first seconds (2668 draws, res 100%, light mode). Fix in the follow camera: `camera.up.set(0,1,0)` every frame; `settleLeft` = 2 s during which the camera snaps to its destination instead of gliding. camera-orientation-e2e 18/18.
+- Trey confirms the light tier build "moves a little faster and smoother" (6 fps, 1746 draws at res 85%) — before the shadows-off/culling build (6b9abf3) was live.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.
