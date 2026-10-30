@@ -154,6 +154,12 @@ export function startSackV2(
 
   const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 220);
   const quality = createRenderQuality(renderer, world.scene, world.sun);
+  // Integrated GPUs: shorter draw distance (fog already hides most of it past ~170 m),
+  // so far buildings and props leave every frame.
+  if (quality.lowPower) {
+    camera.far = 170;
+    camera.updateProjectionMatrix();
+  }
   // Software renderers: cheaper shadow filtering and native pixel ratio keep frames interactive.
   if (quality.software) {
     renderer.shadowMap.type = THREE.PCFShadowMap;

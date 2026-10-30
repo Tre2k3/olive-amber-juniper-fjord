@@ -305,6 +305,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Loading screen: `startSackV2(canvas, push, onLoading)` reports THREE.DefaultLoadingManager progress (done on first drain or 90 s). GameV2 shows "$ACKRELIGIOUS · MEMPHIS 901 · Loading Memphis… N%" with a bar, pointer-events none, fades out; skipped for ?qa=1. `scripts/loading-screen-e2e.mjs` 3/3 (use textContent — locator.innerText timed out).
 - Still open for production: Trey's light-mode ?perf=1 numbers; concept-art areas; website /arcade switch; security cleanup (exposed GitHub PAT + admin password).
 
+## 2026-10-30 — store switched; light-mode draw distance; Higgsfield credits exhausted
+- 10letters.store/arcade now embeds https://play.10letters.store (Lovable: IFRAME_GAME_URL + TRUSTED_GAME_ORIGINS written literally, iframe allow="gamepad; fullscreen; …" + allowFullScreen, title updated; published; live check "KONNECTED"). Grok origin still trusted.
+- Light mode (integrated GPUs): camera.far 220 → 170.
+- Court props: reference shots generated (bleacher bb078923…, scoreboard ccf039b5…, ball rack 649f3711…) but `generate_3d` failed: Higgsfield workspace OUT OF CREDITS. All remaining concept-art work (court props, 901 Lanes exterior, car meet, food-truck zone, park/901 Day) is gated on a top-up.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.
