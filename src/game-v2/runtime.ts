@@ -1340,8 +1340,10 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     }
     // Playtest (Oct 28): movement felt slow — faster walk/run, and a nearly
     // full-tilt touch stick runs (phones have no Shift key).
-    const walkSpeed = 7.4;
-    const sprintSpeed = 12.4;
+    // Trey: "his run speed should be his regular speed" — the old sprint is now
+    // the default; run (Shift / RT / full-tilt stick) adds a little more.
+    const walkSpeed = 12.4;
+    const sprintSpeed = 15;
     const touchRun = Math.hypot(touchX, touchY) > 0.85 || Math.hypot(padX, padY) > 0.85;
     let speed = 0;
     if (wantsMove) {
@@ -2504,8 +2506,9 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
       return;
     const mat = avatar.material as THREE.MeshBasicMaterial;
     const speed = Math.hypot(glideX, glideZ);
-    // Four-beat cycle per ~1.6 m: stand, stride A, stand, stride B.
-    const beat = speed > 0.28 ? Math.floor(travel / 0.8) % 4 : 0;
+    // Four-beat cycle per ~5.6 m: stand, stride A, stand, stride B.
+    // A beat every 1.4 m: a running cadence (~2 strides/s) at the new default speed.
+    const beat = speed > 0.28 ? Math.floor(travel / 1.4) % 4 : 0;
     const pair = strideFrames[face];
     const stride = beat === 1 ? pair?.[0] : beat === 3 ? pair?.[1] : undefined;
     const pose = stride ? `${face}-stride-${beat}` : face;
@@ -2658,7 +2661,7 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     {
       const sp = Math.hypot(glideX, glideZ);
       if (sp > 0.28 && !courtMatch) {
-        const phase = (travel / 0.95) * Math.PI;
+        const phase = (travel / 1.4) * Math.PI;
         const amt = Math.min(1, sp / 7);
         avatar.position.y = Math.abs(Math.sin(phase)) * 0.02 * amt;
         // No side-to-side sway: with real stride frames it read as a waddle.

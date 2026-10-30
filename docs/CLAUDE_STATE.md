@@ -296,6 +296,10 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - render-quality: light tier (`software` flag: no MSAA, 1024 shadows, no IBL/bloom/reflections — the CI-tested path) now applies to software OR integrated. New `quality.cpuRenderer` (true CPU only) gates the adaptive ladder, so integrated GPUs keep it; `quality.lowPower` caps pixel ratio at 1. Overlay prints "light mode".
 - Core tests 30 (adds GPU tier detection incl. Trey's exact string).
 
+## 2026-10-30 — run speed is the default (Trey)
+- Trey's ?perf=1 screenshots (still the pre-light-tier build): street 1 fps (1734 ms avg, 1594 draws, 203k tris), court 8 fps (125 ms, 1221 draws, 440k tris, res 60%, no glow) on Intel UHD. 7ba6b99 (light tier for integrated GPUs) merged 04:46 UTC after.
+- Speeds: default 12.4 m/s (old sprint), run 15 m/s. Stride beat every 1.4 m (four-beat cycle ~5.6 m), bounce phase /1.4. hq-collision-e2e 10/10 and runtime-reliability-smoke all PASS at the new speed.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.
