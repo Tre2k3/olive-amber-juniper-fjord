@@ -104,7 +104,28 @@ type Car = { lane: number; s: number; speed: number; mesh: THREE.Group };
 const SAVE_KEY = "sack-v2";
 let activeStop: (() => void) | null = null;
 
-export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => void): () => void {
+export type LoadProgress = { loaded: number; total: number; done: boolean };
+export function startSackV2(
+  canvas: HTMLCanvasElement,
+  push: (hud: HudState) => void,
+  onLoading?: (p: LoadProgress) => void,
+): () => void {
+  // Startup progress for the loading screen: every texture/model goes through
+  // three's default loading manager. Done when it first drains (or after 90 s).
+  {
+    const mgr = THREE.DefaultLoadingManager;
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      onLoading?.({ loaded: 1, total: 1, done: true });
+    };
+    mgr.onProgress = (_url, loaded, total) => {
+      if (!finished) onLoading?.({ loaded, total, done: false });
+    };
+    mgr.onLoad = finish;
+    window.setTimeout(finish, 90000);
+  }
   activeStop?.();
   const world = buildSlice();
   // Static batching: never-moving meshes merged per material per 40 m cell
@@ -2677,7 +2698,11 @@ export function startSackV2(canvas: HTMLCanvasElement, push: (hud: HudState) => 
     const rear =
       attackX * viewX + attackZ * viewZ <
       -0.55 * Math.hypot(attackX, attackZ) * Math.hypot(viewX, viewZ);
-    courtAnimation.setKit(teamJerseys ? COURT_KITS[courtKitIndex % 3]! : null);
+    // Jerseys only in a 2v2; street-clothes shooting frames only at the court. Calling
+    // setKit every frame from boot downloaded a jersey bank (~3 MB) at startup and
+    // put Benji in a jersey for free shots.
+    if (place === "court" || courtMatch)
+      courtAnimation.setKit(courtMatch && teamJerseys ? COURT_KITS[courtKitIndex % 3]! : null);
     // Free shootaround uses the same shooting frames as a match (gather → set while
     // charging, release → follow-through), via a minimal stand-in for the match state.
     freeShotLeft = Math.max(0, freeShotLeft - dt);

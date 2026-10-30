@@ -300,6 +300,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Trey's ?perf=1 screenshots (still the pre-light-tier build): street 1 fps (1734 ms avg, 1594 draws, 203k tris), court 8 fps (125 ms, 1221 draws, 440k tris, res 60%, no glow) on Intel UHD. 7ba6b99 (light tier for integrated GPUs) merged 04:46 UTC after.
 - Speeds: default 12.4 m/s (old sprint), run 15 m/s. Stride beat every 1.4 m (four-beat cycle ~5.6 m), bounce phase /1.4. hq-collision-e2e 10/10 and runtime-reliability-smoke all PASS at the new speed.
 
+## 2026-10-30 — production pass: loading screen + lazy jersey frames
+- Startup download measured 28.4 MB (was 36.8). The jersey action bank (black-fresh, ~3 MB) loaded at boot because `teamJerseys` defaults true and `courtAnimation.setKit(...)` ran every frame — and free shots showed Benji in a jersey. Now: setKit only when place === "court" or in a match; jerseys only in a match (street-clothes shoot frames for free play). free-shot-e2e 4/4 with the street bank.
+- Loading screen: `startSackV2(canvas, push, onLoading)` reports THREE.DefaultLoadingManager progress (done on first drain or 90 s). GameV2 shows "$ACKRELIGIOUS · MEMPHIS 901 · Loading Memphis… N%" with a bar, pointer-events none, fades out; skipped for ?qa=1. `scripts/loading-screen-e2e.mjs` 3/3 (use textContent — locator.innerText timed out).
+- Still open for production: Trey's light-mode ?perf=1 numbers; concept-art areas; website /arcade switch; security cleanup (exposed GitHub PAT + admin password).
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.
