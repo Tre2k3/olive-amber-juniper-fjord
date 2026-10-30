@@ -164,6 +164,24 @@ export function startSackV2(
     renderer.shadowMap.enabled = false;
     world.sun.castShadow = false;
   }
+  // Light mode: small static objects (posts, planters, trim, signs — a few pixels
+  // past ~70 m) stop drawing at distance. Collected once; checked ~3×/s.
+  const smallStatics: THREE.Mesh[] = [];
+  if (quality.lowPower) {
+    world.exterior.updateMatrixWorld(true);
+    const size = new THREE.Vector3();
+    world.exterior.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || m.name || !m.geometry.boundingSphere) {
+        if (m.isMesh && !m.name && !m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+        if (!m.isMesh || m.name || !m.geometry.boundingSphere) return;
+      }
+      m.getWorldScale(size);
+      const radius = m.geometry.boundingSphere.radius * Math.max(size.x, size.y, size.z);
+      if (radius < 1.6) smallStatics.push(m);
+    });
+  }
+  let smallCullTimer = 0;
   // Software renderers: cheaper shadow filtering and native pixel ratio keep frames interactive.
   if (quality.software) {
     renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -2807,6 +2825,24 @@ export function startSackV2(
     }
 
     avatar.scale.set(presentScale(player), presentScale(player), 1);
+    if (quality.lowPower && smallStatics.length) {
+      smallCullTimer -= dt;
+      if (smallCullTimer <= 0) {
+        smallCullTimer = 0.3;
+        const p = new THREE.Vector3();
+        for (const m of smallStatics) {
+          m.getWorldPosition(p);
+          const far = p.distanceToSquared(player.position) > 70 * 70;
+          if (far && m.visible) {
+            m.visible = false;
+            m.userData.farCulled = true;
+          } else if (!far && m.userData.farCulled) {
+            m.visible = true;
+            m.userData.farCulled = false;
+          }
+        }
+      }
+    }
     for (const board of world.billboards) {
       if (quality.lowPower) {
         // Light mode: people beyond 110 m stop drawing (remembering what we hid,
