@@ -67,22 +67,50 @@ const server = createServer(async (req, res) => {
         const info = await stat(filePath);
         if (info.isFile()) {
           res.statusCode = 200;
-          res.setHeader("content-type", MIME[extname(filePath).toLowerCase()] || "application/octet-stream");
+          res.setHeader(
+            "content-type",
+            MIME[extname(filePath).toLowerCase()] || "application/octet-stream",
+          );
           res.setHeader("accept-ranges", "bytes");
           if (req.headers.range) {
             const match = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range);
-            const start = match && match[1] ? Number(match[1]) : match && match[2] ? Math.max(0,info.size-Number(match[2])) : NaN;
-            const end = match && match[1] && match[2] ? Math.min(info.size-1,Number(match[2])) : info.size-1;
-            if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start<0 || start>end || start>=info.size) {
-              res.statusCode=416;res.setHeader("content-range",`bytes */${info.size}`);res.end();return;
+            const start =
+              match && match[1]
+                ? Number(match[1])
+                : match && match[2]
+                  ? Math.max(0, info.size - Number(match[2]))
+                  : NaN;
+            const end =
+              match && match[1] && match[2]
+                ? Math.min(info.size - 1, Number(match[2]))
+                : info.size - 1;
+            if (
+              !Number.isSafeInteger(start) ||
+              !Number.isSafeInteger(end) ||
+              start < 0 ||
+              start > end ||
+              start >= info.size
+            ) {
+              res.statusCode = 416;
+              res.setHeader("content-range", `bytes */${info.size}`);
+              res.end();
+              return;
             }
-            res.statusCode=206;res.setHeader("content-range",`bytes ${start}-${end}/${info.size}`);
-            res.setHeader("content-length",end-start+1);
-            if(req.method === "HEAD") { res.end();return; }
-            createReadStream(filePath,{start,end}).pipe(res);return;
+            res.statusCode = 206;
+            res.setHeader("content-range", `bytes ${start}-${end}/${info.size}`);
+            res.setHeader("content-length", end - start + 1);
+            if (req.method === "HEAD") {
+              res.end();
+              return;
+            }
+            createReadStream(filePath, { start, end }).pipe(res);
+            return;
           }
-          res.setHeader("content-length",info.size);
-          if(req.method === "HEAD") { res.end();return; }
+          res.setHeader("content-length", info.size);
+          if (req.method === "HEAD") {
+            res.end();
+            return;
+          }
           createReadStream(filePath).pipe(res);
           return;
         }
@@ -110,11 +138,13 @@ const server = createServer(async (req, res) => {
     });
     res.end(Buffer.from(await response.arrayBuffer()));
   } catch (err) {
+    // Details stay in the server log; the browser gets a generic response.
+    console.error("[preview] request failed:", req.method, req.url, err?.stack || err);
     if (!res.headersSent) {
       res.statusCode = 500;
       res.setHeader("content-type", "text/plain; charset=utf-8");
     }
-    res.end(String(err?.stack || err));
+    res.end("Internal error");
   }
 });
 

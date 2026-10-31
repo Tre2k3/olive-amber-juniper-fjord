@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import type { LoadProgress } from "./runtime";
 import type { HudState } from "./core/types";
 import { Hud } from "./ui/Hud";
 
@@ -32,33 +34,62 @@ export function GameV2() {
   const hudRef = useRef(setHud);
   hudRef.current = setHud;
   // Loading screen (skipped for ?qa=1 test runs so CI is unchanged).
+  // Screenshot/gameplay suites set an explicit bypass (scripts/smoke-lib.mjs); loader tests
+  // and players always take the real loading path — ?qa=1 alone no longer skips it.
   const qa =
-    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("qa") === "1";
-  const [load, setLoad] = useState<{
-    loaded: number;
-    total: number;
-    done: boolean;
-    failed?: number;
-    timedOut?: boolean;
-  }>({
+    typeof window !== "undefined" &&
+    (window as unknown as { __SACK_SKIP_LOAD_SCREEN__?: boolean }).__SACK_SKIP_LOAD_SCREEN__ ===
+      true;
+  const [load, setLoad] = useState<LoadProgress>({
     loaded: 0,
     total: 0,
     done: qa,
+    state: qa ? "ready" : "loading",
   });
 
+  // The runtime also broadcasts loading status page-wide; read the latest on mount.
+  useEffect(() => {
+    const latest = (window as unknown as { __SACK_LOAD_STATE__?: LoadProgress })
+      .__SACK_LOAD_STATE__;
+    if (qa) return;
+    if (latest) setLoad(latest);
+    // DIAGNOSTIC WORKAROUND (unproven): terminal states commit synchronously in case
+    // world construction starves queued React updates; window.__SACK_LOAD_DIAG__()
+    // .longTasksMs measures that. Remove if long tasks don't explain the stall.
+    const onLoad = (e: Event) => {
+      const detail = (e as CustomEvent<LoadProgress>).detail;
+      if (detail.done) flushSync(() => setLoad(detail));
+      else setLoad(detail);
+    };
+    window.addEventListener("sack-load", onLoad);
+    return () => window.removeEventListener("sack-load", onLoad);
+  }, []);
   useEffect(() => {
     const el = canvas.current;
     if (!el) return;
     let stop = () => {};
     let dead = false;
-    void import("./runtime").then(({ startSackV2 }) => {
-      if (dead || !canvas.current) return;
-      stop = startSackV2(
-        canvas.current,
-        (next) => hudRef.current(next),
-        (p) => setLoad(p),
-      );
-    });
+    void import("./runtime")
+      .then(({ startSackV2 }) => {
+        if (dead || !canvas.current) return;
+        stop = startSackV2(
+          canvas.current,
+          (next) => hudRef.current(next),
+          () => {}, // status arrives via the page-wide "sack-load" event
+        );
+      })
+      .catch((err: unknown) => {
+        console.error("game code failed to load", err);
+        setLoad({
+          loaded: 0,
+          total: 0,
+          done: true,
+          state: "error",
+          failed: 1,
+          timedOut: false,
+          reason: "The game code failed to load",
+        });
+      });
     return () => {
       dead = true;
       stop();
@@ -91,8 +122,8 @@ export function GameV2() {
       />
       <div
         data-testid="loading-screen"
-        aria-hidden={load.done && !(load.failed ?? 0)}
-        className={`pointer-events-none fixed inset-0 z-[80] flex flex-col items-center justify-center bg-[#071018] transition-opacity duration-700 ${load.done && !(load.failed ?? 0) ? "opacity-0" : "opacity-100"}`}
+        aria-hidden={load.state === "ready"}
+        className={`${load.state === "error" ? "pointer-events-auto" : "pointer-events-none"} fixed inset-0 z-[80] flex flex-col items-center justify-center bg-[#071018] transition-opacity duration-700 ${load.state === "ready" ? "opacity-0" : "opacity-100"}`}
       >
         <div className="text-2xl font-black tracking-[0.2em] text-[#e0b33a] sm:text-4xl">
           $ACKRELIGIOUS
@@ -106,11 +137,11 @@ export function GameV2() {
             }}
           />
         </div>
-        {load.done && (load.failed ?? 0) > 0 && (
+        {load.state === "error" && (
           <div className="pointer-events-auto mt-4 flex flex-col items-center gap-2 rounded-lg bg-[#2a1313] px-4 py-3 text-xs text-[#f4efe4]">
-            <div>
-              {load.timedOut ? "Still waiting on" : "Couldn't load"} {load.failed} file
-              {load.failed === 1 ? "" : "s"} — slow or blocked connection?
+            <div data-testid="loading-error">
+              {load.reason ??
+                `${load.timedOut ? "Still waiting on" : "Couldn't load"} ${load.failed} file${load.failed === 1 ? "" : "s"} — slow or blocked connection?`}
             </div>
             <button
               type="button"

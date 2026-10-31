@@ -20,7 +20,10 @@ export function createOk(failures) {
   };
 }
 
-export function installHardTimeout(label, ms = Number(process.env.SMOKE_HARD_TIMEOUT_MS || 240000)) {
+export function installHardTimeout(
+  label,
+  ms = Number(process.env.SMOKE_HARD_TIMEOUT_MS || 240000),
+) {
   const killer = setTimeout(() => {
     console.error(`${label} hard timeout`);
     process.exit(1);
@@ -47,7 +50,14 @@ export async function launchBrowser(webgl = true) {
   });
 }
 
-export async function preparePage(page) {
+export async function preparePage(page, opts = {}) {
+  // Screenshot/gameplay suites bypass the loading screen explicitly; loader tests pass
+  // { loadScreen: true } to exercise the real player path.
+  if (!opts.loadScreen) {
+    await page.addInitScript(() => {
+      window.__SACK_SKIP_LOAD_SCREEN__ = true;
+    });
+  }
   await page.bringToFront();
   try {
     const session = await page.context().newCDPSession(page);

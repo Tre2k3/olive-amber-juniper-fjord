@@ -104,12 +104,21 @@ type Car = { lane: number; s: number; speed: number; mesh: THREE.Group };
 const SAVE_KEY = "sack-v2";
 let activeStop: (() => void) | null = null;
 
+let loadToken = 0;
+let loadHooksInstalled = false;
+const loadPending = new Map<string, { at: number; owners?: string[]; stack?: string }>();
+const recentModels: string[] = [];
+const longTasks: number[] = [];
+let loadBlocked = false;
+let loadActivity = 0;
 export type LoadProgress = {
   loaded: number;
   total: number;
   done: boolean;
+  state?: "loading" | "ready" | "error";
   failed?: number;
   timedOut?: boolean;
+  reason?: string;
 };
 export function startSackV2(
   canvas: HTMLCanvasElement,
@@ -119,30 +128,156 @@ export function startSackV2(
   console.info(
     `$ackReligious Memphis build ${import.meta.env.VITE_BUILD_SHA ?? "dev"} (${import.meta.env.VITE_BUILD_TIME ?? "local"})`,
   );
-  // Startup progress for the loading screen: every texture/model goes through
-  // three's default loading manager. Done when it first drains (or after 90 s).
+  // Loading state machine: loading → ready | error. A failed download during startup is
+  // an error at once (no waiting on other requests). Status is broadcast page-wide as a
+  // "sack-load" event; diagnostics live on window.__SACK_LOAD_DIAG__ for tests/support.
   {
+    const token = ++loadToken;
+    loadBlocked = false;
     const mgr = THREE.DefaultLoadingManager;
-    let finished = false;
-    let failed = 0;
+    if (!loadHooksInstalled) {
+      loadHooksInstalled = true;
+      try {
+        new PerformanceObserver((list) => {
+          for (const e of list.getEntries()) longTasks.push(Math.round(e.duration));
+          if (longTasks.length > 200) longTasks.splice(0, longTasks.length - 200);
+        }).observe({ type: "longtask", buffered: true });
+      } catch {
+        // long-task timing unsupported in this browser
+      }
+      const origStart = mgr.itemStart.bind(mgr);
+      const origEnd = mgr.itemEnd.bind(mgr);
+      mgr.itemStart = (url) => {
+        if (/\.(glb|gltf)(\?|$)/i.test(url)) recentModels.push(url.split("/").pop()!);
+        if (recentModels.length > 6) recentModels.shift();
+        const embedded = url.startsWith("blob:");
+        loadPending.set(url, {
+          at: performance.now(),
+          // blob: = a texture embedded in a model: remember which model files were loading
+          // and the call site, so a missing completion can be traced to its owner.
+          owners: embedded ? [...recentModels] : undefined,
+          stack: embedded ? new Error().stack?.split("\n").slice(2, 7).join(" | ") : undefined,
+        });
+        loadActivity = performance.now();
+        origStart(url);
+      };
+      mgr.itemEnd = (url) => {
+        loadPending.delete(url);
+        loadActivity = performance.now();
+        origEnd(url);
+      };
+    }
+    let state: "loading" | "ready" | "error" = "loading";
+    const failedUrls: string[] = [];
+    // Explicit bypass for screenshot/gameplay suites (set by scripts/smoke-lib.mjs). The
+    // state machine still runs and is recorded; it just never blocks input or the view.
+    const bypass =
+      (window as unknown as { __SACK_SKIP_LOAD_SCREEN__?: boolean }).__SACK_SKIP_LOAD_SCREEN__ ===
+      true;
+    const t0 = performance.now();
+    const history: { t: number; state: string; why: string }[] = [
+      { t: 0, state: "loading", why: `instance ${token}` },
+    ];
+    const feature = (url: string) => {
+      const p = url.replace(/^https?:\/\/[^/]+/, "");
+      if (p.startsWith("blob:")) return "embedded model texture";
+      const m = p.match(
+        /^\/game-v2\/(characters\/[^/]+|places\/[^/]+|vendors\/[^/]+|props|basketball|actions|store|[^/]+)/,
+      );
+      return m ? m[1]! : "other";
+    };
     let last = { loaded: 0, total: 0 };
-    const finish = (timedOut: boolean) => {
-      if (finished) return;
-      finished = true;
-      // A timeout never certifies success: report what is still missing.
-      const missing = timedOut ? Math.max(failed, last.total - last.loaded) : failed;
-      onLoading?.({ loaded: 1, total: 1, done: true, failed: missing, timedOut });
+    const diag = () => {
+      let at: { x: number; z: number } | null = null;
+      try {
+        at = {
+          x: Math.round(player.position.x * 100) / 100,
+          z: Math.round(player.position.z * 100) / 100,
+        };
+      } catch {
+        at = null; // world not built yet
+      }
+      return {
+        token,
+        activeToken: loadToken,
+        state,
+        last,
+        failed: failedUrls.map((u) => ({ url: u.slice(0, 120), feature: feature(u) })),
+        history,
+        bypass,
+        inputBlocked: loadBlocked,
+        player: at,
+        sinceActivityMs: Math.round(performance.now() - loadActivity),
+        longTasksMs: longTasks.slice(-12),
+        pending: [...loadPending].map(([url, v]) => ({
+          url: url.slice(0, 90),
+          ageMs: Math.round(performance.now() - v.at),
+          owners: v.owners,
+          stack: v.stack,
+        })),
+      };
+    };
+    (window as unknown as { __SACK_LOAD_DIAG__: () => unknown }).__SACK_LOAD_DIAG__ = diag;
+    const report = (p: LoadProgress) => {
+      if (token !== loadToken) return; // a newer game instance owns the screen
+      (window as unknown as { __SACK_LOAD_STATE__?: LoadProgress }).__SACK_LOAD_STATE__ = p;
+      window.dispatchEvent(new CustomEvent("sack-load", { detail: p }));
+      onLoading?.(p);
+    };
+    const toError = (reason: string) => {
+      if (state !== "loading") return;
+      state = "error";
+      history.push({ t: Math.round(performance.now() - t0), state, why: reason });
+      if (!bypass) loadBlocked = true; // the error screen covers the game: no gameplay input underneath
+      report({
+        loaded: last.loaded,
+        total: last.total,
+        done: true,
+        state: "error",
+        failed: Math.max(1, failedUrls.length),
+        reason,
+      });
+    };
+    const toReady = () => {
+      if (state !== "loading") return;
+      state = "ready";
+      history.push({ t: Math.round(performance.now() - t0), state, why: "all requests ended" });
+      report({ loaded: 1, total: 1, done: true, state: "ready", failed: 0 });
     };
     mgr.onProgress = (_url, loaded, total) => {
       last = { loaded, total };
-      if (!finished) onLoading?.({ loaded, total, done: false, failed });
+      if (state === "loading") report({ loaded, total, done: false, state: "loading", failed: 0 });
     };
     mgr.onError = (url) => {
-      failed++;
+      failedUrls.push(url);
       console.warn("asset failed to load:", url);
+      // Everything requested during startup is required: show the error now.
+      toError(`Couldn't load ${url.split("/").pop()?.split("?")[0]} — slow or blocked connection?`);
     };
-    mgr.onLoad = () => finish(false);
-    window.setTimeout(() => finish(true), 90000);
+    mgr.onLoad = () => {
+      loadActivity = performance.now();
+    };
+    // Ready only when every request has ended — no exclusions. Requests that never end
+    // surface through the stall timeout below with diagnostics; they are never ignored.
+    const check = window.setInterval(() => {
+      if (state !== "loading" || token !== loadToken) {
+        window.clearInterval(check);
+        return;
+      }
+      if (last.total > 0 && loadPending.size === 0 && performance.now() - loadActivity > 300)
+        toReady();
+    }, 250);
+    const limit = Number(new URLSearchParams(window.location.search).get("loadTimeout")) || 90000;
+    window.setTimeout(() => {
+      if (state !== "loading" || token !== loadToken) return;
+      console.warn("loading stalled", diag());
+      const left = last.total - last.loaded;
+      toError(
+        last.total === 0
+          ? "Memphis didn't start loading — check your connection"
+          : `Still waiting on ${left} file${left === 1 ? "" : "s"} — slow or blocked connection?`,
+      );
+    }, limit);
   }
   activeStop?.();
   const world = buildSlice();
@@ -718,6 +853,7 @@ export function startSackV2(
   }
 
   const onKey = (e: KeyboardEvent, down: boolean) => {
+    if (loadBlocked) return; // loading error screen is up
     const code = e.code || e.key;
     if (veli.open && e.target instanceof HTMLSelectElement) return;
     if ((veli.open || foodCourt.open || shopOpen) && code !== "KeyE") {
