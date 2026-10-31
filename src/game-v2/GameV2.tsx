@@ -47,6 +47,14 @@ export function GameV2() {
     state: qa ? "ready" : "loading",
   });
 
+  // Remount hook: bumping the generation makes React clean up the running game (its
+  // effects) and start a fresh one in the same document — tests use it to prove remount
+  // cleanup (no stale errors, no duplicate listeners, one live runtime).
+  const [generation, setGeneration] = useState(0);
+  useEffect(() => {
+    (window as unknown as { __SACK_REMOUNT__?: () => void }).__SACK_REMOUNT__ = () =>
+      setGeneration((g) => g + 1);
+  }, []);
   // The runtime also broadcasts loading status page-wide; read the latest on mount.
   useEffect(() => {
     const latest = (window as unknown as { __SACK_LOAD_STATE__?: LoadProgress })
@@ -63,7 +71,7 @@ export function GameV2() {
     };
     window.addEventListener("sack-load", onLoad);
     return () => window.removeEventListener("sack-load", onLoad);
-  }, []);
+  }, [generation]);
   useEffect(() => {
     const el = canvas.current;
     if (!el) return;
@@ -94,7 +102,7 @@ export function GameV2() {
       dead = true;
       stop();
     };
-  }, [20]);
+  }, [generation]);
 
   return (
     <div className="fixed inset-0 bg-[#071018]">

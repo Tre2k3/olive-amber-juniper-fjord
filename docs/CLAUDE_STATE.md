@@ -326,6 +326,16 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Loader: DefaultLoadingManager.onError counted; LoadProgress {failed, timedOut}; a timeout reports missing count instead of certifying 100%; loading screen stays up with "Couldn't load N files — Reload" when anything failed. loading-screen-e2e 3/3.
 - Audit items NOT yet done: texture "marked for update without image data" warnings (trace), 13 MB duplicate assets on disk (manifest/dedupe), identical legacy directional outfit art, cache/compression policy, save versioning/migrations/export, desktop installer. README wording on saves fixed in the ZIP (localStorage key sack-v2).
 
+## 2026-10-31 — loader recovery proven (gates + suite in CI)
+- Loader: explicit loading → ready | error state machine (runtime.ts). Any startup download failure → error immediately (names the asset + owning feature); stall timeout → error "Still waiting on N files" (never success). Ready only when every request has ended (no exclusions). Error screen is pointer-events-auto and `loadBlocked` drops gameplay input. Status broadcast as window "sack-load" event + window.__SACK_LOAD_STATE__; diagnostics window.__SACK_LOAD_DIAG__() {token/activeToken, state, history, failed[{url,feature}], pending[{url,ageMs,owners,stack}], inputBlocked, frames, longTasksMs, player}.
+- No ?qa=1 shortcut: scripts/smoke-lib.mjs preparePage sets window.__SACK_SKIP_LOAD_SCREEN__ for screenshot/gameplay suites; loader tests pass { loadScreen: true }.
+- Remount: GameV2 `generation` state (window.__SACK_REMOUNT__) re-runs both effects; runtime counts window.__SACK_RUNTIME_LIFECYCLE__ {created, disposed} (stop()).
+- Gates (run each with scripts/run-load-gate.sh, GATE=<script>; preview + test in ONE foreground session; exit 0 pass / 1 fail / else inconclusive): load-recovery-gate.mjs 6/6 (fail→error naming lawn.jpg→unroute→reloaded page fetched it 200→ready→2.6 m over 8 frames of W→no stale error, instance 1/1, listeners +1/-0); load-remount-gate.mjs 6/6 (2 created/1 disposed, 109 listener types unchanged, sack-load 1, no stale error, 2.6 m over 8 frames). release-hardening-e2e.mjs 8/8. All three are CI steps after "Start production preview".
+- Movement checks hold W for ≥8 counted frames (software rendering ~0.5 fps) — never a fixed duration.
+- Measured: long main-thread tasks of 2.0–3.4 s during world construction (next target). flushSync on terminal states kept as a labelled diagnostic workaround (unproven).
+- Unverified claims withdrawn: "every player waited 90 s" and how much faster loading feels — need an ordinary browser + phone measurement.
+- Separate: 8 failing tests in scripts/grok-pwa-plugin.test.mjs (not in CI) — fix with explicit fixtures, don't delete.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

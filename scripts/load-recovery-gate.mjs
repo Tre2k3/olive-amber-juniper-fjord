@@ -103,9 +103,14 @@ if (!ready) {
   }));
   await page.mouse.click(640, 420); // give the game the same focus a player's first click does
   const before = await page.evaluate(() => window.__SACK_LOAD_DIAG__().player);
+  // Hold W until the game has run at least 8 frames (software rendering can be ~0.5 fps).
+  const fStart = await page.evaluate(() => window.__SACK_LOAD_DIAG__().frames);
   await page.keyboard.down("KeyW");
-  await page.waitForTimeout(4000);
+  await page
+    .waitForFunction((f) => window.__SACK_LOAD_DIAG__().frames >= f + 8, fStart, { timeout: 90000 })
+    .catch(() => {});
   await page.keyboard.up("KeyW");
+  const fEnd = await page.evaluate(() => window.__SACK_LOAD_DIAG__().frames);
   console.log(
     "   INPUT",
     JSON.stringify(pre),
@@ -116,7 +121,11 @@ if (!ready) {
   const moved = before && after ? Math.hypot(after.x - before.x, after.z - before.z) : 0;
   // Software rendering runs ~0.5 fps here (each frame capped at a 0.033 s step), so the bar
   // is "the key moved Benji at all" (no input = exactly 0), not a distance per second.
-  out(moved > 0.3, "5 movement works after recovery", `${moved.toFixed(1)} m in 4 s of W`);
+  out(
+    moved > 0.3,
+    "5 movement works after recovery",
+    `${moved.toFixed(1)} m over ${fEnd - fStart} frames of W`,
+  );
   const net = d.listeners.added - d.listeners.removed;
   out(
     d.hidden === "true" &&

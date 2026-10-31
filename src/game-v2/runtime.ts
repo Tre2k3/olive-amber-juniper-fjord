@@ -105,6 +105,15 @@ const SAVE_KEY = "sack-v2";
 let activeStop: (() => void) | null = null;
 
 let loadToken = 0;
+/** Frames run by the current runtime instance (diagnostics). */
+let framesRun = 0;
+/** Runtime instances created/disposed in this document (tests check remount cleanup). */
+const runtimeLifecycle = () => {
+  const w = window as unknown as {
+    __SACK_RUNTIME_LIFECYCLE__?: { created: number; disposed: number };
+  };
+  return (w.__SACK_RUNTIME_LIFECYCLE__ ??= { created: 0, disposed: 0 });
+};
 let loadHooksInstalled = false;
 const loadPending = new Map<string, { at: number; owners?: string[]; stack?: string }>();
 const recentModels: string[] = [];
@@ -128,6 +137,7 @@ export function startSackV2(
   console.info(
     `$ackReligious Memphis build ${import.meta.env.VITE_BUILD_SHA ?? "dev"} (${import.meta.env.VITE_BUILD_TIME ?? "local"})`,
   );
+  runtimeLifecycle().created++;
   // Loading state machine: loading → ready | error. A failed download during startup is
   // an error at once (no waiting on other requests). Status is broadcast page-wide as a
   // "sack-load" event; diagnostics live on window.__SACK_LOAD_DIAG__ for tests/support.
@@ -168,6 +178,7 @@ export function startSackV2(
       };
     }
     let state: "loading" | "ready" | "error" = "loading";
+    framesRun = 0;
     const failedUrls: string[] = [];
     // Explicit bypass for screenshot/gameplay suites (set by scripts/smoke-lib.mjs). The
     // state machine still runs and is recorded; it just never blocks input or the view.
@@ -206,6 +217,7 @@ export function startSackV2(
         history,
         bypass,
         inputBlocked: loadBlocked,
+        frames: framesRun,
         player: at,
         sinceActivityMs: Math.round(performance.now() - loadActivity),
         longTasksMs: longTasks.slice(-12),
@@ -1112,6 +1124,7 @@ export function startSackV2(
       rooms.forEach((g, i) => (g.visible = was[i]!));
     }
     frame = requestAnimationFrame(loop);
+    framesRun++;
     const rawMs = now - last;
     const dt = Math.min(0.033, (now - last) / 1000);
     last = now;
@@ -4150,6 +4163,7 @@ export function startSackV2(
   (window as unknown as { __SACK_V2_INPUT__?: typeof touchApi }).__SACK_V2_INPUT__ = touchApi;
 
   const stop = () => {
+    runtimeLifecycle().disposed++;
     if (activeStop === stop) activeStop = null;
     cancelAnimationFrame(frame);
     window.removeEventListener("keydown", kd);

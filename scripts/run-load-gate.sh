@@ -10,7 +10,7 @@ while [ $i -lt 30 ]; do
 done
 if [ "$ok" != "1" ]; then echo "SERVER NOT READY (last $code) — INCONCLUSIVE"; tail -15 /tmp/preview.log; kill $PREV 2>/dev/null; exit 0; fi
 echo "preview ready (200) after ${i}s"
-SMOKE_HEADED=0 timeout 250 node scripts/load-recovery-gate.mjs > /tmp/gate.log 2>&1
+SMOKE_HEADED=0 timeout 250 node scripts/${GATE:-load-recovery-gate.mjs} > /tmp/gate.log 2>&1
 rc=$?
 grep -E "^PASS|^FAIL|^   " /tmp/gate.log | cut -c1-330
 case $rc in 0) v=PASS;; 1) v=FAIL;; *) v=INCONCLUSIVE; tail -6 /tmp/gate.log | cut -c1-200;; esac
