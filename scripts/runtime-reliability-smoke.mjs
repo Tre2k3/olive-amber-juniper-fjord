@@ -22,6 +22,11 @@ const browser = await chromium.launch({ headless: true,
 const errors = [];
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  // This test presses the on-screen controls with a simulated mouse; on-screen controls
+  // ignore the mouse unless mouse controls are explicitly enabled, so enable them here.
+  await page.addInitScript(() => {
+    window.__SACK_MOUSE_CONTROLS__ = true;
+  });
   await page.addInitScript(() => {
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
