@@ -537,3 +537,12 @@ console.log('PASS: separate defensive assignments, rebound pursuit and non-telep
   assert.deepEqual(k('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)))'), { software: true, integrated: false }, 'SwiftShader is software');
   console.log('PASS: integrated GPUs (Intel UHD/Iris, phones) get the light tier; discrete and Apple GPUs keep the full tier');
 }
+
+// ---- Grok PWA plugin tests (run here so CI includes them without a workflow edit) ----
+{
+  const { spawnSync } = await import('node:child_process');
+  const run = spawnSync(process.execPath, ['--test', new URL('./grok-pwa-plugin.test.mjs', import.meta.url).pathname], { encoding: 'utf8' });
+  const summary = (run.stdout || '').split('\n').filter((l) => /^# (pass|fail)/.test(l)).join(' · ');
+  assert.equal(run.status, 0, `grok-pwa plugin tests failed: ${summary}\n${(run.stdout || '').split('\n').filter((l) => /^not ok/.test(l)).join('\n')}`);
+  console.log(`PASS: grok-pwa plugin tests (${summary})`);
+}

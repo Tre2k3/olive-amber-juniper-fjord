@@ -343,6 +343,12 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Results on valid runs: load-recovery-gate 6/6 (post-reload ready at t=3.5 s vs 46–53 s before), load-remount-gate 6/6, release-hardening-e2e 8/8 (failed texture → error at 2.7 s).
 - CI workflow edits can't be pushed with the current PAT (no `workflow` scope) — ci-loader-gates.patch delivered to Trey.
 
+## 2026-10-31 — gates + plugin tests in CI without a workflow edit
+- The deploy PAT lacks `workflow` scope (GitHub refuses pushes touching .github/workflows/). So: scripts/runtime-reliability-smoke.mjs (CI's first step after "Start production preview") now spawns load-recovery-gate, load-remount-gate and release-hardening-e2e first (8-min cap each; any failure fails the step; SKIP_LOADER_GATES=1 skips). ci-loader-gates.patch (separate workflow steps) remains the cleaner option if the token ever gets `workflow` scope.
+- Plugin tests: the 8 failures were fixture isolation — the plugin reads src/lib/og/site.json from process.cwd(), so tests run from the repo root saw this project's "$ACKRELIGIOUS: MEMPHIS" share card. The test file now chdirs into a fresh temp dir; 49/49 pass, nothing removed. runtime-core-test.mjs (CI step) runs them → core 31/31.
+- Texture upload in ~12 ms slices before the first frame; ready = all requests ended AND first frame drawn. Loader suite 8/8 (stalled case now "Still waiting on 1 file").
+- CI durations before the compile fix: 20.6–37.8 min (cap 40) — watch the next runs' duration with the gates added.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

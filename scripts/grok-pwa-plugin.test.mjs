@@ -18,6 +18,13 @@ import {
   stripInstallParams,
 } from "./grok-pwa-shared.mjs";
 import { renderInstallPage } from "./grok-pwa-plugin.mjs";
+import { mkdtempSync as __mkdtemp } from "node:fs";
+import { tmpdir as __tmpdir } from "node:os";
+import { join as __join } from "node:path";
+// Isolate from this project's real share-card config: the plugin reads
+// src/lib/og/site.json from process.cwd(), so running from the repo root made every
+// fixture-based test see "$ACKRELIGIOUS: MEMPHIS" instead of its own values.
+process.chdir(__mkdtemp(__join(__tmpdir(), "grok-pwa-test-")));
 
 const TEMPLATE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
