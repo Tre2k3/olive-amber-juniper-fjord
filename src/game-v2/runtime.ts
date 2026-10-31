@@ -105,6 +105,11 @@ const SAVE_KEY = "sack-v2";
 let activeStop: (() => void) | null = null;
 
 let loadToken = 0;
+/** Startup phase timings (ms since navigation) — diagnostics for the long main-thread tasks. */
+const startupMarks: Record<string, number> = {};
+const startupMark = (name: string) => {
+  startupMarks[name] = Math.round(performance.now());
+};
 /** Frames run by the current runtime instance (diagnostics). */
 let framesRun = 0;
 /** Runtime instances created/disposed in this document (tests check remount cleanup). */
@@ -218,6 +223,7 @@ export function startSackV2(
         bypass,
         inputBlocked: loadBlocked,
         frames: framesRun,
+        startup: startupMarks,
         player: at,
         sinceActivityMs: Math.round(performance.now() - loadActivity),
         longTasksMs: longTasks.slice(-12),
@@ -292,10 +298,14 @@ export function startSackV2(
     }, limit);
   }
   activeStop?.();
+  startupMark("buildWorld:start");
   const world = buildSlice();
+  startupMark("buildWorld:end");
   // Static batching: never-moving meshes merged per material per 40 m cell
   // (~8,400 meshes / draw calls was the main cause of the sluggish feel).
+  startupMark("staticBatch:start");
   const batched = [world.exterior, world.home, world.hq].map((g) => batchStatic(g));
+  startupMark("staticBatch:end");
   const circuit = buildRaceCircuit(world.scene);
   const veliTruck = buildVeliTruck(world.exterior);
   const veli = freshVeli();
@@ -1106,25 +1116,9 @@ export function startSackV2(
   let perfWorst = 0;
   if (perfOverlay) renderer.info.autoReset = false;
   const loop = (now: number) => {
-    // Build every material's shader now, interiors included, while the game loads,
-    // so walking into a new area never stalls while shaders compile.
-    {
-      const rooms = [
-        world.home,
-        world.hq,
-        (world as unknown as { haunt?: THREE.Object3D }).haunt,
-      ].filter((g): g is THREE.Object3D => !!g);
-      const was = rooms.map((g) => g.visible);
-      for (const g of rooms) g.visible = true;
-      try {
-        renderer.compile(world.scene, camera);
-      } catch {
-        /* best effort: shaders still compile lazily */
-      }
-      rooms.forEach((g, i) => (g.visible = was[i]!));
-    }
     frame = requestAnimationFrame(loop);
     framesRun++;
+    if (framesRun === 1) startupMark("firstFrame");
     const rawMs = now - last;
     const dt = Math.min(0.033, (now - last) / 1000);
     last = now;
@@ -1247,7 +1241,34 @@ export function startSackV2(
   } catch {
     /* a blocked history API must not stop the game */
   }
-  frame = requestAnimationFrame(loop);
+  /** Set by stop(): a torn-down game never starts its loop after the async compile. */
+  let stopped = false;
+  // Compile every material's shader ONCE at startup (interiors included), without
+  // blocking: compileAsync lets the driver compile in parallel and polls for completion,
+  // and the render loop starts when it's done. (This block previously sat INSIDE the
+  // loop by mistake and re-ran renderer.compile() every frame. And a synchronous compile
+  // only queues work — the first frame then froze for the whole driver compile.)
+  {
+    const rooms = [
+      world.home,
+      world.hq,
+      (world as unknown as { haunt?: THREE.Object3D }).haunt,
+    ].filter((g): g is THREE.Object3D => !!g);
+    const was = rooms.map((g) => g.visible);
+    for (const g of rooms) g.visible = true;
+    startupMark("shaderCompile:start");
+    const compiled = renderer.compileAsync
+      ? renderer.compileAsync(world.scene, camera)
+      : Promise.resolve(renderer.compile(world.scene, camera));
+    void compiled
+      .catch(() => undefined) // best effort: shaders still compile lazily
+      .then(() => {
+        startupMark("shaderCompile:end");
+        rooms.forEach((g, k) => (g.visible = was[k]!));
+        if (!stopped) frame = requestAnimationFrame(loop);
+      });
+  }
+
   push(hud());
 
   function hud(): HudState {
@@ -4164,6 +4185,7 @@ export function startSackV2(
 
   const stop = () => {
     runtimeLifecycle().disposed++;
+    stopped = true;
     if (activeStop === stop) activeStop = null;
     cancelAnimationFrame(frame);
     window.removeEventListener("keydown", kd);
