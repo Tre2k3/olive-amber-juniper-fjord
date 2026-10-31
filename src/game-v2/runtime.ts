@@ -259,7 +259,11 @@ export function startSackV2(
     const toReady = () => {
       if (state !== "loading") return;
       state = "ready";
-      history.push({ t: Math.round(performance.now() - t0), state, why: "all requests ended" });
+      history.push({
+        t: Math.round(performance.now() - t0),
+        state,
+        why: "all requests ended, first frame drawn",
+      });
       report({ loaded: 1, total: 1, done: true, state: "ready", failed: 0 });
     };
     mgr.onProgress = (_url, loaded, total) => {
@@ -282,7 +286,14 @@ export function startSackV2(
         window.clearInterval(check);
         return;
       }
-      if (last.total > 0 && loadPending.size === 0 && performance.now() - loadActivity > 300)
+      // Ready = every request ended AND the world has been drawn at least once (otherwise the
+      // screen would fade onto a blank canvas while textures are still uploading).
+      if (
+        last.total > 0 &&
+        loadPending.size === 0 &&
+        framesRun > 0 &&
+        performance.now() - loadActivity > 300
+      )
         toReady();
     }, 250);
     const limit = Number(new URLSearchParams(window.location.search).get("loadTimeout")) || 90000;
@@ -1266,9 +1277,37 @@ export function startSackV2(
       : Promise.resolve(renderer.compile(world.scene, camera));
     void compiled
       .catch(() => undefined) // best effort: shaders still compile lazily
-      .then(() => {
+      .then(async () => {
         startupMark("shaderCompile:end");
         rooms.forEach((g, k) => (g.visible = was[k]!));
+        // Upload textures to the GPU in ~12 ms slices (yielding between them) instead of
+        // all on the first frame, which was one multi-second main-thread task. Textures
+        // still downloading upload on first use, as before.
+        startupMark("textureUpload:start");
+        const textures = new Set<THREE.Texture>();
+        world.scene.traverse((o) => {
+          const m = (o as THREE.Mesh).material;
+          for (const mat of Array.isArray(m) ? m : m ? [m] : [])
+            for (const v of Object.values(mat))
+              if ((v as THREE.Texture | null)?.isTexture) textures.add(v as THREE.Texture);
+        });
+        const list = [...textures];
+        let uploaded = 0;
+        for (let i = 0; i < list.length && !stopped;) {
+          const until = performance.now() + 12;
+          while (i < list.length && performance.now() < until) {
+            const tex = list[i++]!;
+            const img = tex.image as { width?: number } | undefined;
+            if (img && (img.width ?? 0) > 0) {
+              renderer.initTexture(tex);
+              uploaded++;
+            }
+          }
+          await new Promise((done) => window.setTimeout(done, 0));
+        }
+        startupMark("textureUpload:end");
+        startupMarks.texturesUploaded = uploaded;
+        startupMarks.texturesFound = list.length;
         if (!stopped) frame = requestAnimationFrame(loop);
       });
   }
