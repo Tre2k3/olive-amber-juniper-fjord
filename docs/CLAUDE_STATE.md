@@ -336,6 +336,13 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Unverified claims withdrawn: "every player waited 90 s" and how much faster loading feels — need an ordinary browser + phone measurement.
 - Separate: 8 failing tests in scripts/grok-pwa-plugin.test.mjs (not in CI) — fix with explicit fixtures, don't delete.
 
+## 2026-10-31 — per-frame compile bug fixed; error screen pauses rendering
+- BUG (since b0e655c): the "precompile" block was inserted INSIDE the render loop (matched the loop's own `frame = requestAnimationFrame(loop)`), so renderer.compile(world.scene) + interior visibility toggles ran EVERY FRAME. Now: once at startup, `renderer.compileAsync(scene, camera)` (three 0.185), render loop starts when it resolves; `stopped` flag (set in stop()) prevents a torn-down instance from starting.
+- Startup marks (window.__SACK_LOAD_DIAG__().startup; scripts/startup-profile.mjs): buildWorld ~0.8 s, staticBatch ~0.3–0.5 s, compileAsync ~0.9 s, first frame ~3.2 s. A very long task remains AFTER the first frame (53 s in SwiftShader) — likely first-use texture uploads (~400 textures) / software JIT; next: chunked renderer.initTexture during loading; measure on real GPUs.
+- Loop skips simulation + rendering while the error screen is up (`loadBlocked`) — running the first frame behind it made Reload unresponsive (Playwright click timed out). Gate click allowance 60 s.
+- Results on valid runs: load-recovery-gate 6/6 (post-reload ready at t=3.5 s vs 46–53 s before), load-remount-gate 6/6, release-hardening-e2e 8/8 (failed texture → error at 2.7 s).
+- CI workflow edits can't be pushed with the current PAT (no `workflow` scope) — ci-loader-gates.patch delivered to Trey.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

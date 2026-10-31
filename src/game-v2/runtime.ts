@@ -1117,6 +1117,10 @@ export function startSackV2(
   if (perfOverlay) renderer.info.autoReset = false;
   const loop = (now: number) => {
     frame = requestAnimationFrame(loop);
+    // Error screen up: no simulation or rendering behind it (it covers the game). The
+    // first frame is the most expensive work on the thread; running it behind the error
+    // made the Reload button unresponsive.
+    if (loadBlocked) return;
     framesRun++;
     if (framesRun === 1) startupMark("firstFrame");
     const rawMs = now - last;

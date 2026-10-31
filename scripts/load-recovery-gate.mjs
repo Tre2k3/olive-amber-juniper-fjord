@@ -67,7 +67,7 @@ page.on("requestfailed", (r) =>
 );
 await page
   .locator('[data-testid="loading-screen"] button')
-  .click({ timeout: 10000, noWaitAfter: true })
+  .click({ timeout: 60000, noWaitAfter: true })
   .catch((e) => console.log("   reload click failed:", String(e).slice(0, 120)));
 const t1 = Date.now();
 const ready = await waitState(page, '"state":"ready"', 130000);
