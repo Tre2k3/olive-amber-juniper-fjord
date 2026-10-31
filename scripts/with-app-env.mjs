@@ -19,8 +19,9 @@
  * Vite picks the values up because `loadEnv` prefix-matches entries already in
  * `process.env`, which is why the merge has to happen before Vite starts.
  */
+import { execSync } from "node:child_process";
 import { spawn } from "node:child_process";
-import { readFileSync, realpathSync } from "node:fs";
+import { readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { constants as osConstants } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -111,6 +112,41 @@ function main(argv) {
     process.exit(2);
   }
   const env = mergeAppEnv(readAppEnv(projectRoot()), process.env);
+  // Release builds never load Grok's app-builder script into the game page unless a
+  // deployer explicitly sets VITE_GROK_EXTENSIONS=1 (the plugin's own default stays on
+  // for the dev tutorial; the game now runs on play.10letters.store).
+  if (env.VITE_GROK_EXTENSIONS === undefined) env.VITE_GROK_EXTENSIONS = "0";
+  // Build identity: commit + version + time, baked into the bundle (VITE_BUILD_SHA)
+  // and written to public/release.json for ops.
+  {
+    const sha =
+      env.VERCEL_GIT_COMMIT_SHA ||
+      (() => {
+        try {
+          return execSync("git rev-parse HEAD", {
+            cwd: projectRoot(),
+            stdio: ["ignore", "pipe", "ignore"],
+          })
+            .toString()
+            .trim();
+        } catch {
+          return "unknown";
+        }
+      })();
+    const pkg = JSON.parse(readFileSync(join(projectRoot(), "package.json"), "utf8"));
+    const manifest = {
+      name: pkg.name,
+      version: pkg.version,
+      commit: sha,
+      builtAt: new Date().toISOString(),
+    };
+    env.VITE_BUILD_SHA = sha.slice(0, 7);
+    env.VITE_BUILD_TIME = manifest.builtAt;
+    writeFileSync(
+      join(projectRoot(), "public/release.json"),
+      JSON.stringify(manifest, null, 2) + "\n",
+    );
+  }
   const child = spawn(command, args, { stdio: "inherit", env });
   // The dev server is long-running and is stopped by signalling this wrapper.
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {

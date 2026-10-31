@@ -104,27 +104,45 @@ type Car = { lane: number; s: number; speed: number; mesh: THREE.Group };
 const SAVE_KEY = "sack-v2";
 let activeStop: (() => void) | null = null;
 
-export type LoadProgress = { loaded: number; total: number; done: boolean };
+export type LoadProgress = {
+  loaded: number;
+  total: number;
+  done: boolean;
+  failed?: number;
+  timedOut?: boolean;
+};
 export function startSackV2(
   canvas: HTMLCanvasElement,
   push: (hud: HudState) => void,
   onLoading?: (p: LoadProgress) => void,
 ): () => void {
+  console.info(
+    `$ackReligious Memphis build ${import.meta.env.VITE_BUILD_SHA ?? "dev"} (${import.meta.env.VITE_BUILD_TIME ?? "local"})`,
+  );
   // Startup progress for the loading screen: every texture/model goes through
   // three's default loading manager. Done when it first drains (or after 90 s).
   {
     const mgr = THREE.DefaultLoadingManager;
     let finished = false;
-    const finish = () => {
+    let failed = 0;
+    let last = { loaded: 0, total: 0 };
+    const finish = (timedOut: boolean) => {
       if (finished) return;
       finished = true;
-      onLoading?.({ loaded: 1, total: 1, done: true });
+      // A timeout never certifies success: report what is still missing.
+      const missing = timedOut ? Math.max(failed, last.total - last.loaded) : failed;
+      onLoading?.({ loaded: 1, total: 1, done: true, failed: missing, timedOut });
     };
     mgr.onProgress = (_url, loaded, total) => {
-      if (!finished) onLoading?.({ loaded, total, done: false });
+      last = { loaded, total };
+      if (!finished) onLoading?.({ loaded, total, done: false, failed });
     };
-    mgr.onLoad = finish;
-    window.setTimeout(finish, 90000);
+    mgr.onError = (url) => {
+      failed++;
+      console.warn("asset failed to load:", url);
+    };
+    mgr.onLoad = () => finish(false);
+    window.setTimeout(() => finish(true), 90000);
   }
   activeStop?.();
   const world = buildSlice();
@@ -972,7 +990,7 @@ export function startSackV2(
       perfFrames++;
       perfWorst = Math.max(perfWorst, rawMs);
       if (perfAcc >= 500) {
-        perfOverlay.textContent = `${Math.round((1000 * perfFrames) / perfAcc)} fps · avg ${(perfAcc / perfFrames).toFixed(1)} ms · worst ${perfWorst.toFixed(0)} ms · draws ${renderer.info.render.calls} · ${Math.round(renderer.info.render.triangles / 1000)}k tris · res ${Math.round(renderScale * 100)}%${renderer.shadowMap.autoUpdate ? "" : " · shadows ½"}${bloomAllowed && !bloom.enabled ? " · no glow" : ""} · ${quality.lowPower ? "light mode · " : ""}${gpuName}`;
+        perfOverlay.textContent = `${Math.round((1000 * perfFrames) / perfAcc)} fps · avg ${(perfAcc / perfFrames).toFixed(1)} ms · worst ${perfWorst.toFixed(0)} ms · draws ${renderer.info.render.calls} · ${Math.round(renderer.info.render.triangles / 1000)}k tris · res ${Math.round(renderScale * 100)}%${renderer.shadowMap.autoUpdate ? "" : " · shadows ½"}${bloomAllowed && !bloom.enabled ? " · no glow" : ""} · ${quality.lowPower ? "light mode · " : ""}${gpuName} · build ${import.meta.env.VITE_BUILD_SHA ?? "dev"}`;
         perfAcc = 0;
         perfFrames = 0;
         perfWorst = 0;

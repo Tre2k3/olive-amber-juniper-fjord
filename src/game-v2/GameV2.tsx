@@ -34,7 +34,13 @@ export function GameV2() {
   // Loading screen (skipped for ?qa=1 test runs so CI is unchanged).
   const qa =
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("qa") === "1";
-  const [load, setLoad] = useState<{ loaded: number; total: number; done: boolean }>({
+  const [load, setLoad] = useState<{
+    loaded: number;
+    total: number;
+    done: boolean;
+    failed?: number;
+    timedOut?: boolean;
+  }>({
     loaded: 0,
     total: 0,
     done: qa,
@@ -85,8 +91,8 @@ export function GameV2() {
       />
       <div
         data-testid="loading-screen"
-        aria-hidden={load.done}
-        className={`pointer-events-none fixed inset-0 z-[80] flex flex-col items-center justify-center bg-[#071018] transition-opacity duration-700 ${load.done ? "opacity-0" : "opacity-100"}`}
+        aria-hidden={load.done && !(load.failed ?? 0)}
+        className={`pointer-events-none fixed inset-0 z-[80] flex flex-col items-center justify-center bg-[#071018] transition-opacity duration-700 ${load.done && !(load.failed ?? 0) ? "opacity-0" : "opacity-100"}`}
       >
         <div className="text-2xl font-black tracking-[0.2em] text-[#e0b33a] sm:text-4xl">
           $ACKRELIGIOUS
@@ -100,6 +106,21 @@ export function GameV2() {
             }}
           />
         </div>
+        {load.done && (load.failed ?? 0) > 0 && (
+          <div className="pointer-events-auto mt-4 flex flex-col items-center gap-2 rounded-lg bg-[#2a1313] px-4 py-3 text-xs text-[#f4efe4]">
+            <div>
+              {load.timedOut ? "Still waiting on" : "Couldn't load"} {load.failed} file
+              {load.failed === 1 ? "" : "s"} — slow or blocked connection?
+            </div>
+            <button
+              type="button"
+              className="rounded border border-[#e0b33a] px-3 py-1 text-[#e0b33a]"
+              onClick={() => window.location.reload()}
+            >
+              Reload
+            </button>
+          </div>
+        )}
         <div className="mt-3 text-xs text-[#f4efe4aa]">
           {load.total
             ? `Loading Memphis… ${Math.round((100 * load.loaded) / Math.max(1, load.total))}%`

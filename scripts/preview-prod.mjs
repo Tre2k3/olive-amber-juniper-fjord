@@ -5,10 +5,13 @@ import { createServer } from "node:http";
 import { extname, join, normalize, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+// Never inject Grok's app-builder script in the offline/desktop copy (set to "1" to opt in).
+if (process.env.VITE_GROK_EXTENSIONS === undefined) process.env.VITE_GROK_EXTENSIONS = "0";
 const root = resolve(process.cwd());
 const staticDir = resolve(root, ".vercel/output/static");
 const entry = resolve(root, ".vercel/output/functions/__server.func/index.mjs");
-const host = "0.0.0.0";
+// Loopback by default (desktop/offline copy); set HOST=0.0.0.0 to host for the LAN.
+const host = process.env.HOST || "127.0.0.1";
 const port = Number(process.env.PORT || 8080);
 
 const MIME = {
@@ -38,8 +41,14 @@ if (typeof fetchHandler !== "function") {
   throw new Error("Production server entry does not export fetch()");
 }
 
+const BAD_REQUEST = Symbol("bad-request");
 function fileFromUrl(urlPath) {
-  const pathname = decodeURIComponent((urlPath || "/").split("?")[0] || "/");
+  let pathname;
+  try {
+    pathname = decodeURIComponent((urlPath || "/").split("?")[0] || "/");
+  } catch {
+    return BAD_REQUEST; // malformed percent-encoding: a plain 400, never a stack trace
+  }
   const full = normalize(join(staticDir, pathname));
   if (full !== staticDir && !full.startsWith(`${staticDir}/`)) return null;
   return full;
@@ -48,6 +57,11 @@ function fileFromUrl(urlPath) {
 const server = createServer(async (req, res) => {
   try {
     const filePath = fileFromUrl(req.url || "/");
+    if (filePath === BAD_REQUEST) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("Bad request");
+      return;
+    }
     if (filePath) {
       try {
         const info = await stat(filePath);

@@ -8,4 +8,4 @@ artifacts/
 .vercel/
 dist/
 production-reference/
-
+public/release.json
