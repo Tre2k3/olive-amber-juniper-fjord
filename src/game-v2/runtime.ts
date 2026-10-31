@@ -32,7 +32,7 @@ import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { createRenderQuality } from "./core/render-quality";
 import type { Facing, HudState, Place, Solid, V2Public } from "./core/types";
 import { productionLanes, sampleLane, gapAhead, type Lane } from "./roads/lanes";
-import { createSaveWriter } from "./core/persistence";
+import { BACKUP_KEY, createSaveWriter, loadSave, SAVE_KEY } from "./core/persistence";
 import { pullCamera } from "./core/camera-collision";
 import { canWalkHaunt, hauntFloorAt } from "./core/haunt-navigation";
 import { cameraFraming } from "./core/camera-framing";
@@ -101,7 +101,7 @@ import {
 
 type Car = { lane: number; s: number; speed: number; mesh: THREE.Group };
 
-const SAVE_KEY = "sack-v2";
+// SAVE_KEY / BACKUP_KEY live in core/persistence.ts.
 let activeStop: (() => void) | null = null;
 
 let loadToken = 0;
@@ -864,7 +864,18 @@ export function startSackV2(
   player.userData.heading = Math.PI / 2;
 
   try {
-    const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "null") as {
+    // Versioned save: legacy saves migrate, a damaged save recovers from the backup.
+    const read = loadSave(typeof localStorage === "undefined" ? null : localStorage);
+    if (read.source === "backup")
+      window.setTimeout(
+        () => say("Your last save was damaged — progress was restored from a backup.", 6),
+        1500,
+      );
+    if (read.newer)
+      console.warn(
+        "This save comes from a newer version of the game; loading what this version understands.",
+      );
+    const saved = read.data as {
       dollars?: number;
       respect?: number;
       carrying?: boolean;
@@ -1116,7 +1127,12 @@ export function startSackV2(
   resize();
   window.addEventListener("resize", resize);
 
-  const save = createSaveWriter((value) => localStorage.setItem(SAVE_KEY, value));
+  const save = createSaveWriter((value) => localStorage.setItem(SAVE_KEY, value), {
+    backup: (value) => localStorage.setItem(BACKUP_KEY, value),
+    // Visible, once: the player should know progress isn't being kept.
+    onFail: () =>
+      say("Heads up: this browser isn't letting the game save (private mode or full storage).", 6),
+  });
   let captureFrozen = false;
   /** One frame's worth of input edges. Shared by the render loop and the headless simulate hook. */
   function pollInput() {

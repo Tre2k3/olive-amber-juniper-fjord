@@ -64,7 +64,8 @@ const writes = [];
 const save = createSaveWriter(value => writes.push(value));
 save({ dollars: 240 }); save({ dollars: 240 }); save({ dollars: 250 });
 assert.equal(writes.length, 2);
-assert.deepEqual(JSON.parse(writes[1]), { dollars: 250 });
+assert.deepEqual(JSON.parse(writes[1]).data, { dollars: 250 }); // versioned envelope { v, savedAt, data }
+assert.equal(JSON.parse(writes[1]).v, 2);
 let failures = 0, warnings = 0;
 const originalWarn = console.warn;
 try {
@@ -545,4 +546,46 @@ console.log('PASS: separate defensive assignments, rebound pursuit and non-telep
   const summary = (run.stdout || '').split('\n').filter((l) => /^# (pass|fail)/.test(l)).join(' · ');
   assert.equal(run.status, 0, `grok-pwa plugin tests failed: ${summary}\n${(run.stdout || '').split('\n').filter((l) => /^not ok/.test(l)).join('\n')}`);
   console.log(`PASS: grok-pwa plugin tests (${summary})`);
+}
+
+// ---- save protection: versioning, migration, recovery, backup, import ----
+{
+  const p = await load('../src/game-v2/core/persistence.ts');
+  const mem = (init = {}) => { const m = { ...init }; return { getItem: (k) => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); }, m }; };
+  // legacy (un-versioned) save migrates
+  let r = p.loadSave(mem({ 'sack-v2': JSON.stringify({ dollars: 300, mission: 'Talk to K Blanco' }) }));
+  assert.equal(r.source, 'save'); assert.equal(r.migrated, true); assert.equal(r.data.dollars, 300);
+  // versioned round-trip
+  r = p.loadSave(mem({ 'sack-v2': p.wrapSave({ dollars: 12 }) }));
+  assert.equal(r.migrated, false); assert.equal(r.data.dollars, 12);
+  // corrupt save falls back to the backup
+  r = p.loadSave(mem({ 'sack-v2': '{broken', 'sack-v2-backup': p.wrapSave({ dollars: 99 }) }));
+  assert.equal(r.source, 'backup'); assert.equal(r.corrupt, true); assert.equal(r.data.dollars, 99);
+  // corrupt with no backup: nothing loaded, flagged, never throws
+  r = p.loadSave(mem({ 'sack-v2': 'null' })); assert.equal(r.data, null); assert.equal(r.corrupt, true);
+  assert.doesNotThrow(() => p.loadSave({ getItem() { throw new Error('blocked'); }, setItem() {} }));
+  // sanitising: bad numbers dropped, money clamped, wrong types removed
+  const clean = p.sanitizeSave({ dollars: 1e12, respect: -5, bait: 'x', mission: 7, cooler: 'no' });
+  assert.equal(clean.dollars, 10000000); assert.equal(clean.respect, 0); assert.ok(!('bait' in clean)); assert.ok(!('mission' in clean)); assert.ok(!('cooler' in clean));
+  // a save from a newer game version is flagged (loaded best-effort)
+  assert.equal(p.parseSave(JSON.stringify({ v: 9, data: { dollars: 1 } })).newer, true);
+  // backup refreshed from the last good save, at most once a minute
+  let t = 0; const writes2 = [], backups = [];
+  const w = p.createSaveWriter((v) => writes2.push(v), { backup: (v) => backups.push(v), now: () => t });
+  w({ dollars: 1 }); t = 1000; w({ dollars: 2 }); t = 2000; w({ dollars: 3 }); t = 70000; w({ dollars: 4 });
+  assert.equal(writes2.length, 4); assert.equal(backups.length, 2);
+  assert.equal(JSON.parse(backups[0]).data.dollars, 1); assert.equal(JSON.parse(backups[1]).data.dollars, 3);
+  // failing storage tells the caller once (for a visible warning)
+  let told = 0; const origWarn = console.warn; console.warn = () => {};
+  try { const f = p.createSaveWriter(() => { throw new Error('full'); }, { onFail: () => told++ }); f({ a: 1 }); f({ a: 2 }); } finally { console.warn = origWarn; }
+  assert.equal(told, 1);
+  // import validates first and keeps the old save as the backup
+  const store = mem({ 'sack-v2': p.wrapSave({ dollars: 5 }) });
+  assert.equal(p.importSave(store, 'not json').ok, false);
+  assert.equal(store.m['sack-v2'], p.wrapSave({ dollars: 5 }).replace(/"savedAt":"[^"]*"/, store.m['sack-v2'].match(/"savedAt":"[^"]*"/)[0]));
+  assert.equal(p.importSave(store, JSON.stringify({ v: 2, data: { dollars: 77 } })).ok, true);
+  assert.equal(p.loadSave(store).data.dollars, 77); assert.equal(JSON.parse(store.m['sack-v2-backup']).data.dollars, 5);
+  // export produces an importable file
+  assert.equal(p.importSave(mem(), p.exportSave(store)).ok, true);
+  console.log('PASS: saves are versioned, legacy saves migrate, corrupt saves recover from backup, imports validate first');
 }

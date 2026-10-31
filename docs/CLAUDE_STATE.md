@@ -356,6 +356,12 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - QA hook courtHoop(). scripts/basketball-controls-e2e.mjs 8/8 (keyboard dunk/layup, too-far message, gamepad RB, facing L/R with ball = back/back vs without = left/right, touch tap dunks, mouse click ignored on touch device, no DUNK button on desktop).
 - CI: loader gates spawn with SMOKE_HEADED=0 inside the reliability step (no xvfb there).
 
+## 2026-10-31 — save protection; hydration fix; more suites in CI
+- core/persistence.ts: versioned envelope {v:2, savedAt, data}; parseSave migrates legacy (un-versioned) saves; sanitizeSave drops wrong types, clamps money/respect ≤ 10M and counters ≥ 0; loadSave falls back to BACKUP_KEY ("sack-v2-backup") when the save is corrupt; createSaveWriter refreshes the backup from the last good save at most once a minute and calls onFail once; exportSave/importSave (validates first, keeps the old save as backup). Runtime: loadSave on start ("restored from a backup" note via say), writer onFail → visible "this browser isn't letting the game save". Pause menu: Export save (JSON download) / Import save (file input → reload). Core tests 32 (save suite added; writer test now reads the envelope's data).
+- NOTE: saving + HUD pushes run in the render loop, which starts after compileAsync + texture upload — tests that judge saves/HUD must wait for __SACK_LOAD_DIAG__().frames > 0.
+- React #418 (hydration mismatch) on touch devices / with mouse controls: on-screen controls rendered in the first client render (server can't know). Fix: Hud `touchUi` state set in useEffect after hydration. scripts/hydration-e2e.mjs (phone touch + narrow desktop w/ mouse controls: no page errors, SHOT shown).
+- CI hook (runtime-reliability-smoke.mjs) now runs: load-recovery-gate, load-remount-gate, release-hardening-e2e, save-protection-e2e (4/4), basketball-controls-e2e (8/8), hydration-e2e (2/2) — headless, 8-min cap each.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

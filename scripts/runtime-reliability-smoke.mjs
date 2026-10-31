@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process";
 // SMOKE_HEADED=1 would otherwise make Chromium exit). Any gate failure fails this step.
 // SKIP_LOADER_GATES=1 skips.
 if (process.env.SKIP_LOADER_GATES !== "1") {
-  for (const gate of ["load-recovery-gate.mjs", "load-remount-gate.mjs", "release-hardening-e2e.mjs"]) {
+  for (const gate of ["load-recovery-gate.mjs", "load-remount-gate.mjs", "release-hardening-e2e.mjs", "save-protection-e2e.mjs", "basketball-controls-e2e.mjs", "hydration-e2e.mjs"]) {
     console.log(`\n=== loader gate: ${gate} ===`);
     const started = Date.now();
     const run = spawnSync(process.execPath, [new URL(`./${gate}`, import.meta.url).pathname], { stdio: "inherit", env: { ...process.env, SMOKE_HEADED: "0" }, timeout: 8 * 60 * 1000 });

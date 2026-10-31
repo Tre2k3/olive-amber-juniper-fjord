@@ -1,5 +1,6 @@
 import { ShopPanel } from "./ShopPanel";
-import { useState, type PointerEvent } from "react";
+import { useEffect, useState, type PointerEvent } from "react";
+import { exportSave, importSave } from "../core/persistence";
 import type { HudState } from "../core/types";
 import { characters } from "../assets/characters";
 import "./hud.css";
@@ -45,6 +46,10 @@ export function Hud({
   night: () => void;
   action: (code: string) => void;
 }) {
+  // Decided after hydration: the server can't know about touch/mouse settings, so the
+  // first client render must match it (rendering controls immediately caused React #418).
+  const [touchUi, setTouchUi] = useState(false);
+  useEffect(() => setTouchUi(touchDevice() || mouseControlsEnabled()), []);
   return (
     <div
       className="memphis-hud pointer-events-none absolute inset-0 text-[#f4efe4]"
@@ -207,7 +212,7 @@ export function Hud({
           ))}
         </div>
       )}
-      {(touchDevice() || mouseControlsEnabled()) && (
+      {touchUi && (
         <>
           <div className="pointer-events-auto absolute bottom-4 left-4 h-28 w-28 sm:hidden">
             <Stick />
@@ -657,6 +662,38 @@ function PauseMenu({ muted, action }: { muted: boolean; action: (code: string) =
           >
             Resume
           </button>
+          <button
+            type="button"
+            data-testid="save-export"
+            onClick={() => {
+              const text = exportSave(window.localStorage);
+              if (!text) return;
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+              a.download = `sackreligious-save-${new Date().toISOString().slice(0, 10)}.json`;
+              a.click();
+              window.setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+            }}
+            className="rounded-md border border-[#f4efe433] px-4 py-2 text-sm"
+          >
+            Export save
+          </button>
+          <label className="cursor-pointer rounded-md border border-[#f4efe433] px-4 py-2 text-center text-sm">
+            Import save
+            <input
+              type="file"
+              accept="application/json,.json"
+              data-testid="save-import"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const result = importSave(window.localStorage, await file.text());
+                if (result.ok) window.location.reload();
+                else window.alert(result.reason);
+              }}
+            />
+          </label>
           <button
             type="button"
             onClick={() => action("SoundToggle")}
