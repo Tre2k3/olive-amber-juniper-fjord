@@ -6,6 +6,36 @@ import "./hud.css";
 import { FOOD_VENDORS, type FoodVendor } from "../play/food-court";
 import { VELI_MENU, VELI_FLAVORS } from "../play/veli";
 
+/**
+ * On-screen game controls respond to touch/pen only, unless mouse controls are explicitly
+ * enabled (?mouse=1, localStorage "sack-mouse-controls" = "1", or the test helper's
+ * window.__SACK_MOUSE_CONTROLS__). Mouse camera-drag is unaffected.
+ */
+export function mouseControlsEnabled(): boolean {
+  if (typeof window === "undefined") return false;
+  if ((window as unknown as { __SACK_MOUSE_CONTROLS__?: boolean }).__SACK_MOUSE_CONTROLS__ === true)
+    return true;
+  if (new URLSearchParams(window.location.search).get("mouse") === "1") return true;
+  try {
+    return window.localStorage.getItem("sack-mouse-controls") === "1";
+  } catch {
+    return false;
+  }
+}
+const touchDevice = () =>
+  typeof window !== "undefined" &&
+  ((window.matchMedia?.("(pointer: coarse)").matches ?? false) ||
+    (navigator.maxTouchPoints ?? 0) > 0);
+/** True when this pointer event may drive a game action. */
+const actionPointer = (e: { pointerType?: string; nativeEvent?: Event }) => {
+  // Keyboard-activated clicks report pointerType "" and are always allowed.
+  const type =
+    e.pointerType ??
+    (e.nativeEvent as (Event & { pointerType?: string }) | undefined)?.pointerType ??
+    "mouse";
+  return type !== "mouse" || mouseControlsEnabled();
+};
+
 export function Hud({
   state,
   night,
@@ -170,25 +200,37 @@ export function Hud({
               key={code}
               type="button"
               className="min-h-11 rounded border border-[#e0b33a77] bg-[#0d0d0dee] px-2 text-[10px]"
-              onClick={() => action(code!)}
+              onClick={(e) => actionPointer(e) && action(code!)}
             >
               {label}
             </button>
           ))}
         </div>
       )}
-      <div className="pointer-events-auto absolute bottom-4 left-4 h-28 w-28 sm:hidden">
-        <Stick />
-      </div>
-      <div className="pointer-events-auto absolute bottom-4 right-4 flex flex-col gap-2 sm:hidden">
-        <Round label="N" onPointerDown={night} />
-        <Round label="E" onPointerDown={() => action("KeyE")} />
-        <Round
-          label={state.activity === "race" ? "DRIFT" : state.activity === "bowl" ? "ROLL" : "SHOT"}
-          onPointerDown={() => action("SpaceDown")}
-          onPointerUp={() => action("SpaceUp")}
-        />
-      </div>
+      {(touchDevice() || mouseControlsEnabled()) && (
+        <>
+          <div className="pointer-events-auto absolute bottom-4 left-4 h-28 w-28 sm:hidden">
+            <Stick />
+          </div>
+          <div className="pointer-events-auto absolute bottom-4 right-4 flex flex-col gap-2 sm:hidden">
+            <Round label="N" onPointerDown={night} />
+            <Round label="E" onPointerDown={() => action("KeyE")} />
+            {state.place === "court" && !state.basketball && (
+              <>
+                <Round label="DUNK" onPointerDown={() => action("KeyV")} />
+                <Round label="LAYUP" onPointerDown={() => action("KeyL")} />
+              </>
+            )}
+            <Round
+              label={
+                state.activity === "race" ? "DRIFT" : state.activity === "bowl" ? "ROLL" : "SHOT"
+              }
+              onPointerDown={() => action("SpaceDown")}
+              onPointerUp={() => action("SpaceUp")}
+            />
+          </div>
+        </>
+      )}
       <div className="absolute bottom-3 right-4 hidden text-[11px] tracking-wide text-[#f4efe4aa] sm:block">
         {state.activity === "race"
           ? state.gamepad
@@ -199,7 +241,9 @@ export function Hud({
               ? "Left stick move · X shoot · Y pass · LB cross · RB dunk · LT layup · A steal · Start exit"
               : "WASD move · Space shot · B camera · F pass · C cross · V dunk · L layup · E steal · Esc exit"
             : state.place === "court"
-              ? "WASD move · Space shot · B camera · E interact"
+              ? state.gamepad
+                ? "Left stick move · X shoot · RB dunk · LT layup · R3 camera · A interact"
+                : "WASD move · Space shot · V dunk · L layup · B camera · E interact"
               : state.gamepad
                 ? "Left stick move · Right stick camera · A interact · X hold to shoot · RT run · B back · Start menu"
                 : "Arrows / WASD move · Q/R orbit · drag or swipe camera · E interact · Space shoot · Shift run"}
@@ -324,6 +368,7 @@ function Round({
       type="button"
       className="h-14 w-14 touch-none rounded-full border border-[#e0b33a] bg-[#0d0d0de6] text-xs font-semibold"
       onPointerDown={(e) => {
+        if (!actionPointer(e)) return;
         e.preventDefault();
         e.currentTarget.setPointerCapture(e.pointerId);
         onPointerDown();
@@ -342,6 +387,7 @@ function Stick() {
     <div
       className="relative h-full w-full touch-none rounded-full border border-[#e0b33a88] bg-[#0d0d0d99]"
       onPointerDown={(e) => {
+        if (!actionPointer(e)) return;
         e.currentTarget.setPointerCapture(e.pointerId);
         moveStick(e);
       }}

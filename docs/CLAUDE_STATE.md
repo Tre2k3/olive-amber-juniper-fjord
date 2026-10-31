@@ -349,6 +349,13 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Texture upload in ~12 ms slices before the first frame; ready = all requests ended AND first frame drawn. Loader suite 8/8 (stalled case now "Still waiting on 1 file").
 - CI durations before the compile fix: 20.6–37.8 min (cap 40) — watch the next runs' duration with the gates added.
 
+## 2026-10-31 — basketball controls (Trey: face the goal when dribbling; shoot/dunk on keyboard, touch, gamepad; no mouse unless explicitly set)
+- Facing: free play — whenever Benji holds the ball on the court he faces the hoop (was only while charging). Matches (core/basketball-match.ts) — the human athlete faces the attacked rim while owning the ball (hoops[half ? 0 : 1]); AI dribblers face their rim; non-ball movement still faces travel.
+- Free-play finishes: `freePlayFinish("dunk"|"layup")` — V/L keys, gamepad RB/LT (PAD_COURT_KEYS now also when place==="court" && ballHeld), touch DUNK/LAYUP round buttons. Reuses shotVelocity at the perfect release (0.7); dunk = ball placed just above the rim with downward velocity; reach 2.4 m dunk / 4.2 m layup, else say("Get under the rim…"/"Get closer…").
+- Mouse policy (Hud.tsx): on-screen game controls act only for touch/pen (keyboard-activated clicks report pointerType "" and are allowed) unless mouse controls are explicitly enabled: ?mouse=1, localStorage "sack-mouse-controls"="1", or window.__SACK_MOUSE_CONTROLS__ (set by smoke-lib preparePage; opt out with { mouseControls: false }). Stick/round buttons render only on touch devices (pointer:coarse / maxTouchPoints) or with mouse controls on. Mouse camera-drag unchanged.
+- QA hook courtHoop(). scripts/basketball-controls-e2e.mjs 8/8 (keyboard dunk/layup, too-far message, gamepad RB, facing L/R with ball = back/back vs without = left/right, touch tap dunks, mouse click ignored on touch device, no DUNK button on desktop).
+- CI: loader gates spawn with SMOKE_HEADED=0 inside the reliability step (no xvfb there).
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

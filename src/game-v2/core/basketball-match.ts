@@ -260,6 +260,11 @@ export function tickCourtMatch(
     if (match.dunk < 0 && match.layup < 0) {
       p.x = clamp(human.x, match.mode === "half" ? 56 : 56, match.mode === "half" ? 66 : 76);
       p.z = clamp(human.z, -28, -16);
+      // Holding the ball, the player faces the rim they attack (not their movement).
+      if (match.owner === 0) {
+        const goal = hoops[match.mode === "half" ? 0 : 1]!;
+        p.heading = Math.atan2(goal.x - p.x, goal.z - p.z);
+      }
     }
     match.clock -= dt;
     if (match.clock <= 0 && match.owner >= 0)
@@ -319,7 +324,9 @@ export function tickCourtMatch(
         const step = Math.min(length, dt * (match.owner === i ? 4.9 : 5.6));
         athlete.x = clamp(athlete.x + (dx / length) * step, 56, match.mode === "half" ? 66 : 76);
         athlete.z = clamp(athlete.z + (dz / length) * step, -28, -16);
-        athlete.heading = Math.atan2(dx, dz);
+        // A dribbler faces the rim; everyone else faces where they run.
+        athlete.heading =
+          match.owner === i ? Math.atan2(rim.x - athlete.x, rim.z - athlete.z) : Math.atan2(dx, dz);
         athlete.action = match.owner === i ? "dribble" : "run";
       }
       if (match.owner === i && match.cleared && match.actionLeft <= 0 && match.time % 2.5 < dt) {

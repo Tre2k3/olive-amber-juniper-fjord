@@ -766,7 +766,14 @@ export function startSackV2(
       startCourtMatch(code === "KeyG" ? "half" : "full");
       return true;
     }
-    if (!courtMatch) return false;
+    if (!courtMatch) {
+      // Free shootaround: dunk (V / RB / DUNK) and layup (L / LT / LAYUP) near the rim.
+      if (place === "court" && ballHeld && (code === "KeyV" || code === "KeyL")) {
+        freePlayFinish(code === "KeyV" ? "dunk" : "layup");
+        return true;
+      }
+      return false;
+    }
     if (code === "Escape") {
       endCourtMatch();
       return true;
@@ -788,6 +795,36 @@ export function startSackV2(
       return true;
     }
     return false;
+  }
+
+  /** Free-play dunk/layup: the real shot physics at the perfect release (charge 0.7). */
+  function freePlayFinish(kind: "dunk" | "layup") {
+    const d = Math.hypot(world.hoop.x - player.position.x, world.hoop.z - player.position.z);
+    const reach = kind === "dunk" ? 2.4 : 4.2;
+    if (d > reach) {
+      say(
+        kind === "dunk" ? "Get under the rim to dunk." : "Get closer to the rim for a layup.",
+        1.6,
+      );
+      return;
+    }
+    if (kind === "dunk") {
+      // The ball goes straight through from just above the rim.
+      ball.position.set(world.hoop.x, world.hoop.y + 0.32, world.hoop.z);
+      ballVel.set(0, -2.2, 0);
+    } else {
+      const release = shotVelocity(ball.position, world.hoop, 0.7);
+      ballVel.set(release.x, release.y, release.z);
+    }
+    shotFeedback = kind === "dunk" ? "DUNK" : "LAYUP";
+    scoredFlight = false;
+    flightTouchedRim = false;
+    audio.play("release");
+    ballHeld = false;
+    freeShotLeft = 0.45;
+    shotCameraLeft = 3;
+    taken += 1;
+    charge = 0;
   }
 
   function startCourtMatch(mode: CourtMode) {
@@ -1527,7 +1564,7 @@ export function startSackV2(
         for (const edge of buttonEdges(
           padPrev,
           pad.pressed,
-          courtMatch
+          courtMatch || (place === "court" && ballHeld)
             ? PAD_COURT_KEYS
             : document.querySelector('[data-testid="shop-panel"], [data-testid="pause-menu"]')
               ? { 9: "Escape" }
@@ -1720,7 +1757,8 @@ export function startSackV2(
     }
     travel += Math.hypot(glideX, glideZ) * dt;
     player.userData.life = ((player.userData.life as number) ?? 0) + dt;
-    if (place === "court" && ballHeld && hold)
+    // Holding the ball on the court (dribbling, standing or charging), Benji faces the hoop.
+    if (place === "court" && ballHeld)
       facing = faceAlong(world.hoop.x - player.position.x, world.hoop.z - player.position.z);
     const zone = collisionZone();
     resolve(player.position, 0.34, zone.solids, zone.ox, zone.oz);
@@ -4199,6 +4237,10 @@ export function startSackV2(
         batchReasons,
         far: camera.far,
       };
+    },
+    /** QA: the free-play hoop's position. */
+    courtHoop() {
+      return { x: world.hoop.x, y: world.hoop.y, z: world.hoop.z };
     },
     /** QA: Benji's current animation (court/shooting frames) and whether the plain sprite shows. */
     avatarPose() {
