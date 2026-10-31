@@ -4,12 +4,14 @@ import { chromium } from 'playwright';
 import { spawnSync } from "node:child_process";
 // Loader gates (CI hook): CI's workflow file can't be edited with the deploy token (no
 // `workflow` scope), so the loader regression gates run at the start of this step, against
-// the same production preview. Any gate failure fails this step. SKIP_LOADER_GATES=1 skips.
+// the same production preview. Headless (this step has no xvfb display; CI's job-level
+// SMOKE_HEADED=1 would otherwise make Chromium exit). Any gate failure fails this step.
+// SKIP_LOADER_GATES=1 skips.
 if (process.env.SKIP_LOADER_GATES !== "1") {
   for (const gate of ["load-recovery-gate.mjs", "load-remount-gate.mjs", "release-hardening-e2e.mjs"]) {
     console.log(`\n=== loader gate: ${gate} ===`);
     const started = Date.now();
-    const run = spawnSync(process.execPath, [new URL(`./${gate}`, import.meta.url).pathname], { stdio: "inherit", env: process.env, timeout: 8 * 60 * 1000 });
+    const run = spawnSync(process.execPath, [new URL(`./${gate}`, import.meta.url).pathname], { stdio: "inherit", env: { ...process.env, SMOKE_HEADED: "0" }, timeout: 8 * 60 * 1000 });
     console.log(`=== ${gate}: exit ${run.status ?? run.signal} in ${((Date.now() - started) / 1000).toFixed(0)} s ===`);
     if (run.status !== 0) process.exit(1);
   }
