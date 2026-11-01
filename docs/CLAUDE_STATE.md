@@ -371,6 +371,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Court batch 01 (gpt-art-court-01.zip) accepted 5/5. scoreboard-face (cropped to panel, padded to 2:1 with #0c0c0c) replaces the static canvas board (keeps glowMats emissive); bleacher-aluminum (seam repaired by half-offset blend: L/R 11.6→4.0) replaces bleacher.jpg in materials.bleacherAluminum; bleacher-frame on the black riser rows only (orange rows unchanged); banner-901-hoops / banner-run-it-back as one-sided fenceBanner() on the north fence (cz−7) facing the court, black back panel. Brief was wrong that the court lacked props — bleachers, ball racks, scoreboard already existed; this batch upgraded them.
 - BUG FIXED: GameV2 initialised the load state from the test bypass during render → server rendered "loading", client "ready", React kept the server markup (no attribute patch on hydration) → loading screen covered every screenshot test (likely CI's 12-min visual failures). Now always starts "loading"; the bypass is applied in an effect after hydration.
 
+## 2026-11-01 — CI step 13: legacy tests click on-screen controls with a mouse
+- 9cbf15f: step 12 (reliability + all 6 suites) PASSED; step 13 (vendor-race-visual-smoke) timed out clicking on-screen "E" — ~30 legacy CI scripts build their own pages (no preparePage) and press on-screen buttons with a simulated mouse.
+- Central rule (Hud.mouseControlsEnabled): __SACK_MOUSE_CONTROLS__ true → on, false → off, else automated browsers (navigator.webdriver) → on; players (no webdriver) need ?mouse=1 or localStorage. preparePage sets the flag explicitly (true by default, false with { mouseControls: false }). basketball-controls-e2e 9/9 (mouse still ignored when explicitly off).
+- Long commands: keep build and gate runs in separate calls (300 s limit kills the whole command, including earlier edit steps).
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

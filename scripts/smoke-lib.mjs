@@ -54,10 +54,11 @@ export async function preparePage(page, opts = {}) {
   // Screenshot/gameplay suites bypass the loading screen explicitly; loader tests pass
   // { loadScreen: true } to exercise the real player path.
   // Tests click on-screen controls with a simulated mouse: enable mouse controls explicitly.
-  if (opts.mouseControls !== false) {
-    await page.addInitScript(() => {
-      window.__SACK_MOUSE_CONTROLS__ = true;
-    });
+  {
+    const on = opts.mouseControls !== false;
+    await page.addInitScript((value) => {
+      window.__SACK_MOUSE_CONTROLS__ = value;
+    }, on);
   }
   if (!opts.loadScreen) {
     await page.addInitScript(() => {

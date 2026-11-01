@@ -14,8 +14,13 @@ import { VELI_MENU, VELI_FLAVORS } from "../play/veli";
  */
 export function mouseControlsEnabled(): boolean {
   if (typeof window === "undefined") return false;
-  if ((window as unknown as { __SACK_MOUSE_CONTROLS__?: boolean }).__SACK_MOUSE_CONTROLS__ === true)
-    return true;
+  const flag = (window as unknown as { __SACK_MOUSE_CONTROLS__?: boolean }).__SACK_MOUSE_CONTROLS__;
+  if (flag === true) return true;
+  if (flag === false) return false;
+  // Automated test browsers (navigator.webdriver) drive on-screen controls with a simulated
+  // mouse; a test that checks the mouse policy sets the flag to false explicitly. Real
+  // players never report webdriver, so for them the mouse stays off unless enabled.
+  if (typeof navigator !== "undefined" && navigator.webdriver) return true;
   if (new URLSearchParams(window.location.search).get("mouse") === "1") return true;
   try {
     return window.localStorage.getItem("sack-mouse-controls") === "1";
