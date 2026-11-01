@@ -4254,6 +4254,28 @@ export function startSackV2(
         far: camera.far,
       };
     },
+    /** QA: textures flagged for upload with no image (three warns "no image data"). */
+    texturesWithoutImage() {
+      const found: { mesh: string; slot: string; tex: string }[] = [];
+      world.scene.traverse((o) => {
+        const m = (o as THREE.Mesh).material;
+        for (const mat of Array.isArray(m) ? m : m ? [m] : [])
+          for (const [slot, v] of Object.entries(mat)) {
+            const tex = v as THREE.Texture | null;
+            if (tex?.isTexture && tex.version > 0 && !tex.image) {
+              const chain: string[] = [];
+              for (let p: THREE.Object3D | null = o; p && chain.length < 4; p = p.parent)
+                if (p.name) chain.push(p.name);
+              found.push({
+                mesh: chain.join(" < ") || o.type,
+                slot,
+                tex: tex.name || tex.uuid.slice(0, 8),
+              });
+            }
+          }
+      });
+      return found;
+    },
     /** QA: the free-play hoop's position. */
     courtHoop() {
       return { x: world.hoop.x, y: world.hoop.y, z: world.hoop.z };

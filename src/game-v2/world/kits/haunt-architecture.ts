@@ -85,7 +85,19 @@ export function hauntSurface(kind: "stone" | "wood" | "tile") {
   if (kind === "stone") {
     const bump = texture.clone();
     bump.colorSpace = THREE.NoColorSpace;
-    bump.needsUpdate = true;
+    // Flag the clone for upload only once the shared image exists. Flagging it while the
+    // image was still downloading made three warn "texture marked for update but no image
+    // data" (audit finding); otherwise flag it right after the original's first upload.
+    const img = texture.image as { width?: number } | undefined;
+    if (img && (img.width ?? 0) > 0) bump.needsUpdate = true;
+    else {
+      const previous = texture.onUpdate;
+      texture.onUpdate = (t: THREE.Texture) => {
+        previous?.(t);
+        bump.needsUpdate = true;
+        texture.onUpdate = previous;
+      };
+    }
     const stone = new THREE.MeshStandardMaterial({
       map: texture,
       bumpMap: bump,

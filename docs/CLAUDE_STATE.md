@@ -362,6 +362,10 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - React #418 (hydration mismatch) on touch devices / with mouse controls: on-screen controls rendered in the first client render (server can't know). Fix: Hud `touchUi` state set in useEffect after hydration. scripts/hydration-e2e.mjs (phone touch + narrow desktop w/ mouse controls: no page errors, SHOT shown).
 - CI hook (runtime-reliability-smoke.mjs) now runs: load-recovery-gate, load-remount-gate, release-hardening-e2e, save-protection-e2e (4/4), basketball-controls-e2e (8/8), hydration-e2e (2/2) — headless, 8-min cap each.
 
+## 2026-11-01 — CI basketball timing; texture warning fix
+- CI: basketball-controls-e2e "tapping DUNK" timed out — HUD/on-screen buttons update from the render loop (starts after compileAsync + texture upload) and touch controls appear after hydration. Test now waits for frames > 2 and for the DUNK button to be visible before the mouse-click and tap checks (so neither can pass vacuously). 9/9 locally.
+- Texture "marked for update but no image data" (audit): reproduced 2× on the haunt/court path, intermittent. Cause: haunt-architecture stone bump = texture.clone() flagged needsUpdate while the source image was still downloading. Now flagged only when the image exists, else from the original's onUpdate. scripts/texture-warn-probe.mjs + QA hook texturesWithoutImage() → 0 warnings / 0 offenders after the fix (intermittent ⇒ not proof).
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.
