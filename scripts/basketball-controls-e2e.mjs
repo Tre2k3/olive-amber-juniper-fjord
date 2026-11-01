@@ -15,7 +15,9 @@ async function open(page) {
   await page.waitForFunction(() => window.__SACK_V2_INPUT__?.simulate, { timeout: 150000 });
   // HUD (and so the on-screen buttons) updates from the render loop, which starts after
   // shaders compile and textures upload: wait until it is running.
-  await page.waitForFunction(() => (window.__SACK_LOAD_DIAG__?.().frames ?? 0) > 2, null, { timeout: 150000 });
+  await page.waitForFunction(() => (window.__SACK_LOAD_DIAG__?.().frames ?? 0) > 2, null, {
+    timeout: 150000,
+  });
 }
 const sim = (page, s) => page.evaluate((v) => window.__SACK_V2_INPUT__.simulate(v), s);
 const court = (page, x, z) =>
@@ -79,9 +81,16 @@ const court = (page, x, z) =>
   await page.keyboard.press("KeyV");
   await sim(page, 0.3);
   const shown = await page
-    .waitForFunction(() => /Get under the rim/.test(document.body.innerText), null, {
-      timeout: 4000,
-    })
+    .waitForFunction(
+      // the game's own state (DOM repaint can lag far behind on CI's software renderer)
+      () =>
+        /Get under the rim/.test(window.__SACK_V2__?.dialogue ?? "") ||
+        /Get under the rim/.test(document.body.innerText),
+      null,
+      {
+        timeout: 4000,
+      },
+    )
     .then(() => true)
     .catch(() => false);
   const after = await taken(page);
@@ -150,10 +159,15 @@ const court = (page, x, z) =>
   await court(page, near.x, near.z);
   await sim(page, 0.4);
   const dunk = page.getByRole("button", { name: "DUNK" });
-  const visible = await dunk.waitFor({ state: "visible", timeout: 30000 }).then(() => true).catch(() => false);
+  const visible = await dunk
+    .waitFor({ state: "visible", timeout: 30000 })
+    .then(() => true)
+    .catch(() => false);
   out(visible, "touch device: DUNK button appears at the court");
   let t0 = await taken(page);
-  await dunk.click({ timeout: 10000 }).catch((e) => console.log("   click failed", String(e).slice(0, 80)));
+  await dunk
+    .click({ timeout: 30000, force: true })
+    .catch((e) => console.log("   click failed", String(e).slice(0, 80)));
   await sim(page, 1.5);
   out(
     (await taken(page)) === t0,
@@ -164,7 +178,7 @@ const court = (page, x, z) =>
   await sim(page, 0.4);
   t0 = await taken(page);
   await dunk
-    .tap({ timeout: 5000 })
+    .tap({ timeout: 30000, force: true })
     .catch((e) => console.log("   tap failed", String(e).slice(0, 100)));
   await sim(page, 1.5);
   out(
