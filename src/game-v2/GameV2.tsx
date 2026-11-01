@@ -41,10 +41,12 @@ export function GameV2() {
     (window as unknown as { __SACK_SKIP_LOAD_SCREEN__?: boolean }).__SACK_SKIP_LOAD_SCREEN__ ===
       true;
   const [load, setLoad] = useState<LoadProgress>({
+    // Always start as "loading" so the first client render matches the server; the test
+    // bypass is applied after hydration (React keeps server markup during hydration).
     loaded: 0,
     total: 0,
-    done: qa,
-    state: qa ? "ready" : "loading",
+    done: false,
+    state: "loading",
   });
 
   // Remount hook: bumping the generation makes React clean up the running game (its
@@ -59,7 +61,10 @@ export function GameV2() {
   useEffect(() => {
     const latest = (window as unknown as { __SACK_LOAD_STATE__?: LoadProgress })
       .__SACK_LOAD_STATE__;
-    if (qa) return;
+    if (qa) {
+      setLoad({ loaded: 1, total: 1, done: true, state: "ready", failed: 0 });
+      return;
+    }
     if (latest) setLoad(latest);
     // DIAGNOSTIC WORKAROUND (unproven): terminal states commit synchronously in case
     // world construction starves queued React updates; window.__SACK_LOAD_DIAG__()

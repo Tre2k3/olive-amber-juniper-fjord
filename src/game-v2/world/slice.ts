@@ -11,6 +11,7 @@ import {
   paintedChainLink,
   bleacherAluminum,
   cedarFence,
+  sharedScan,
 } from "./kits/materials";
 import { dressHqExterior } from "./kits/hq-exterior";
 import {
@@ -1158,6 +1159,16 @@ export function buildSlice(): SliceWorld {
       roughness: 0.5,
       metalness: 0.15,
     });
+    // Black rows get the painted-steel texture (GPT court batch 01); orange rows stay plain.
+    if (i % 2)
+      sharedScan("/game-v2/places/court/bleacher-frame.webp", 9, 0.3).then(
+        (tex) => {
+          seat.map = tex;
+          seat.color.setHex(0xffffff);
+          seat.needsUpdate = true;
+        },
+        () => undefined,
+      );
     box(
       18,
       0.22,
@@ -1281,6 +1292,18 @@ export function buildSlice(): SliceWorld {
     roughness: 0.4,
   });
   glowMats.push(scoreMat);
+  // GPT court batch 01: painted LED scoreboard face replaces the drawn placeholder (static
+  // either way — the match HUD shows the live score). Keeps its night glow.
+  sharedScan("/game-v2/places/court/scoreboard-face.webp", 1, 1).then(
+    (tex) => {
+      tex.wrapS = THREE.ClampToEdgeWrapping;
+      tex.wrapT = THREE.ClampToEdgeWrapping;
+      scoreMat.map = tex;
+      scoreMat.emissiveMap = tex;
+      scoreMat.needsUpdate = true;
+    },
+    () => undefined,
+  );
   const score = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.7), scoreMat);
   score.position.set(courtX + 6.2, 3.35, courtZ + 6.85);
   score.rotation.y = Math.PI;

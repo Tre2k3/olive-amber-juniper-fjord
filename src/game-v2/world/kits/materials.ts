@@ -355,7 +355,8 @@ export function bleacherAluminum() {
     roughness: 0.42,
     metalness: 0.55,
   });
-  swapMap(bleacherMat, "/game-v2/places/court/bleacher.jpg", 6, 0.35);
+  // GPT court batch 01: seam-repaired painted aluminum (was bleacher.jpg).
+  swapMap(bleacherMat, "/game-v2/places/court/bleacher-aluminum.webp", 6, 0.35);
   return bleacherMat;
 }
 

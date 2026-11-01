@@ -248,6 +248,48 @@ function endMural(parent: THREE.Object3D, x: number, z: number) {
   art.name = "901-end-mural";
   parent.add(g);
 }
+/** GPT court batch 01 fence banner: one-sided art facing the court, black back panel. */
+function fenceBanner(
+  parent: THREE.Object3D,
+  file: string,
+  x: number,
+  z: number,
+  width: number,
+  aspect: number,
+) {
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
+  const h = width / aspect;
+  const mat = new THREE.MeshStandardMaterial({
+    roughness: 0.75,
+    transparent: true,
+    alphaTest: 0.4,
+  });
+  sharedScan(`/game-v2/places/court/${file}`, 1, 1).then(
+    (tex) => {
+      tex.wrapS = THREE.ClampToEdgeWrapping;
+      tex.wrapT = THREE.ClampToEdgeWrapping;
+      mat.map = tex;
+      mat.needsUpdate = true;
+    },
+    () => undefined,
+  );
+  const front = part(g, new THREE.PlaneGeometry(width, h), mat, 0, 0.35 + h / 2, 0.05, false);
+  front.name = `901-fence-banner-${file.replace(/\.webp$/, "")}`;
+  const back = part(
+    g,
+    new THREE.PlaneGeometry(width * 0.98, h * 0.94),
+    new THREE.MeshStandardMaterial({ color: 0x0b0b12, roughness: 0.9 }),
+    0,
+    0.35 + h / 2,
+    0.04,
+    false,
+  );
+  back.rotation.y = Math.PI;
+  parent.add(g);
+  return g;
+}
+
 function sidelineBanner(parent: THREE.Object3D, x: number, z: number) {
   const g = new THREE.Group();
   g.position.set(x, 0, z);
@@ -324,6 +366,9 @@ export function dress901Court(parent: THREE.Object3D, cx: number, cz: number) {
   mural(court, cx, cz - 17.55);
   endMural(court, cx - 13.6, cz);
   sidelineBanner(court, cx, cz + 7.0);
+  // North fence, facing the court (GPT court batch 01).
+  fenceBanner(court, "banner-901-hoops.webp", cx - 4.3, cz - 7.0, 6.4, 4.35);
+  fenceBanner(court, "banner-run-it-back.webp", cx + 4.3, cz - 7.0, 6.4, 4.62);
   for (const x of [cx - 12.65, cx + 12.65]) {
     for (const z of [cz - 9.35, cz + 9.4]) {
       floodTower(court, x, z, z > cz ? Math.PI : 0);
