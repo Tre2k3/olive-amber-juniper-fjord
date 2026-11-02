@@ -19,6 +19,10 @@ export async function readHomeBlock(page) {
         };
         step(n);
       });
+    // The game's render loop (which applies input and publishes live state) starts after
+    // shaders compile and textures upload: wait for it before driving movement.
+    for (let i = 0; i < 1500 && (window.__SACK_LOAD_DIAG__?.().frames ?? 0) <= 2; i++)
+      await new Promise((r) => setTimeout(r, 100));
     const input = window.__SACK_V2_INPUT__;
     const sack = () => window.__SACK_V2__;
     input.setShot({ x: -32, z: 5.8, yaw: 0, facing: "back", night: false });
