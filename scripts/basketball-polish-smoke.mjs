@@ -9,6 +9,9 @@ try {
  const url=new URL(process.env.GAME_URL||'http://127.0.0.1:8080/');url.searchParams.set('qa','1');
  await page.goto(url.href,{waitUntil:'domcontentloaded',timeout:60000});
  await page.waitForFunction(()=>window.__SACK_V2_INPUT__?.courtCameraState(),null,{timeout:90000});
+// The render loop (camera placement, live state) starts after shaders compile and textures
+// upload: wait until it is running before judging the view.
+await page.waitForFunction(() => (window.__SACK_LOAD_DIAG__?.().frames ?? 0) > 2, null, { timeout: 150000 }).catch(() => {});
  const frames=n=>page.evaluate(async count=>{for(let i=0;i<count;i++)await new Promise(r=>requestAnimationFrame(r));},n);
  const set=async o=>{await page.evaluate(o=>window.__SACK_V2_INPUT__.setShot(o),o);await frames(16);};
  const state=()=>page.evaluate(()=>window.__SACK_V2_INPUT__.basketballState());

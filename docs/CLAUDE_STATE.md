@@ -384,6 +384,9 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - 9cd5bbf: steps 1–24 PASS; step 25 (npm run test:foundation) "direct W moves north: dx 0 dz 0". foundation-smoke + connected-slice-smoke share scripts/v2-live-check.mjs readHomeBlock(), which waited 14 *browser* frames — the game's loop hadn't started. readHomeBlock now waits for __SACK_LOAD_DIAG__().frames > 2 (≤150 s) first. scripts/home-block-check.mjs (same steps, smoke-lib browser): dz 5.62, dx 0.00.
 - npm-run CI tests: test:foundation, test:slice (both via readHomeBlock).
 
+## 2026-11-02 — basketball camera smoke flaky (same race)
+- ad57a5a: step 15 basketball-camera-smoke "Shooter, ball and rim must remain in view" — passed on 9cd5bbf with identical game code ⇒ timing race: checked the view before the render loop (camera placement) ran. basketball-camera/polish/uniform smokes now wait for frames > 2 after the API appears. All CI-run browser tests that read live state or drive real input now wait for the loop.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.
