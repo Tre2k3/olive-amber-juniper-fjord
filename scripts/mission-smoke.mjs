@@ -48,6 +48,10 @@ async function shot(page, filename) {
 try {
   await mkdir("artifacts", { recursive: true });
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  // Screenshot suite: bypass the loading screen explicitly (the loader has its own gates).
+  await context.addInitScript(() => {
+    window.__SACK_SKIP_LOAD_SCREEN__ = true;
+  });
   const page = await context.newPage();
   page.on("pageerror", (e) => errors.push(String(e.message)));
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });

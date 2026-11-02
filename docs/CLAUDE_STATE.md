@@ -387,6 +387,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 ## 2026-11-02 — basketball camera smoke flaky (same race)
 - ad57a5a: step 15 basketball-camera-smoke "Shooter, ball and rim must remain in view" — passed on 9cd5bbf with identical game code ⇒ timing race: checked the view before the render loop (camera placement) ran. basketball-camera/polish/uniform smokes now wait for frames > 2 after the API appears. All CI-run browser tests that read live state or drive real input now wait for the loop.
 
+## 2026-11-02 — CI steps 1–28 green; mission smoke read the old flat save
+- d43db05: steps 1–28 PASS (incl. foundation, basketball camera, game/traffic smokes). Step 29 mission-smoke: "save retains delivered state" read saved.delivered on the versioned envelope → now reads parsed.v ? parsed.data : parsed. Mission smoke 8/8 locally (incl. "reward and package survive reopen").
+- mission-smoke + dom-smoke (chromium.launch, no preparePage) now set window.__SACK_SKIP_LOAD_SCREEN__ explicitly — screenshot suites must never capture the loading screen (the black-frame/variance check follows). dom-smoke 8/8 locally; qa-frames run on their artifacts.
+- Trey's live readout (still c8c7e83): 9 fps · 111.8 ms · 1,263 draws · 107k tris · res 70% · light mode · Intel UHD 0x46D1.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

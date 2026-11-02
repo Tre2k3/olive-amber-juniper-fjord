@@ -23,6 +23,10 @@ const check = (ok, name, details) => {
 try {
   await mkdir("artifacts", { recursive: true });
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  // Screenshot suite: bypass the loading screen explicitly (the loader has its own gates).
+  await page.addInitScript(() => {
+    window.__SACK_SKIP_LOAD_SCREEN__ = true;
+  });
   page.on("pageerror", (e) => failures.push(String(e.message)));
   const response = await page.goto(base, { waitUntil: "domcontentloaded", timeout: 60000 });
   check((response?.status() ?? 500) < 400, "Memphis desktop page loads", {
