@@ -147,8 +147,10 @@ try {
   await frames(page, 10);
   const raw = await page.evaluate(() => localStorage.getItem("sack-v2"));
   check(Boolean(raw), "mission writes a save record", { size: raw?.length });
-  const saved = JSON.parse(raw);
-  check(saved.delivered && !saved.carrying, "save retains delivered state", saved);
+  // Saves are versioned envelopes { v, savedAt, data } (core/persistence.ts); accept legacy flat saves too.
+  const parsed = JSON.parse(raw);
+  const saved = parsed && typeof parsed.v === "number" ? parsed.data : parsed;
+  check(saved?.delivered && !saved?.carrying, "save retains delivered state", parsed);
   // Dispose the first WebGL scene before reopening; two live software renderers
   // can starve each other and stall frame-based save checks.
   await page.close();
