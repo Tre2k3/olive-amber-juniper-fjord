@@ -1324,14 +1324,23 @@ export function startSackV2(
     ].filter((g): g is THREE.Object3D => !!g);
     const was = rooms.map((g) => g.visible);
     for (const g of rooms) g.visible = true;
+    // Software renderers (CI, blocklisted GPUs): compile lazily as before — the up-front
+    // compile of every shader only cost CPU time on each page load there.
+    if (quality.cpuRenderer) {
+      rooms.forEach((g, k) => (g.visible = was[k]!));
+      if (!stopped) frame = requestAnimationFrame(loop);
+    }
     startupMark("shaderCompile:start");
-    const compiled = renderer.compileAsync
-      ? renderer.compileAsync(world.scene, camera)
-      : Promise.resolve(renderer.compile(world.scene, camera));
+    const compiled = quality.cpuRenderer
+      ? Promise.resolve(null)
+      : renderer.compileAsync
+        ? renderer.compileAsync(world.scene, camera)
+        : Promise.resolve(renderer.compile(world.scene, camera));
     void compiled
       .catch(() => undefined) // best effort: shaders still compile lazily
       .then(async () => {
         startupMark("shaderCompile:end");
+        if (quality.cpuRenderer) return; // loop already started above
         rooms.forEach((g, k) => (g.visible = was[k]!));
         // Upload textures to the GPU in ~12 ms slices (yielding between them) instead of
         // all on the first frame, which was one multi-second main-thread task. Textures

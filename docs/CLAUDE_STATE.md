@@ -397,6 +397,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Fishing (Trey: "fix the mechanics of the fishing"): scripts/fishing-loop-e2e.mjs plays like a person (E arm/release cast, 0.25 s hook reaction, hold Space below 0.5 tension / release above 0.66 with one-step lag) → 5/5 landed, fights 11.5–33.7 s, max tension 0.71–0.78, cooler 1→5, recast works, 0 errors. Core loop was sound; fight hint now says "Hold Space to reel" (padify → X on controllers). CI's haunt-3d-smoke already checks line-in-water / bobber-at-surface.
 - Racing (Trey: "make sure there is racing"): exists at districts.meetStart (−40, −36), prompt "E Race Nitro · three-lap circuit", 241 m circuit. scripts/race-e2e.mjs 5/5 (prompt, E starts, countdown→running, top speed 25, progress 76.5 m in 6 s unsteered, 0 errors); added to the CI hook.
 
+## 2026-11-02 — CI over its 40-min cap: step durations + fixes
+- 2aae25c cancelled at 41.0 min (reached step 29). Durations: step 12 reliability+hook suites 9.8 · basketball camera 6.7 · outfit sprites 5.5 · polish 4.0 · food trucks 3.8 · visual 2.6 · food truck views 2.2 (total 40.6).
+- Fixes: on quality.cpuRenderer, no up-front shader compile (compile lazily as before; the loop starts immediately) and no texture pre-upload — real GPUs keep both. load-remount-gate removed from the CI hook (heaviest: two full loads; run via scripts/run-load-gate.sh). function-sweep 8/8 on the software path.
+- Fetch per-step durations with the jobs API (started_at/completed_at) before guessing at CI time.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

@@ -6,9 +6,10 @@ import { spawnSync } from "node:child_process";
 // `workflow` scope), so the loader regression gates run at the start of this step, against
 // the same production preview. Headless (this step has no xvfb display; CI's job-level
 // SMOKE_HEADED=1 would otherwise make Chromium exit). Any gate failure fails this step.
-// SKIP_LOADER_GATES=1 skips.
+// SKIP_LOADER_GATES=1 skips. (load-remount-gate.mjs is kept out of CI for time — the 40-min
+// job cap — run it with scripts/run-load-gate.sh.)
 if (process.env.SKIP_LOADER_GATES !== "1") {
-  for (const gate of ["load-recovery-gate.mjs", "load-remount-gate.mjs", "release-hardening-e2e.mjs", "save-protection-e2e.mjs", "basketball-controls-e2e.mjs", "hydration-e2e.mjs", "race-e2e.mjs"]) {
+  for (const gate of ["load-recovery-gate.mjs", "release-hardening-e2e.mjs", "save-protection-e2e.mjs", "basketball-controls-e2e.mjs", "hydration-e2e.mjs", "race-e2e.mjs"]) {
     console.log(`\n=== loader gate: ${gate} ===`);
     const started = Date.now();
     const run = spawnSync(process.execPath, [new URL(`./${gate}`, import.meta.url).pathname], { stdio: "inherit", env: { ...process.env, SMOKE_HEADED: "0" }, timeout: 8 * 60 * 1000 });
