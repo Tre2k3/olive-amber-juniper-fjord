@@ -392,6 +392,11 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - mission-smoke + dom-smoke (chromium.launch, no preparePage) now set window.__SACK_SKIP_LOAD_SCREEN__ explicitly — screenshot suites must never capture the loading screen (the black-frame/variance check follows). dom-smoke 8/8 locally; qa-frames run on their artifacts.
 - Trey's live readout (still c8c7e83): 9 fps · 111.8 ms · 1,263 draws · 107k tris · res 70% · light mode · Intel UHD 0x46D1.
 
+## 2026-11-02 — fishing + racing verified; CI time fix
+- CI 0bbcef1 was CANCELLED at the 40-min job cap (not failed): every page now waits for the loop, and the batched texture pre-upload costs ~30–45 s per page on SwiftShader with no GPU benefit. Fix: skip the pre-upload when quality.cpuRenderer (real GPUs keep it).
+- Fishing (Trey: "fix the mechanics of the fishing"): scripts/fishing-loop-e2e.mjs plays like a person (E arm/release cast, 0.25 s hook reaction, hold Space below 0.5 tension / release above 0.66 with one-step lag) → 5/5 landed, fights 11.5–33.7 s, max tension 0.71–0.78, cooler 1→5, recast works, 0 errors. Core loop was sound; fight hint now says "Hold Space to reel" (padify → X on controllers). CI's haunt-3d-smoke already checks line-in-water / bobber-at-surface.
+- Racing (Trey: "make sure there is racing"): exists at districts.meetStart (−40, −36), prompt "E Race Nitro · three-lap circuit", 241 m circuit. scripts/race-e2e.mjs 5/5 (prompt, E starts, countdown→running, top speed 25, progress 76.5 m in 6 s unsteered, 0 errors); added to the CI hook.
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

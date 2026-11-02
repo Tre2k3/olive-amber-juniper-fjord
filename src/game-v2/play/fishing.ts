@@ -596,7 +596,7 @@ export function fishingHud(f: Fishing): FishHud {
           : f.phase === "bite"
             ? "BITE — E to set the hook"
             : f.phase === "fight"
-              ? "Hold to reel · let go when it runs"
+              ? "Hold Space to reel · let go when it runs"
               : "";
   return {
     phase: f.phase,

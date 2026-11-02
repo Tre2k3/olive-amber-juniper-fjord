@@ -1336,6 +1336,13 @@ export function startSackV2(
         // Upload textures to the GPU in ~12 ms slices (yielding between them) instead of
         // all on the first frame, which was one multi-second main-thread task. Textures
         // still downloading upload on first use, as before.
+        // Software renderers (CI, blocklisted GPUs) have no GPU to upload to: the batched
+        // pre-upload only delayed the first frame there (~30–45 s per page in CI, enough to
+        // push the suite past its 40-minute limit). Real GPUs keep it.
+        if (quality.cpuRenderer) {
+          if (!stopped) frame = requestAnimationFrame(loop);
+          return;
+        }
         startupMark("textureUpload:start");
         const textures = new Set<THREE.Texture>();
         world.scene.traverse((o) => {
