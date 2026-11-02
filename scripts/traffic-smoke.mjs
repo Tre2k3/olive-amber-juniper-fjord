@@ -15,7 +15,12 @@ const gameUrl = process.env.GAME_URL || "http://127.0.0.1:8080/";
 const browser = await chromium.launch({
   headless: true,
   executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
-  args: ["--no-sandbox", "--disable-dev-shm-usage", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+  args: [
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--use-angle=swiftshader",
+    "--enable-unsafe-swiftshader",
+  ],
 });
 const issues = [];
 const check = (condition, label, detail) => {
@@ -27,11 +32,19 @@ try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   page.on("pageerror", (e) => issues.push(e.message));
   const response = await page.goto(gameUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
-  check((response?.status() ?? 500) < 400, "Memphis game-v2 route loads", { status: response?.status() });
-  await page.waitForFunction(
-    () => window.__SACK_V2__ && window.__SACK_V2_INPUT__,
-    { timeout: 90000 },
-  );
+  check((response?.status() ?? 500) < 400, "Memphis game-v2 route loads", {
+    status: response?.status(),
+  });
+  await page.waitForFunction(() => window.__SACK_V2__ && window.__SACK_V2_INPUT__, {
+    timeout: 90000,
+  });
+  // The render loop (which publishes live traffic state) starts after shaders compile and
+  // textures upload; judge live state only once frames are running.
+  await page
+    .waitForFunction(() => (window.__SACK_LOAD_DIAG__?.().frames ?? 0) > 2, null, {
+      timeout: 150000,
+    })
+    .catch(() => {});
   const state = await page.evaluate(() => {
     const input = window.__SACK_V2_INPUT__;
     input.setShot({ x: 38, z: -6.35, yaw: 0, facing: "front" });
@@ -39,9 +52,14 @@ try {
     return { cars: snap.cars, pedestrians: input.peds() };
   });
   check(state.cars.length >= 8, "authored city traffic exists", { count: state.cars.length });
-  check(state.pedestrians.length >= 8, "illustrated pedestrian population exists",
-    { count: state.pedestrians.length });
-  check(state.cars.every(carOnRoad), "all sampled cars stay on an authored asphalt street", state.cars);
+  check(state.pedestrians.length >= 8, "illustrated pedestrian population exists", {
+    count: state.pedestrians.length,
+  });
+  check(
+    state.cars.every(carOnRoad),
+    "all sampled cars stay on an authored asphalt street",
+    state.cars,
+  );
   // On software WebGL rendering can be slow. Compare a few actual animation
   // frames rather than expecting multiple seconds to equal many rendered frames.
   const travel = await page.evaluate(async () => {

@@ -376,6 +376,10 @@ Running account for Claude passes on the real working branch (PR #2, head 8d29c6
 - Central rule (Hud.mouseControlsEnabled): __SACK_MOUSE_CONTROLS__ true → on, false → off, else automated browsers (navigator.webdriver) → on; players (no webdriver) need ?mouse=1 or localStorage. preparePage sets the flag explicitly (true by default, false with { mouseControls: false }). basketball-controls-e2e 9/9 (mouse still ignored when explicitly off).
 - Long commands: keep build and gate runs in separate calls (300 s limit kills the whole command, including earlier edit steps).
 
+## 2026-11-02 — CI steps 1–26 green; step 27 (xvfb smokes) read live state too early
+- 5732184: steps 1–26 PASS (loader/save/basketball/visual/food/outfits). Step 27 game-smoke failed "cars: 0": api.cars (and other live state) is published by per-frame code, and the loop now starts after compileAsync + texture upload. game-smoke, traffic-smoke, mission-smoke, dom-smoke now wait for __SACK_LOAD_DIAG__().frames > 2 after the API appears. game-smoke 6/6 locally.
+- Rule of thumb for any test: wait for frames > 2 before judging live state (cars, people, HUD, saves).
+
 ## Next (in order)
 1. Land the textured horse (done); generate the rest of the Toy Room/Foyer/Seance key props (chandelier, grandfather clock, seance table, covered statue, trunk, ladder) as GLBs; same for the court (bleacher, scoreboard, rack, cooler) and home (porch furniture, mailbox).
 2. Board 7 (alley neon panels, downtown facades), board 9 haunt materials (wallpaper, floorboards, stone), riverfront (dock timber, water), board 10 props via image-to-3D.

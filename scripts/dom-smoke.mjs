@@ -8,7 +8,12 @@ const base = process.env.GAME_URL || "http://127.0.0.1:8080/";
 const browser = await chromium.launch({
   headless: true,
   executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
-  args: ["--no-sandbox", "--disable-dev-shm-usage", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+  args: [
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--use-angle=swiftshader",
+    "--enable-unsafe-swiftshader",
+  ],
 });
 const failures = [];
 const check = (ok, name, details) => {
@@ -20,21 +25,42 @@ try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   page.on("pageerror", (e) => failures.push(String(e.message)));
   const response = await page.goto(base, { waitUntil: "domcontentloaded", timeout: 60000 });
-  check((response?.status() ?? 500) < 400, "Memphis desktop page loads", { status: response?.status() });
-  await page.waitForFunction(() => window.__SACK_V2__ && window.__SACK_V2_INPUT__, null, { timeout: 90000 });
+  check((response?.status() ?? 500) < 400, "Memphis desktop page loads", {
+    status: response?.status(),
+  });
+  await page.waitForFunction(() => window.__SACK_V2__ && window.__SACK_V2_INPUT__, null, {
+    timeout: 90000,
+  });
+  // The render loop (which publishes live state: cars, people, HUD) starts after shaders
+  // compile and textures upload; judge live state only once frames are running.
+  await page
+    .waitForFunction(() => (window.__SACK_LOAD_DIAG__?.().frames ?? 0) > 2, null, {
+      timeout: 150000,
+    })
+    .catch(() => {});
   const desktop = await page.evaluate(() => ({
     title: document.title,
     canvas: document.querySelector("canvas")?.getBoundingClientRect()?.toJSON(),
     hud: document.body.innerText.slice(0, 1200),
   }));
   check(Boolean(desktop.title), "game has a page title", desktop.title);
-  check(desktop.canvas && desktop.canvas.width > 250 && desktop.canvas.height > 250,
-    "desktop WebGL fills the gameplay view", desktop.canvas);
-  check(/MEMPHIS|SACK|RESPECT|901/i.test(desktop.hud.toUpperCase()),
-    "desktop HUD shows Memphis progression", { sample: desktop.hud.slice(0, 180) });
+  check(
+    desktop.canvas && desktop.canvas.width > 250 && desktop.canvas.height > 250,
+    "desktop WebGL fills the gameplay view",
+    desktop.canvas,
+  );
+  check(
+    /MEMPHIS|SACK|RESPECT|901/i.test(desktop.hud.toUpperCase()),
+    "desktop HUD shows Memphis progression",
+    { sample: desktop.hud.slice(0, 180) },
+  );
   if (process.env.CAPTURE_QA === "1") {
     try {
-      await page.screenshot({ path: "artifacts/dom-desktop.png", animations: "allow", timeout: 12000 });
+      await page.screenshot({
+        path: "artifacts/dom-desktop.png",
+        animations: "allow",
+        timeout: 12000,
+      });
     } catch (error) {
       console.warn("Visual QA capture unavailable: dom-desktop.png " + String(error));
     }
@@ -48,13 +74,23 @@ try {
     hud: document.body.innerText.slice(0, 1200),
   }));
   check(mobile.overflow < 8, "mobile viewport has no horizontal overflow", mobile);
-  check(mobile.canvas && mobile.canvas.width > 100 && mobile.canvas.height > 100,
-    "mobile WebGL canvas remains visible", mobile.canvas);
-  check(/MEMPHIS|RESPECT|901/i.test(mobile.hud.toUpperCase()),
-    "mobile HUD retains game progression", { sample: mobile.hud.slice(0, 180) });
+  check(
+    mobile.canvas && mobile.canvas.width > 100 && mobile.canvas.height > 100,
+    "mobile WebGL canvas remains visible",
+    mobile.canvas,
+  );
+  check(
+    /MEMPHIS|RESPECT|901/i.test(mobile.hud.toUpperCase()),
+    "mobile HUD retains game progression",
+    { sample: mobile.hud.slice(0, 180) },
+  );
   if (process.env.CAPTURE_QA === "1") {
     try {
-      await page.screenshot({ path: "artifacts/dom-mobile.png", animations: "allow", timeout: 12000 });
+      await page.screenshot({
+        path: "artifacts/dom-mobile.png",
+        animations: "allow",
+        timeout: 12000,
+      });
     } catch (error) {
       console.warn("Visual QA capture unavailable: dom-mobile.png " + String(error));
     }

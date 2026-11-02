@@ -8,7 +8,12 @@ const url = process.env.GAME_URL || "http://127.0.0.1:8080/";
 const browser = await chromium.launch({
   headless: true,
   executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
-  args: ["--no-sandbox", "--disable-dev-shm-usage", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+  args: [
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--use-angle=swiftshader",
+    "--enable-unsafe-swiftshader",
+  ],
 });
 const screenshots = [
   "01-home-start.png",
@@ -32,7 +37,9 @@ async function shot(page, filename) {
   if (process.env.CAPTURE_QA !== "1") return;
   try {
     await page.screenshot({
-      path: "artifacts/" + filename, animations: "allow", timeout: 12000,
+      path: "artifacts/" + filename,
+      animations: "allow",
+      timeout: 12000,
     });
   } catch (error) {
     console.warn("Unable to capture visual QA frame " + filename + ": " + String(error));
@@ -44,47 +51,95 @@ try {
   const page = await context.newPage();
   page.on("pageerror", (e) => errors.push(String(e.message)));
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
-  await page.waitForFunction(() => window.__SACK_V2__ && window.__SACK_V2_INPUT__, null, { timeout: 90000 });
+  await page.waitForFunction(() => window.__SACK_V2__ && window.__SACK_V2_INPUT__, null, {
+    timeout: 90000,
+  });
+  // The render loop (which publishes live state: cars, people, HUD) starts after shaders
+  // compile and textures upload; judge live state only once frames are running.
+  await page
+    .waitForFunction(() => (window.__SACK_LOAD_DIAG__?.().frames ?? 0) > 2, null, {
+      timeout: 150000,
+    })
+    .catch(() => {});
   await frames(page);
   const initial = await page.evaluate(() => {
     const game = window.__SACK_V2__;
-    return { place: game.place, dollars: game.dollars, respect: game.respect,
-      mission: game.mission, carrying: game.carrying };
+    return {
+      place: game.place,
+      dollars: game.dollars,
+      respect: game.respect,
+      mission: game.mission,
+      carrying: game.carrying,
+    };
   });
-  check(initial.place === "street" || initial.place === "court", "new game boots in Memphis", initial);
+  check(
+    initial.place === "street" || initial.place === "court",
+    "new game boots in Memphis",
+    initial,
+  );
   await shot(page, screenshots[0]);
 
   // Move to the real HQ character anchor and use the actual E interaction.
-  await page.evaluate(() => window.__SACK_V2_INPUT__.setShot({
-    place: "hq", x: 81.9, z: 200.1, yaw: Math.PI, facing: "back",
-  }));
+  await page.evaluate(() =>
+    window.__SACK_V2_INPUT__.setShot({
+      place: "hq",
+      x: 81.9,
+      z: 200.1,
+      yaw: Math.PI,
+      facing: "back",
+    }),
+  );
   await frames(page, 7);
   await shot(page, screenshots[1]);
   await page.evaluate(() => window.__SACK_V2_INPUT__.press("KeyE"));
   await frames(page, 7);
   const pickup = await page.evaluate(() => {
     const game = window.__SACK_V2__;
-    return { place: game.place, dollars: game.dollars, respect: game.respect,
-      carrying: game.carrying, mission: game.mission, dialogue: game.dialogue };
+    return {
+      place: game.place,
+      dollars: game.dollars,
+      respect: game.respect,
+      carrying: game.carrying,
+      mission: game.mission,
+      dialogue: game.dialogue,
+    };
   });
-  check(pickup.place === "hq" && pickup.carrying === true,
-    "K Blanco hands over the Court OG package", pickup);
+  check(
+    pickup.place === "hq" && pickup.carrying === true,
+    "K Blanco hands over the Court OG package",
+    pickup,
+  );
   check(/Court OG/i.test(pickup.mission), "package pickup sets delivery objective", pickup);
 
-  await page.evaluate(() => window.__SACK_V2_INPUT__.setShot({
-    x: 66, z: -16.4, yaw: Math.PI, facing: "back",
-  }));
+  await page.evaluate(() =>
+    window.__SACK_V2_INPUT__.setShot({
+      x: 66,
+      z: -16.4,
+      yaw: Math.PI,
+      facing: "back",
+    }),
+  );
   await frames(page, 5);
   await page.evaluate(() => window.__SACK_V2_INPUT__.press("KeyE"));
   await frames(page, 7);
   const delivered = await page.evaluate(() => {
     const game = window.__SACK_V2__;
-    return { place: game.place, dollars: game.dollars, respect: game.respect,
-      carrying: game.carrying, mission: game.mission, dialogue: game.dialogue };
+    return {
+      place: game.place,
+      dollars: game.dollars,
+      respect: game.respect,
+      carrying: game.carrying,
+      mission: game.mission,
+      dialogue: game.dialogue,
+    };
   });
-  check(!delivered.carrying && delivered.dollars >= pickup.dollars + 80
-    && delivered.respect >= pickup.respect + 10,
-    "Court OG delivery awards $80 and 10 Respect", { pickup, delivered });
+  check(
+    !delivered.carrying &&
+      delivered.dollars >= pickup.dollars + 80 &&
+      delivered.respect >= pickup.respect + 10,
+    "Court OG delivery awards $80 and 10 Respect",
+    { pickup, delivered },
+  );
   await shot(page, screenshots[2]);
 
   // Capture the runtime's exact save. Reopen into a fresh page to avoid
@@ -99,7 +154,9 @@ try {
   await page.close();
   const resumed = await context.newPage();
   resumed.on("pageerror", (e) => errors.push(String(e.message)));
-  await resumed.addInitScript((payload) => { localStorage.setItem("sack-v2", payload); }, raw);
+  await resumed.addInitScript((payload) => {
+    localStorage.setItem("sack-v2", payload);
+  }, raw);
   await resumed.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
   await resumed.waitForFunction(() => window.__SACK_V2__, null, { timeout: 90000 });
   await frames(resumed, 6);
@@ -108,12 +165,20 @@ try {
     respect: window.__SACK_V2__.respect,
     carrying: window.__SACK_V2__.carrying,
   }));
-  check(persisted.dollars === delivered.dollars && persisted.respect === delivered.respect
-    && !persisted.carrying, "mission reward and package survive reopen", persisted);
+  check(
+    persisted.dollars === delivered.dollars &&
+      persisted.respect === delivered.respect &&
+      !persisted.carrying,
+    "mission reward and package survive reopen",
+    persisted,
+  );
   await shot(resumed, screenshots[3]);
   check(errors.length === 0, "Drop Day mission has no uncaught page errors", errors);
   await context.close();
-  console.log("Drop Day gameplay and save checks complete; screenshots requested: " + (process.env.CAPTURE_QA === "1"));
+  console.log(
+    "Drop Day gameplay and save checks complete; screenshots requested: " +
+      (process.env.CAPTURE_QA === "1"),
+  );
 } finally {
   await browser.close();
 }
